@@ -34,7 +34,6 @@ class QST():
         n_cores:                    Tells us how many cores to use during resampling
         """
         self.POVM_list=POVM_list
-        
         self.noise_corrected_POVM_list=noise_corrected_POVM_list
         self.true_state_list=true_state_list
         self.n_shots_each_POVM=n_shots_each_POVM
@@ -44,7 +43,6 @@ class QST():
         self.n_averages=len(true_state_list)
         self.n_cores=n_cores
         self.bool_exp_measurement=bool_exp_measurements
-        
         full_operator_list=np.array([a.get_POVM() for a in self.POVM_list])
         full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
         self.full_operator_list=full_operator_list
@@ -99,6 +97,28 @@ class QST():
         print(f'Loaded QST settings from {base_path}')
         return qst
     
+    @classmethod
+    def quick_setup(cls):
+        """
+        Quick setup of QST class, defaults to 1 qubit MLE with Pauli-6
+        and selects 5 Haar-random true states, which should be measured 6*10**4 times.
+        """
+        n_qubits=1
+        n_averages=5
+        n_QST_shots=10**4
+        bool_exp_measurements=False
+        exp_dictionary={}
+        n_cores=4
+        list_of_true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n_averages)])
+        POVM_list=POVM.generate_Pauli_POVM(n_qubits)
+        return QST(POVM_list,list_of_true_states,n_QST_shots,1,bool_exp_measurements,exp_dictionary,n_cores=n_cores)
+        
+    
+    def print_status(self):
+        print(f'Use experimental measurements: {self.bool_exp_measurement}')
+        print(f'Number of qubits: {self.n_qubits}')
+        print(f'Number of averages: {self.n_averages}')
+        print(f'Number of shots used for QST: {self.n_shots_total}')
 
 
     def get_infidelity(self):
@@ -107,10 +127,13 @@ class QST():
     def get_rho_estm(self):
         return np.copy(self.rho_estimate)
     
+    def get_rho_true(self):
+        return np.copy(self.true_state_list)
 
     def generate_data(self,override_POVM_list=np.array([])):
         """
-        Runs the core loop of BME, gives the option to perform BME on the same data but with uncorrected POVM. 
+        Simulates sampling from the states defined. Default POVM is the selected measurement.
+        Measurement can be overridden by e.g. the corrected POVM from detector. 
         """
         # Overrides POVM if promted
         if len(override_POVM_list):
@@ -140,10 +163,63 @@ class QST():
             self.outcome_index[i]=np.copy(temp_outcomes)
 
 
+    def perform_MLE(self, use_corrected_POVMs=False):
+        """
+        Runs core loop of MLE.
+        """
+        # Select POVM to use for state reconstruction 
+        if use_corrected_POVMs:
+            full_operator_list=np.array([a.get_POVM() for a in self.noise_corrected_POVM_list])
+            full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
+        else:
+            full_operator_list=self.full_operator_list
+        outcome_index=self.outcome_index.astype(int)
+        for i in range(self.n_averages):
+            rho_estm=QST.iterativeMLE(full_operator_list,outcome_index[i])
+            self.rho_estimate[i]=rho_estm.copy() # Is copy nessecary here?
+        
+        
+        
+        
+    def iterativeMLE(full_operator_list: np.array, outcome_index: np.array ):
+        '''
+        Estimates state according to iterative MLE.
+        :param full_operator_list: full list of POVM elemnts
+        :outcome_index: list of all outcome_indices such that
+             full_operator_list[index] = POVM element
+        :return: dxd array of iterative MLE estimator
+        '''
+        dim = full_operator_list.shape[-1]
 
+        iter_max = 500
+        dist     = float(1)
+
+        rho_1 = np.eye(dim)/dim
+        rho_2 = np.eye(dim)/dim
+        j = 0
+
+        unique_index, index_counts=np.unique(outcome_index,return_counts=True)
+        OP_list=full_operator_list[unique_index]
+        while j<iter_max and dist>1e-14:
+            p      = np.einsum('ik,nki->n', rho_1, OP_list)
+            R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
+            update = R@rho_1@R
+            rho_1  = update/np.trace(update)
+
+            if j>=40 and j%20==0:
+                dist  = sf.one_qubit_infidelity(rho_1, rho_2)
+            rho_2 = rho_1
+
+            j += 1
+
+        return rho_1
+        
 
     def perform_BME(self,use_corrected_POVMs=False):
-        # Select POVM to use for BME reconstruction 
+        """
+        Runs the core loop of BME.
+        """
+        # Select POVM to use for state reconstruction 
         if use_corrected_POVMs:
             full_operator_list=np.array([a.get_POVM() for a in self.noise_corrected_POVM_list])
             full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
@@ -265,35 +341,9 @@ class QST():
             print(f'Low acceptance! Accepted ratio: {n_accepted_iterations/MH_steps}.')
         return perturbed_rho, n_accepted_iterations
     
-def one_qubit_infidelity(rho_1: np.array, rho_2: np.array):
-    '''
-    Calculates the infidelity of two one qubit states according to Wikipedia.
-    :param rho_1: dxd array of density matrix
-    :param rho_2: dxd array of density matrix
-    :retur: infidelity
-    '''
-    if np.any([purity(rho_1), purity(rho_2)]):
-        return 1-np.real(np.trace(rho_1@rho_2))
-    elif rho_1.shape[-1]==2:
-        return 1-np.real(np.trace(rho_1@rho_2) + 2*np.sqrt(np.linalg.det(rho_1)*np.linalg.det(rho_2)))
-    else:
-        return 1-np.real(np.trace(sqrtm(rho_1@rho_2))**2)
 
-def purity(rhos: np.array, prec=1e-15):
-    '''
-    Checks the purity of multiple density matrices.
-    :param rhos: Nxdxd array of density matrices
-    :param prec: precision of the purity comparison
-    :return: boolean
-    '''
-    # compute purity
-    purity = np.trace(rhos@rhos, axis1=-2, axis2=-1, dtype=complex)
 
-    # exclude inaccuracies caused by finte number representation of a computer
-    if np.all(np.abs(np.imag(purity)) < prec) and np.all(np.abs(purity-1) < prec):
-        return True
-    else:
-        return False
+
 
 def average_Bures(rho_bank,weights,n_qubits,n_cores): 
     """
@@ -305,12 +355,11 @@ def average_Bures(rho_bank,weights,n_qubits,n_cores):
     # Checks wether we are one or two qubits
     if n_qubits==1:
         for i in range(len(rho_bank)):
-            infid=one_qubit_infidelity(rho_bank[i],mean_state)
+            infid=sf.one_qubit_infidelity(rho_bank[i],mean_state)
             b+=2*(infid)*weights[i]
     else: # 2 Qubit case is much slower, NEW: parallelized fidelity computation. 
         fid=Parallel(n_jobs=n_cores)(delayed(parallel_Bures)(rho,mean_state) for rho in rho_bank)
         b=np.einsum('i,i->',2*(1-np.real(fid)),weights)
-
     return b
 
 def parallel_Bures(rho,mean_state):

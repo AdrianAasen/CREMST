@@ -1,5 +1,5 @@
 .venv/
-.EMQST/
+.work_win_venv/
 results/
 profiler/
 EMQST_lib/__pycache__/

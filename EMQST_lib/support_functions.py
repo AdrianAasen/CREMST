@@ -147,5 +147,44 @@ def get_cailibration_states(n_qubits):
         
     return calibration_states
 
+def one_qubit_infidelity(rho_1: np.array, rho_2: np.array):
+    '''
+    Calculates the infidelity of two one qubit states according to Wikipedia.
+    :param rho_1: dxd array of density matrix
+    :param rho_2: dxd array of density matrix
+    :retur: infidelity
+    '''
+    if np.any([is_pure(rho_1), is_pure(rho_2)]):
+        return 1-np.real(np.trace(rho_1@rho_2))
+    elif rho_1.shape[-1]==2:
+        return 1-np.real(np.trace(rho_1@rho_2) + 2*np.sqrt(np.linalg.det(rho_1)*np.linalg.det(rho_2)))
+    else:
+        return 1-np.real(np.trace(sqrtm(rho_1@rho_2))**2)
+
+def is_pure(rhos: np.array, prec=1e-15):
+    '''
+    Checks the purity of multiple density matrices.
+    :param rhos: Nxdxd array of density matrices
+    :param prec: precision of the purity comparison
+    :return: boolean
+    '''
+    # compute purity
+    purity = np.trace(rhos@rhos, axis1=-2, axis2=-1, dtype=complex)
+
+    # exclude inaccuracies caused by finte number representation of a computer
+    if np.all(np.abs(np.imag(purity)) < prec) and np.all(np.abs(purity-1) < prec):
+        return True
+    else:
+        return False
+    
+def purity(rhos):
+    """
+    Computes purity of a quantum state
+    :param rhos: Nxdxd array of density matrices 
+    :return: N array
+    """
+    purity = np.trace(rhos@rhos, axis1=-2, axis2=-1)
+    return np.real(purity)
+
 if __name__=="__main__":
     main()
