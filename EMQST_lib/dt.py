@@ -39,6 +39,7 @@ def device_tomography(n_qubits,n_shots_each,POVM,calibration_states,bool_exp_mea
         outcome_index_matrix[i]=mf.measurement(n_shots_each,POVM,calibration_states[i],bool_exp_meaurements,exp_dictionary,state_angle_representation=calibration_angles[i])
     if bool_exp_meaurements or initial_guess_POVM is None:
         initial_guess_POVM=POVM
+        #print("No itinial guess!")
     corrected_POVM=POVM_MLE(n_qubits,outcome_index_matrix,calibration_states,initial_guess_POVM)
     return corrected_POVM 
 

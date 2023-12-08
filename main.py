@@ -32,7 +32,7 @@ def main():
 
     np.random.seed(0)
 
-    n_qubits=1
+    n_qubits=2
     n_QST_shots=int(10**4)+2
     n_calibration_shots=10**4
     n_cores=4
@@ -45,7 +45,7 @@ def main():
     # 3: Amplitude damping
     # 4: Constant rotation around x-axis
 
-    n_averages=100
+    n_averages=2
     exp_dictionary={}
     list_of_true_angles=np.array([[np.pi/2,0],[np.pi/2,np.pi],
                         [np.pi/2,np.pi/2],[np.pi/2,3*np.pi/2],
@@ -98,6 +98,6 @@ def profiler():
 
 if __name__=="__main__":
     #main2()
-    #main
-    profiler()
+    main()
+    #profiler()
     

@@ -98,12 +98,12 @@ class QST():
         return qst
     
     @classmethod
-    def quick_setup(cls):
+    def quick_setup(cls,n_qubits=1):
         """
         Quick setup of QST class, defaults to 1 qubit MLE with Pauli-6
         and selects 5 Haar-random true states, which should be measured 6*10**4 times.
         """
-        n_qubits=1
+        #n_qubits=2
         n_averages=5
         n_QST_shots=10**4
         bool_exp_measurements=False
@@ -111,7 +111,7 @@ class QST():
         n_cores=4
         list_of_true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n_averages)])
         POVM_list=POVM.generate_Pauli_POVM(n_qubits)
-        return QST(POVM_list,list_of_true_states,n_QST_shots,1,bool_exp_measurements,exp_dictionary,n_cores=n_cores)
+        return QST(POVM_list,list_of_true_states,n_QST_shots,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores)
         
     
     def print_status(self):
@@ -130,17 +130,17 @@ class QST():
     def get_rho_true(self):
         return np.copy(self.true_state_list)
 
-    def generate_data(self,override_POVM_list=np.array([])):
+    def generate_data(self,override_POVM_list=None):
         """
         Simulates sampling from the states defined. Default POVM is the selected measurement.
         Measurement can be overridden by e.g. the corrected POVM from detector. 
         """
         # Overrides POVM if promted
-        if len(override_POVM_list):
+        if override_POVM_list is None:
+            measured_POVM_list=self.POVM_list
+        else:
             measured_POVM_list=override_POVM_list
             
-        else:
-            measured_POVM_list=self.POVM_list
         #print(self.POVM_list)
         n_POVMs=len(self.POVM_list)
         n_shots_each_POVM=self.n_shots_each_POVM
