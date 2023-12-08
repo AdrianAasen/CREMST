@@ -14,12 +14,17 @@ from EMQST_lib import support_functions as sf
 
 class POVM():
     """
-    This class contains all information needed from the POVM,
-    Lists of POVMs and individual POVMs
+    This class contains all information needed from the POVM.
+    Lists of POVMs and individual POVMs.
+    The POVM generation functions support individual spin measurements on each qubit,
+    to allgin with the experimental implementation on the superconducting qubits.
+    The class itself does support arbitrary POVMs. 
     """
     def __init__(self,POVM_list,angle_representation=np.array([])):
         self.POVM_list=POVM_list
         self.angle_representation=angle_representation
+        #self.POVM_dimension=len(POVM_list[-1])
+        #self.n_elemetns=len(POVM_list)
 
         
     @classmethod
@@ -54,6 +59,7 @@ class POVM():
     @classmethod
     def generate_Pauli_POVM(cls,n_qubits):
         """
+        Recursivly create higher qubit POVMs
         Returns a list of 3 spin POVMs along x, y and z axis. 
         """
         POVM_set_X=1/2*np.array([[[1,1],[1,1]],[[1,-1],[-1,1]]],dtype=complex)
@@ -63,13 +69,22 @@ class POVM():
         POVM_X=cls(POVM_set_X,np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]]]))
         POVM_Y=cls(POVM_set_Y,np.array([[[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]]]))
         POVM_Z=cls(POVM_set_Z,np.array([[[0,0]],[[np.pi,0]]]))
-        POVM_list=np.array([POVM_X,POVM_Y,POVM_Z])
-        if n_qubits==2:
-            POVM_list=np.array([cls(np.array([np.kron(a,b) for a in POVM_1.get_POVM() for b in POVM_2.get_POVM()]),
-                                    np.array([[angle_1[0],angle_2[0]] for angle_1 in POVM_1.get_angles() for angle_2 in POVM_2.get_angles()]))
-                                for POVM_1 in POVM_list for POVM_2 in POVM_list])
-
+        POVM_single=np.array([POVM_X,POVM_Y,POVM_Z])
+        POVM_list=np.copy(POVM_single)
+        recursion=n_qubits
+        while recursion>1:
+            POVM_list=POVM.tensor_POVM(POVM_list,POVM_single)
+            recursion-=1
+            
         return POVM_list
+    
+    @classmethod
+    def tensor_POVM(cls,POVM_1,POVM_2):
+        POVM_list=np.array([cls(np.array([np.kron(a,b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
+                                np.array([np.concatenate((angle_a,angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()] ))
+                             for POVM_a in POVM_1 for POVM_b in POVM_2])
+        return POVM_list
+        
     
     @classmethod
     def empty_POVM(cls):
@@ -89,7 +104,9 @@ class POVM():
     
     def get_histogram(self,rho):
         """
-        Returns histogram 
+        Takes in state of arbitrary dimension.
+        Returns histogram for all probabilities of outcomes defined by POVM.
+        State and POVM dimension must be compatible. 
         """
         return np.real(np.einsum('ijk,kj->i',self.POVM_list,rho))
     
@@ -99,6 +116,13 @@ class POVM():
     
     def get_angles(self):
         return np.copy(self.angle_representation)
+
+    @classmethod
+    def depolarized_POVM(cls,base_POVM,strenght=0.1):
+        base_POVM_list=base_POVM.get_POVM()
+        dim=int(len(base_POVM_list[0]))
+        new_list=strenght/dim*np.eye(dim) + (1-strenght)*base_POVM_list
+        return cls(new_list)
 
     @classmethod
     def generate_noisy_POVM(cls, base_POVM ,noise_mode):

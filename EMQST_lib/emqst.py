@@ -13,7 +13,7 @@ from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM
 
 
-def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, calibration_states=np.array([]),bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0):
+def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0):
     """
     Performs a complete cycle of noise corrected POVM with random sampling of states.
     Takes in experimental parameters. To be passed to both POVM calibration and QST. 
@@ -52,8 +52,8 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
     with open(f'{data_path}/experimental_settings.npy','wb') as f:
         np.save(f,exp_dictionary)
 
-    if len(calibration_states)==0:
-        calibration_states=sf.get_cailibration_states(n_qubits)
+    if calibration_states is None:
+        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)
     
     POVM_list=POVM.generate_Pauli_POVM(n_qubits)
 
@@ -68,13 +68,17 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
         print("Noise mode is disabled as experimental measurements are performed.")
 
     if noise_mode:
-        noisy_POVM_list=np.array([POVM.generate_noisy_POVM(povm,noise_mode) for povm in POVM_list])
         print(f'Synthetic noise mode {noise_mode}.')
+        if n_qubits==1:
+            noisy_POVM_list=np.array([POVM.generate_noisy_POVM(povm,noise_mode) for povm in POVM_list])
+            print(f'Synthetic single qubit noise mode {noise_mode}.')
+        else: # Only depolarizing noise is implemented for multi-qubit noise
+            noisy_POVM_list=np.array([POVM.depolarized_POVM(povm) for povm in POVM_list])
     else:
         noisy_POVM_list=POVM_list
         print("No synthetic noise.")
     dt_start=time.time()
-    reconstructed_POVM_list = np.array([dt.device_tomography(n_qubits,n_calibraion_shots_each,noisy_POVM_list[i],calibration_states,bool_exp_measurements,exp_dictionary,initial_guess_POVM=POVM_list[i]) for i in range(len(noisy_POVM_list))])
+    reconstructed_POVM_list = np.array([dt.device_tomography(n_qubits,n_calibraion_shots_each,noisy_POVM_list[i],calibration_states,bool_exp_measurements,exp_dictionary,initial_guess_POVM=POVM_list[i],calibration_angles=calibration_angles) for i in range(len(noisy_POVM_list))])
     dt_end = time.time()
     print(f'Runtime of DT reconstruction {dt_end - dt_start}')
     DT_settings={
@@ -93,7 +97,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
 
     
 
-    for i in range (3):
+    for i in range (len(reconstructed_POVM_list)):
         print(f'Distance between reconstructed and noisy POVM: {sf.POVM_distance(reconstructed_POVM_list[i].get_POVM(),noisy_POVM_list[i].get_POVM())}')
 
     print("POVM calibration complete.\n----------------------------")

@@ -137,15 +137,24 @@ def power_law(x,a,b):
 
 
 def get_cailibration_states(n_qubits):
+    """
+    Generates a complete set of eigenstates of the pauli matrices.
+    These states are the default calibration set used to calibrate the detector tomography.
+    """
     
-    calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
+    one_qubit_calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
                         [[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]],
                         [[0,0]],[[np.pi,0]]])
-    calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])
-    if n_qubits==2:
-        calibration_states=np.array([np.kron(a,b) for a in calibration_states for b in calibration_states])
-        
-    return calibration_states
+    calibration_angles=np.copy(one_qubit_calibration_angles)
+    one_qubit_calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])
+    calibration_states=np.copy(one_qubit_calibration_states)
+
+    recursion=n_qubits
+    while recursion>1:
+        calibration_states=np.array([np.kron(a,b) for a in calibration_states for b in one_qubit_calibration_states])
+        calibration_angles=np.array([np.concatenate((angle_a,angle_b)) for angle_a in calibration_angles for angle_b in one_qubit_calibration_angles] )
+        recursion-=1
+    return calibration_states, calibration_angles
 
 def one_qubit_infidelity(rho_1: np.array, rho_2: np.array):
     '''

@@ -3,13 +3,13 @@ from EMQST_lib import support_functions as sf
 
 
 
-def measurement(n_shots,POVM,rho,bool_exp_measurements,exp_dictionary):
+def measurement(n_shots,POVM,rho,bool_exp_measurements,exp_dictionary,state_angle_representation=np.array([])):
     """
     Measurment settings and selects either experimental or simulated measurements. 
     For experimental measurements some settings are converted to angle arrays. 
     """
     if bool_exp_measurements:
-        outcome_index=exp_dictionary["measurement_function"](n_shots,POVM.get_angles(),sf.get_angles_from_density_matrix_single_qubit(rho),exp_dictionary)
+        outcome_index=exp_dictionary["measurement_function"](n_shots,POVM.get_angles(),state_angle_representation,exp_dictionary)
     else:
         outcome_index=simulated_measurement(n_shots,POVM,rho)
     return outcome_index
