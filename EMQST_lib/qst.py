@@ -13,7 +13,7 @@ import sys
 import EMQST_lib.support_functions as sf
 from EMQST_lib import measurement_functions as mf
 from EMQST_lib.povm import POVM
-from EMQST_lib import povm
+#from EMQST_lib import povm
 
 class QST():
     """
@@ -23,7 +23,7 @@ class QST():
     __MH_steps=50
 
 
-    def __init__(self,POVM_list,true_state_list,n_shots_each_POVM,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=1,noise_corrected_POVM_list=np.array([])):
+    def __init__(self,POVM_list,true_state_list,n_shots_each_POVM,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=4,noise_corrected_POVM_list=np.array([]), true_state_angles_list=None):
         """
         Initalization of estimator.
         POVM_list:                  The measurement set to be performed (or set of measurements) array of POVM class
@@ -36,6 +36,13 @@ class QST():
         self.POVM_list=POVM_list
         self.noise_corrected_POVM_list=noise_corrected_POVM_list
         self.true_state_list=true_state_list
+        
+        # Checks if angle representation has been given
+        if true_state_angles_list is None:
+            self.rue_state_angles_list=np.array([None]*self.n_averages)
+        else:
+            self.true_state_angles_list=true_state_angles_list
+            
         self.n_shots_each_POVM=n_shots_each_POVM
         self.n_shots_total=n_shots_each_POVM*len(POVM_list)
         self.exp_dictionary=exp_dictionary
@@ -52,6 +59,8 @@ class QST():
         elif n_qubits==2:
             self.n_bank=500
             self.__MH_steps=75
+        elif n_qubits>2:
+            self.n_bank=0
         
         # Initalize empty containser that will carry mesaruement results.
         self.outcome_index=np.zeros((self.n_averages,self.n_shots_total))
@@ -135,16 +144,16 @@ class QST():
         Simulates sampling from the states defined. Default POVM is the selected measurement.
         Measurement can be overridden by e.g. the corrected POVM from detector. 
         """
+
         # Overrides POVM if promted
         if override_POVM_list is None:
             measured_POVM_list=self.POVM_list
         else:
             measured_POVM_list=override_POVM_list
-            
-        #print(self.POVM_list)
+
         n_POVMs=len(self.POVM_list)
         n_shots_each_POVM=self.n_shots_each_POVM
-        #print(self.true_state_list)
+
         for i in range(self.n_averages): # We run the estimator over all averages required.
             
             # Generate data
@@ -152,13 +161,10 @@ class QST():
             index_iterator=0
 
             for j in range(n_POVMs):
-                #print(index_iterator)
-                temp_outcomes[j]=mf.measurement(n_shots_each_POVM,measured_POVM_list[j],self.true_state_list[i],self.bool_exp_measurement,self.exp_dictionary) + index_iterator
-                #print(temp_outcomes[j])
+                temp_outcomes[j]=mf.measurement(n_shots_each_POVM,measured_POVM_list[j],self.true_state_list[i],self.bool_exp_measurement,self.exp_dictionary,state_angle_representation=self.true_state_angles_list[i] ) + index_iterator
                 index_iterator+=len(self.POVM_list[j].get_POVM())
-
-            # Reshape lists
             
+            # Reshape lists
             temp_outcomes=np.reshape(temp_outcomes,-1)
             self.outcome_index[i]=np.copy(temp_outcomes)
 
@@ -177,6 +183,7 @@ class QST():
         for i in range(self.n_averages):
             rho_estm=QST.iterativeMLE(full_operator_list,outcome_index[i])
             self.rho_estimate[i]=rho_estm.copy() # Is copy nessecary here?
+            self.infidelity[i,-1]=np.einsum('ij,ji->',rho_estm,self.true_state_list[i])
         
         
         
@@ -219,6 +226,13 @@ class QST():
         """
         Runs the core loop of BME.
         """
+        
+        # Checks if BME is performed for more than 2 qubits
+        if self.n_qubits>2:
+            print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
+            print(f'Returning the thermal state.')
+            return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
+        
         # Select POVM to use for state reconstruction 
         if use_corrected_POVMs:
             full_operator_list=np.array([a.get_POVM() for a in self.noise_corrected_POVM_list])

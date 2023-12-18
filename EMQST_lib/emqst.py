@@ -13,7 +13,7 @@ from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM
 
 
-def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0):
+def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
     """
     Performs a complete cycle of noise corrected POVM with random sampling of states.
     Takes in experimental parameters. To be passed to both POVM calibration and QST. 
@@ -58,7 +58,11 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
     POVM_list=POVM.generate_Pauli_POVM(n_qubits)
 
     print(f'----------------------------')
-    print(f'Error corrected BME.\n{n_calibraion_shots_each*len(calibration_states)} POVM calibration shots.\n{n_QST_shots_each*len(POVM_list)} QST shots.\n{len(true_state_list)} QST averages.')
+    print(f'Error corrected {method}.')
+    print(f' {n_qubits} number of qubits.')
+    print(f'{n_calibraion_shots_each*len(calibration_states)} POVM calibration shots.')
+    print(f'{n_QST_shots_each*len(POVM_list)} QST shots.')
+    print(f'{len(true_state_list)} QST averages.')
     print(f'----------------------------')
 
 
@@ -102,25 +106,30 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
 
     print("POVM calibration complete.\n----------------------------")
     
-    qst=QST(POVM_list,true_state_list,n_QST_shots_each,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores,noise_corrected_POVM_list=reconstructed_POVM_list)
+    qst=QST(POVM_list,true_state_list,n_QST_shots_each,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores,noise_corrected_POVM_list=reconstructed_POVM_list,true_state_angles_list=true_state_angles_list)
     qst.generate_data(override_POVM_list=noisy_POVM_list)
     # Save data settings
     qst.save_QST_settings(data_path,noise_mode)
     print("Generated data.")
 
     print("Start corrected QST.")
-    qst.perform_BME(use_corrected_POVMs=True)
-    
+    if method=="MLE":
+        qst.perform_MLE(use_corrected_POVMs=True)
+    elif method=="BME":
+        qst.perform_BME(use_corrected_POVMs=True)
     corrected_infidelity=qst.get_infidelity()
     corrected_rho_estm=qst.get_rho_estm()
+
     print("Corrected QST complete.\n----------------------------")
     
     
     
     # Run comparative BME with uncorrected POVMs
     print("Start uncorrected QST.")
-    
-    qst.perform_BME()
+    if method=="MLE":
+        qst.perform_MLE()
+    elif method=="BME":
+        qst.perform_BME()
     uncorrected_infidelity=qst.get_infidelity()
     uncorrected_rho_estm=qst.get_rho_estm()
     print("Uncorrected QST complete.\n----------------------------") 
@@ -138,7 +147,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
 
     
     # Generate plots if not run on a cluster.
-    if n_cores<10:
+    if n_cores<10 and method=="BME":
         cutoff=10
         popt_corr,pcov_corr=curve_fit(sf.power_law,sample_step[1000:],corrected_average[1000:],p0=np.array([1,-0.5]))
         corr_fit=sf.power_law(sample_step[cutoff:],popt_corr[0],popt_corr[1])

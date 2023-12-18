@@ -110,7 +110,6 @@ class POVM():
         """
         return np.real(np.einsum('ijk,kj->i',self.POVM_list,rho))
     
-    
     def get_POVM(self):
         return np.copy(self.POVM_list)
     
@@ -129,48 +128,64 @@ class POVM():
         """
         Takes in an POVM and applied the inverse Krauss channel.
         Returns noisy POVM class object. 
-        noise_mode
+        noise_mode (single qubit)
         1: Constant depolarizing noise
         2: Stronger depolarizing noise
         3: Amplitude damping noise
         4: Constant over-rotation
+        
+        noise mode (2 qubits) (applies transformation with a given probability)
+        1: CNOT 
+        2: ISWAP
         """
         base_POVM_list=base_POVM.get_POVM()
         X=np.array([[0,1],[1,0]])
         Y=np.array([[0,-1j],[1j,0]])
         Z=np.array([[1,0],[0,-1]])
         n_qubits=int(np.log2(len(base_POVM_list[0])))
+        if n_qubits==1:
         
-        if noise_mode==1: # Constant depolarizing noise
-            p=0.05
-            if n_qubits==2:
-                new_list=p/2**n_qubits*np.eye(2**n_qubits) + (1-p)*base_POVM_list
-                return cls(new_list)
-            Krauss_op=np.array([np.sqrt(1-(3*p)/4)*np.eye(2),np.sqrt(p)*X/2,np.sqrt(p)*Y/2,np.sqrt(p)*Z/2],dtype=complex)
-        elif noise_mode==2: # Stronger depolarizing noise
-            p=0.2
-            if n_qubits==2:
-                new_list=p/2**n_qubits*np.eye(2**n_qubits) + (1-p)*base_POVM_list
-                return cls(new_list)
-            Krauss_op=np.array([np.sqrt(1-(3*p)/4)*np.eye(2),np.sqrt(p)/2*X,np.sqrt(p)*Y/2,np.sqrt(p)*Z/2],dtype=complex)
-        elif noise_mode==3: # Amplitude damping noise
-            gamma=0.2
-            K0=np.array([[1,0],[0,np.sqrt(1-gamma)]],dtype=complex)
-            K1=np.array([[0,np.sqrt(gamma)],[0,0]],dtype=complex)
-            Krauss_op=np.array([K0.conj().T,K1.conj().T])
-        elif noise_mode==4: # Constant over-rotation
-            rotAngle=np.pi/5
-            U = np.cos(rotAngle/2)*np.eye(2) - 1j* np.sin(rotAngle/2)*np.array([[0,1],[1,0]])
-            if n_qubits==2:
-                U=unitary_group.rvs(2**n_qubits)
-            Krauss_op=np.array([U],dtype=complex)
-        elif noise_mode==0:
-            print("No noise mode selected. Returning base_POVM")
-            Krauss_op=np.array([np.eye(2)])
-
-
-        noisy_POVM_list=np.einsum('nij,qjk,nlk->qil',Krauss_op,base_POVM_list,Krauss_op.conj())
-        return cls(noisy_POVM_list)
+            if noise_mode==1: # Constant depolarizing noise
+                p=0.05
+                if n_qubits==2:
+                    new_list=p/2**n_qubits*np.eye(2**n_qubits) + (1-p)*base_POVM_list
+                    return cls(new_list)
+                Krauss_op=np.array([np.sqrt(1-(3*p)/4)*np.eye(2),np.sqrt(p)*X/2,np.sqrt(p)*Y/2,np.sqrt(p)*Z/2],dtype=complex)
+            elif noise_mode==2: # Stronger depolarizing noise
+                p=0.2
+                if n_qubits==2:
+                    new_list=p/2**n_qubits*np.eye(2**n_qubits) + (1-p)*base_POVM_list
+                    return cls(new_list)
+                Krauss_op=np.array([np.sqrt(1-(3*p)/4)*np.eye(2),np.sqrt(p)/2*X,np.sqrt(p)*Y/2,np.sqrt(p)*Z/2],dtype=complex)
+            elif noise_mode==3: # Amplitude damping noise
+                gamma=0.2
+                K0=np.array([[1,0],[0,np.sqrt(1-gamma)]],dtype=complex)
+                K1=np.array([[0,np.sqrt(gamma)],[0,0]],dtype=complex)
+                Krauss_op=np.array([K0.conj().T,K1.conj().T])
+            elif noise_mode==4: # Constant over-rotation
+                rotAngle=np.pi/5
+                U = np.cos(rotAngle/2)*np.eye(2) - 1j* np.sin(rotAngle/2)*np.array([[0,1],[1,0]])
+                if n_qubits==2:
+                    U=unitary_group.rvs(2**n_qubits)
+                Krauss_op=np.array([U],dtype=complex)
+            elif noise_mode==0:
+                print("No noise mode selected. Returning base_POVM")
+                Krauss_op=np.array([np.eye(2)])
+            noisy_POVM_list=np.einsum('nij,qjk,nlk->qil',Krauss_op,base_POVM_list,Krauss_op.conj())
+            return cls(noisy_POVM_list)
+        
+        elif n_qubits==2: # Two qubit noise
+            CNOT=np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]],dtype=complex)
+            ISWAP=np.array([[1,0,0,0],[0,0,1j,0],[0,1j,0,0],[0,0,0,1]],dtype=complex)
+            if noise_mode==1: 
+                noise_transformation=CNOT
+            elif noise_mode==2:
+                noise_transformation=ISWAP
+            
+            k = 0.2 # Mixing strenght (probability)
+            noisy_POVM_list=k*base_POVM_list + (1-k)*np.einsum('jk,ikl,lm->ijm',noise_transformation.conj().T,base_POVM_list,noise_transformation)
+            return cls(noisy_POVM_list) 
+            
     
     @classmethod
     def generate_random_POVM(cls,dim,n_outcomes):
@@ -199,3 +214,14 @@ class POVM():
         #    eigV,U=np.linalg.eig(POVM_list[i])
         #    print(eigV)
         return cls(POVM_list)
+    
+    
+    #def trace_down()
+    
+    #@classmethod
+    #def trace_down_POVM(cls,base_POVM):
+    #    """
+    #    Traces down 
+    #    """
+        
+        

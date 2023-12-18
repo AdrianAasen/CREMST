@@ -43,6 +43,11 @@ def get_Bloch_vector_from_angles(angles):
     return np.array([[np.sin(angles[i,0])*np.cos(angles[i,1]),np.sin(angles[i,0])*np.sin(angles[i,1]),np.cos(angles[i,0])] for i in range(len(angles))])
 
 def get_angles_from_density_matrix_single_qubit(rho):
+    """
+    Takes in a single qubit 2x2 matrix and return the Bloch angles as 1x2 matrix.
+    If state is not pure, it returns the angles to the closest pure state. 
+    Does not work for the thermal state.
+    """
     X=np.array([[0,1],[1,0]])
     Y=np.array([[0,-1j],[1j,0]])
     Z=np.array([[1,0],[0,-1]])
@@ -103,6 +108,32 @@ def generate_random_pure_state(nQubit):
     baseRho[0,0]=1
     U=unitary_group.rvs(2**nQubit)
     return U@baseRho@U.conj().T
+
+
+def generate_random_factoriezed_states(n_qubits,n_averages):
+    """
+    Creates n_averages n_qubit factorized state of Haar random single qubit states.
+
+    Args:
+        n_qubits (int): Number of qubits.
+        n_averages (int): Number of states. 
+    """
+    state_list = np.zeros((n_averages, 2**n_qubits, 2**n_qubits),dtype=complex)
+    angle_list = np.zeros((n_averages, n_qubits, 2))
+    for i in range(n_averages):
+        temp_state_list = np.array([generate_random_pure_state(1) for _ in range(n_qubits)])
+        temp_angle_list = np.array([get_angles_from_density_matrix_single_qubit(state)[0] for state in temp_state_list])  
+        temp_state=temp_state_list[0]
+        for j in range(n_qubits-1):
+            temp_state=np.kron(temp_state,temp_state_list[j+1])   
+        angle_list[i] = temp_angle_list
+        state_list[i] = temp_state
+        
+    return state_list, angle_list
+        
+        
+            
+
 
 
 def POVM_distance(M,N):
