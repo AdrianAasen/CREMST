@@ -110,7 +110,7 @@ def generate_random_pure_state(nQubit):
     return U@baseRho@U.conj().T
 
 
-def generate_random_factoriezed_states(n_qubits,n_averages):
+def generate_random_factorized_states(n_qubits,n_averages):
     """
     Creates n_averages n_qubit factorized state of Haar random single qubit states.
 

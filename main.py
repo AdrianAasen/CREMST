@@ -35,7 +35,7 @@ def main():
     n_qubits=2
     n_QST_shots=int(10**4)+2
     n_calibration_shots=10**4
-    n_cores=4
+    n_cores=8
     if boolOnCluster:
         n_cores=48
     noise_mode=2

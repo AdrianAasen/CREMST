@@ -183,7 +183,7 @@ class QST():
         for i in range(self.n_averages):
             rho_estm=QST.iterativeMLE(full_operator_list,outcome_index[i])
             self.rho_estimate[i]=rho_estm.copy() # Is copy nessecary here?
-            self.infidelity[i,-1]=np.einsum('ij,ji->',rho_estm,self.true_state_list[i])
+            self.infidelity[i,-1]= 1 - np.real(np.einsum('ij,ji->',rho_estm,self.true_state_list[i]))
         
         
         
