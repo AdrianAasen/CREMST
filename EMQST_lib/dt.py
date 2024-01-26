@@ -9,6 +9,7 @@ from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
 import scipy as sp
 import sys
+import time
 #sys.path.append("../")
 #from support_functions import *
 
@@ -23,30 +24,61 @@ def main():
     return 1
 
 
-def device_tomography(n_qubits,n_shots_each,POVM,calibration_states,bool_exp_meaurements=False,exp_dictionary={},initial_guess_POVM=None,calibration_angles=None):
+def device_tomography(n_qubits,n_shots_each,POVM,calibration_states,n_cores=1,bool_exp_meaurements=False,exp_dictionary={},initial_guess_POVM=None,calibration_angles=None):
     """
-    Takes in a single POVM object, a set of calibration states and experimental dictionary
+    Takes in a list of  POVM objects, a set of calibration states and experimental dictionary
     and performs device tomography or POVM set tomography
 
-    returns corrected POVM object. 
+    returns list corrected POVM object. 
     """
+    
     # If no experimental angles are provided
     if calibration_angles is None:
         calibration_angles=np.zeros((len(calibration_states),1))
-    # Perform measurement over all calibration states
-    outcome_index_matrix=np.zeros((len(calibration_states),n_shots_each))
-    for i in range(len(calibration_states)):
-        outcome_index_matrix[i]=mf.measurement(n_shots_each,POVM,calibration_states[i],bool_exp_meaurements,exp_dictionary,state_angle_representation=calibration_angles[i])
+    # Perform measurement over all calibration states and all POVMs
+    outcome_index_matrix=np.zeros((n_shots_each))
+    print(f'Collecting and sorting QDT data.')
+    mesh_start=time.time()
+    
+    index_list=np.arange(2**n_qubits)
+    # Create a count function that stores the data on the form (POMV index x calib.state index)
+    index_counts=np.zeros((len(POVM),2**n_qubits,len(calibration_states)))
+    index_count_efficient=np.zeros((len(POVM),2**n_qubits,len(calibration_states)))
+    for i in range(len(POVM)):
+        for j in range(len(calibration_states)):
+            outcome_index_matrix=mf.measurement(n_shots_each,POVM[i],calibration_states[j],bool_exp_meaurements,exp_dictionary,state_angle_representation=calibration_angles[j])
+            index_count_efficient[i,:,j]=np.bincount(outcome_index_matrix,minlength=2**n_qubits)
+            #for k in range(len(index_list)):
+                #print(outcome_index_matrix)
+            #    index_counts[i,k,j] = np.count_nonzero(outcome_index_matrix == index_list[k])
+      
+    mesh_end = time.time()
+    print(f'Done collecting and sorting QDT data, total runtime {mesh_end - mesh_start}.')
+    print(f'Starting POVM reconstruction.')
     if bool_exp_meaurements or initial_guess_POVM is None:
         initial_guess_POVM=POVM
         #print("No itinial guess!")
-    corrected_POVM=POVM_MLE(n_qubits,outcome_index_matrix,calibration_states,initial_guess_POVM)
-    return corrected_POVM 
+        
+        
+    dt_start=time.time()
+    corrected_POVM=np.array([POVM_MLE(n_qubits,index_count_efficient[i],calibration_states,initial_guess_POVM[i]) for i in range(len(POVM))])
+    dt_end = time.time()
+    print(f'Runtime of POVM reconstruction {dt_end - dt_start}')
+    paralleldt_start=time.time()
+    corrected_POVM_parallel = Parallel(n_jobs=n_cores)(delayed(POVM_MLE)(n_qubits,index_count_efficient[i],calibration_states,initial_guess_POVM[i]) for i in range(len(POVM)))
+    paralleldt_end = time.time()
+    print(f'Runtime of parallel POVM reconstruction {paralleldt_end - paralleldt_start}')
+    print(f'Relative runtime impovement: {(dt_end - dt_start)/(paralleldt_end - paralleldt_start)} ')
+    
+    #print(corrected_POVM_parallel)
+    #for i in range(len(POVM)):
+    #    print(f'Distance of {i}: {sf.POVM_distance(corrected_POVM[i].get_POVM(),corrected_POVM_parallel[i].get_POVM())}')
+    return corrected_POVM_parallel 
 
 
 
 
-def POVM_MLE(n_qubits,outcome_index_matrix, calibration_states,initial_guess_POVM):
+def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
     """
     Performs POVM reconstruction from measurements performed on calibration states.
     Follows prescription give by https://link.aps.org/doi/10.1103/PhysRevA.64.024102
@@ -57,10 +89,10 @@ def POVM_MLE(n_qubits,outcome_index_matrix, calibration_states,initial_guess_POV
     index_list=np.arange(2**n_qubits)
 
     # Create a count function that stores the data on the form (POMV index x calib.state index)
-    index_counts=np.zeros((2**n_qubits,len(calibration_states)))
-    for i in range(len(index_list)): # Runs over the POVM index    
-        for j in range (len(calibration_states)): # Runs over the calibration state index
-            index_counts[i,j] = np.count_nonzero(outcome_index_matrix[j] == index_list[i])
+    #index_counts=np.zeros((2**n_qubits,len(calibration_states)))
+    #for i in range(len(index_list)): # Runs over the POVM index    
+    #    for j in range (len(calibration_states)): # Runs over the calibration state index
+    #        index_counts[i,j] = np.count_nonzero(outcome_index_matrix[j] == index_list[i])
 
 
     POVM_reconstruction=initial_guess_POVM.get_POVM()

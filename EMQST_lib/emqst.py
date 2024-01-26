@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 from scipy.optimize import curve_fit
+from joblib import Parallel, delayed
 
 from EMQST_lib import support_functions as sf
 from EMQST_lib import measurement_functions as mf
@@ -59,7 +60,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
 
     print(f'----------------------------')
     print(f'Error corrected {method}.')
-    print(f' {n_qubits} number of qubits.')
+    print(f'{n_qubits} qubit(s).')
     print(f'{n_calibraion_shots_each*len(calibration_states)} POVM calibration shots.')
     print(f'{n_QST_shots_each*len(POVM_list)} QST shots.')
     print(f'{len(true_state_list)} QST averages.')
@@ -82,7 +83,9 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
         noisy_POVM_list=POVM_list
         print("No synthetic noise.")
     dt_start=time.time()
-    reconstructed_POVM_list = np.array([dt.device_tomography(n_qubits,n_calibraion_shots_each,noisy_POVM_list[i],calibration_states,bool_exp_measurements,exp_dictionary,initial_guess_POVM=POVM_list[i],calibration_angles=calibration_angles) for i in range(len(noisy_POVM_list))])
+    
+    reconstructed_POVM_list = dt.device_tomography(n_qubits,n_calibraion_shots_each,noisy_POVM_list,calibration_states,n_cores=n_cores, bool_exp_meaurements=bool_exp_measurements,exp_dictionary=exp_dictionary,initial_guess_POVM=POVM_list,calibration_angles=calibration_angles)
+
     dt_end = time.time()
     print(f'Runtime of DT reconstruction {dt_end - dt_start}')
     DT_settings={
