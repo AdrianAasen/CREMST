@@ -41,7 +41,7 @@ def device_tomography(n_qubits,n_shots_each,POVM,calibration_states,n_cores=1,bo
     print(f'Collecting and sorting QDT data.')
     mesh_start=time.time()
     
-    index_list=np.arange(2**n_qubits)
+    #index_list=np.arange(2**n_qubits)
     
     # Create a count function that stores the data on the form (POMV index x calib.state index)
     index_counts=np.zeros((len(POVM),2**n_qubits,len(calibration_states)))
@@ -133,6 +133,17 @@ def POVM_convergence(POVM_reconstruction,POVM_reconstruction_old):
     return np.sum([np.linalg.norm(POVM_reconstruction-POVM_reconstruction_old)])
 
 
+
+def experimetnal_QDT(n_qubits,n_calibration_shots_each,exp_dictionary,n_cores = 1,POVM_list = None,calibration_states = None,calibration_angles = None):
+    
+    if POVM_list == None:
+        POVM_list = POVM.generate_Pauli_POVM(n_qubits)
+    
+    if calibration_states is None:
+        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)
+        
+    reconstructed_POVM_list = device_tomography(n_qubits,n_calibration_shots_each,POVM_list,calibration_states,n_cores = n_cores, bool_exp_meaurements = True,exp_dictionary=exp_dictionary,initial_guess_POVM=POVM_list,calibration_angles=calibration_angles)
+    return reconstructed_POVM_list
 
 
 if __name__=="__main__":

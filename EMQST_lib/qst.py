@@ -35,11 +35,20 @@ class QST():
         """
         self.POVM_list=POVM_list
         self.noise_corrected_POVM_list=noise_corrected_POVM_list
-        self.true_state_list=true_state_list
+        # If no true states are given, set empty list. 
+        if true_state_list is None: # Insert a un-normalized thermal state. 
+            self.true_state_list = np.array([np.eye(2**n_qubits)])
+        else:
+            self.true_state_list = true_state_list
+            
+        if true_state_list is None:
+            self.n_averages = 1
+        else:
+            self.n_averages=len(true_state_list)
         
         # Checks if angle representation has been given
         if true_state_angles_list is None:
-            self.rue_state_angles_list=np.array([None]*self.n_averages)
+            self.true_state_angles_list=np.array([None]*self.n_averages)
         else:
             self.true_state_angles_list=true_state_angles_list
             
@@ -47,13 +56,15 @@ class QST():
         self.n_shots_total=n_shots_each_POVM*len(POVM_list)
         self.exp_dictionary=exp_dictionary
         self.n_qubits=n_qubits
-        self.n_averages=len(true_state_list)
+        
         self.n_cores=n_cores
         self.bool_exp_measurement=bool_exp_measurements
         full_operator_list=np.array([a.get_POVM() for a in self.POVM_list])
         full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
         self.full_operator_list=full_operator_list
 
+        
+        # BME parameters
         if n_qubits==1:
             self.n_bank=100
         elif n_qubits==2:
@@ -121,7 +132,21 @@ class QST():
         list_of_true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n_averages)])
         POVM_list=POVM.generate_Pauli_POVM(n_qubits)
         return QST(POVM_list,list_of_true_states,n_QST_shots,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores)
+    
+    
+    @classmethod    
+    def setup_experimental_QST(cls, n_qubits, n_QST_shots, exp_dictionary, measurement_POVM_list = None):
+        """
+        Sets up an experimental QST object that calls costum measurement functions.
+        The default POVM can be overridden during MLE. 
         
+        return a QST object set up for experimental runs. 
+        """
+        # Default measurement is Pauli-6
+        if measurement_POVM_list == None:
+            measurement_POVM_list = POVM.generate_Pauli_POVM(n_qubits)
+            
+        return QST(measurement_POVM_list,None,n_QST_shots,n_qubits,True,exp_dictionary)
     
     def print_status(self):
         print(f'Use experimental measurements: {self.bool_exp_measurement}')
@@ -139,7 +164,7 @@ class QST():
     def get_rho_true(self):
         return np.copy(self.true_state_list)
 
-    def generate_data(self,override_POVM_list=None):
+    def generate_data(self, override_POVM_list = None, custom_measurement_function = None):
         """
         Simulates sampling from the states defined. Default POVM is the selected measurement.
         Measurement can be overridden by e.g. the corrected POVM from detector. 
@@ -150,6 +175,7 @@ class QST():
             measured_POVM_list=self.POVM_list
         else:
             measured_POVM_list=override_POVM_list
+        
 
         n_POVMs=len(self.POVM_list)
         n_shots_each_POVM=self.n_shots_each_POVM
@@ -161,24 +187,25 @@ class QST():
             index_iterator=0
 
             for j in range(n_POVMs):
-                temp_outcomes[j]=mf.measurement(n_shots_each_POVM,measured_POVM_list[j],self.true_state_list[i],self.bool_exp_measurement,self.exp_dictionary,state_angle_representation=self.true_state_angles_list[i] ) + index_iterator
+                temp_outcomes[j]=mf.measurement(n_shots_each_POVM, measured_POVM_list[j],self.true_state_list[i], self.bool_exp_measurement, self.exp_dictionary,state_angle_representation=self.true_state_angles_list[i], custom_measurement_function = custom_measurement_function) + index_iterator
                 index_iterator+=len(self.POVM_list[j].get_POVM())
             
             # Reshape lists
             temp_outcomes=np.reshape(temp_outcomes,-1)
             self.outcome_index[i]=np.copy(temp_outcomes)
 
-
-    def perform_MLE(self, use_corrected_POVMs=False):
+    
+    def perform_MLE(self, override_POVM_list=None):
         """
         Runs core loop of MLE.
         """
         # Select POVM to use for state reconstruction 
-        if use_corrected_POVMs:
-            full_operator_list=np.array([a.get_POVM() for a in self.noise_corrected_POVM_list])
-            full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
+        if override_POVM_list==None:
+            full_operator_list=self.full_operator_list  
         else:
-            full_operator_list=self.full_operator_list
+            full_operator_list=np.array([a.get_POVM() for a in override_POVM_list])
+            full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
+            
         outcome_index=self.outcome_index.astype(int)
         for i in range(self.n_averages):
             rho_estm=QST.iterativeMLE(full_operator_list,outcome_index[i])
@@ -222,7 +249,7 @@ class QST():
         return rho_1
         
 
-    def perform_BME(self,use_corrected_POVMs=False):
+    def perform_BME(self,override_POVM_list=None):
         """
         Runs the core loop of BME.
         """
@@ -234,11 +261,13 @@ class QST():
             return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
         
         # Select POVM to use for state reconstruction 
-        if use_corrected_POVMs:
-            full_operator_list=np.array([a.get_POVM() for a in self.noise_corrected_POVM_list])
-            full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
-        else:
+        if override_POVM_list == None:
             full_operator_list=self.full_operator_list
+        else:
+            full_operator_list=np.array([a.get_POVM() for a in override_POVM_list])
+            full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
+       
+            
 
 
         outcome_index=self.outcome_index.astype(int)

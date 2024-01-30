@@ -3,19 +3,22 @@ from EMQST_lib import support_functions as sf
 
 
 
-def measurement(n_shots,POVM,rho,bool_exp_measurements,exp_dictionary,state_angle_representation=None):
+def measurement(n_shots,POVM,rho,bool_exp_measurements,exp_dictionary,state_angle_representation=None, custom_measurement_function = None):
     """
     Measurment settings and selects either experimental or simulated measurements. 
     For experimental measurements some settings are converted to angle arrays. 
     """
 
     if bool_exp_measurements:
-        if state_angle_representation is None:
-            print("Experimental measurement: No angle representation has been given! Returning None.")
-            return np.array([None]*n_shots)
-        outcome_index=exp_dictionary["measurement_function"](n_shots,POVM.get_angles(),state_angle_representation,exp_dictionary)
+        if custom_measurement_function == None:
+            if state_angle_representation is None:
+                print("Experimental measurement: No angle representation has been given! Returning None.")
+                return np.array([None]*n_shots) 
+            outcome_index = exp_dictionary["standard_measurement_function"](n_shots,POVM.get_angles(),state_angle_representation,exp_dictionary)
+        else:
+            outcome_index = custom_measurement_function(n_shots,POVM.get_angles(),exp_dictionary)
     else:
-        outcome_index=simulated_measurement(n_shots,POVM,rho)
+        outcome_index = simulated_measurement(n_shots,POVM,rho)
     return outcome_index
 
 

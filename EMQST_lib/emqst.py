@@ -14,7 +14,7 @@ from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM
 
 
-def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
+def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
     """
     Performs a complete cycle of noise corrected POVM with random sampling of states.
     Takes in experimental parameters. To be passed to both POVM calibration and QST. 
@@ -61,7 +61,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
     print(f'----------------------------')
     print(f'Error corrected {method}.')
     print(f'{n_qubits} qubit(s).')
-    print(f'{n_calibraion_shots_each*len(calibration_states)} POVM calibration shots.')
+    print(f'{n_calibration_shots_each*len(calibration_states)} POVM calibration shots.')
     print(f'{n_QST_shots_each*len(POVM_list)} QST shots.')
     print(f'{len(true_state_list)} QST averages.')
     print(f'----------------------------')
@@ -84,14 +84,14 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
         print("No synthetic noise.")
     dt_start=time.time()
     
-    reconstructed_POVM_list = dt.device_tomography(n_qubits,n_calibraion_shots_each,noisy_POVM_list,calibration_states,n_cores=n_cores, bool_exp_meaurements=bool_exp_measurements,exp_dictionary=exp_dictionary,initial_guess_POVM=POVM_list,calibration_angles=calibration_angles)
+    reconstructed_POVM_list = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_POVM_list,calibration_states,n_cores=n_cores, bool_exp_meaurements=bool_exp_measurements,exp_dictionary=exp_dictionary,initial_guess_POVM=POVM_list,calibration_angles=calibration_angles)
 
     dt_end = time.time()
     print(f'Runtime of DT reconstruction {dt_end - dt_start}')
     DT_settings={
         "n_qubits": n_qubits,
         "calibration_states": calibration_states,
-        "n_calibration_shots": n_calibraion_shots_each,
+        "n_calibration_shots": n_calibration_shots_each,
         "initial_POVM": POVM_list,
         "reconstructed_POVM_list": reconstructed_POVM_list,
         "bool_exp_meaurements": bool_exp_measurements,
@@ -111,15 +111,16 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
     
     qst=QST(POVM_list,true_state_list,n_QST_shots_each,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores,noise_corrected_POVM_list=reconstructed_POVM_list,true_state_angles_list=true_state_angles_list)
     qst.generate_data(override_POVM_list=noisy_POVM_list)
+    
     # Save data settings
     qst.save_QST_settings(data_path,noise_mode)
     print("Generated data.")
 
     print("Start corrected QST.")
     if method=="MLE":
-        qst.perform_MLE(use_corrected_POVMs=True)
+        qst.perform_MLE(override_POVM_list=reconstructed_POVM_list)
     elif method=="BME":
-        qst.perform_BME(use_corrected_POVMs=True)
+        qst.perform_BME(override_POVM_list=reconstructed_POVM_list)
     corrected_infidelity=qst.get_infidelity()
     corrected_rho_estm=qst.get_rho_estm()
 
@@ -173,8 +174,10 @@ def emqst(n_qubits,n_QST_shots_each,n_calibraion_shots_each,true_state_list, cal
 
         plt.savefig(f'{data_path}/Averaged_infidelities.png')
         plt.savefig('latest_run.png')
-
-
-    
+   
     return corrected_infidelity, uncorrected_infidelity, corrected_rho_estm
+
+
+
+      
 

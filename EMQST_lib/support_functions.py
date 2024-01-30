@@ -3,6 +3,8 @@ from scipy.stats import unitary_group
 import qutip as qt
 from joblib import Parallel, delayed
 from datetime import datetime
+import os
+import uuid
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
@@ -225,6 +227,29 @@ def purity(rhos):
     """
     purity = np.trace(rhos@rhos, axis1=-2, axis2=-1)
     return np.real(purity)
+
+
+def initialize_estimation(exp_dictionary):
+    # Check if restuls exist:
+    check_path='results'
+    path_exists=os.path.exists(check_path)
+    if not path_exists:
+        print("Created results dictionary.")
+        os.makedirs('results')
+
+
+    # Generate new dictionary for current run
+    now=datetime.now()
+    now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
+    dir_name= now_string+str(uuid.uuid4())
+
+
+    data_path=f'results/{dir_name}'
+    os.mkdir(data_path)
+
+    with open(f'{data_path}/experimental_settings.npy','wb') as f:
+        np.save(f,exp_dictionary)    
+    return data_path
 
 if __name__=="__main__":
     main()
