@@ -26,12 +26,18 @@ class POVM():
         #self.POVM_dimension=len(POVM_list[-1])
         #self.n_elemetns=len(POVM_list)
 
-        
+    
+    
     @classmethod
-    def POVM_from_angles(cls,angles): # The angle defines what is considered spin up, and we generate the POVM-set that constructs it 
-        "angles[theta,phi]"
+    def POVM_from_angles(cls,angles):
+        """
+        Creates a POVM class based on a set of angles defining spin measurements. 
+        angles: ndarray n x 2 (n qubits, 2 angles [theta,phi])
+                angles defines what is considere the 'up' outcome. 
+        return POVM class. 
+        """
+        
         angle_representation=np.zeros((2**len(angles),len(angles),2))
-
 
         opposite_angles=sf.get_opposing_angles(angles)
         angle_Matrix=np.array([angles,opposite_angles])
@@ -214,14 +220,4 @@ class POVM():
         #    eigV,U=np.linalg.eig(POVM_list[i])
         #    print(eigV)
         return cls(POVM_list)
-    
-    
-    #def trace_down()
-    
-    #@classmethod
-    #def trace_down_POVM(cls,base_POVM):
-    #    """
-    #    Traces down 
-    #    """
-        
         
