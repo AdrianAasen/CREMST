@@ -174,8 +174,16 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
 
         plt.savefig(f'{data_path}/Averaged_infidelities.png')
         plt.savefig('latest_run.png')
-   
-    return corrected_infidelity, uncorrected_infidelity, corrected_rho_estm
+        
+    # Pack everything you want to return into the results dictionary    
+    result = {
+        "corrected_infidelity" : corrected_infidelity,
+        "uncorrected_infidelity": uncorrected_infidelity,
+        "corrected_rho_estm" : corrected_rho_estm,
+        "reconstructed_POVM" : np.array([povm.get_POVM() for povm in reconstructed_POVM_list])
+
+    }
+    return result
 
 
 
