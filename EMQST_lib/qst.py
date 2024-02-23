@@ -163,6 +163,12 @@ class QST():
     
     def get_rho_true(self):
         return np.copy(self.true_state_list)
+    
+    def get_outcomes(self):
+        return np.copy(self.outcome_index)
+    
+    def set_outcomes(self,outcome_index):
+        self.outcome_index = np.copy(outcome_index)
 
     def generate_data(self, override_POVM_list = None, custom_measurement_function = None):
         """
@@ -200,7 +206,7 @@ class QST():
         Runs core loop of MLE.
         """
         # Select POVM to use for state reconstruction 
-        if override_POVM_list==None:
+        if override_POVM_list is None:
             full_operator_list=self.full_operator_list  
         else:
             full_operator_list=np.array([a.get_POVM() for a in override_POVM_list])
