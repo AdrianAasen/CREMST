@@ -1,0 +1,88 @@
+import numpy as np
+from scipy.stats import unitary_group
+import scipy as sp
+import qutip as qt
+from joblib import Parallel, delayed
+from datetime import datetime
+import os
+import glob
+import uuid
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from scipy.linalg import sqrtm
+import matplotlib.pyplot as plt
+
+def plot_POVM(path_to_folder = None):
+    if path_to_folder is None:
+        path_to_folder = "data/raw_povms/"        
+    filenames = glob.glob(f'{path_to_folder}*.npy')
+    #print(filenames)
+    X = np.array([[0,1],[1,0]],dtype = complex)
+    Y = np.array([[0,-1j],[1j,0]],dtype = complex)
+    Z = np.array([[1,0],[0,-1]],dtype = complex)
+    sigma = np.array([X,Y,Z],dtype=complex)
+    def rot(axis,angle):
+        return sp.linalg.expm(-1/2j*angle* np.einsum('j,jkl->kl',axis,sigma))
+
+
+    rot_x_to_z = rot([0,-1,0],np.pi/2)
+    rot_y_to_z = rot([1,0,0],np.pi/2)
+
+    xup = 1/2*np.array([[1,1],[1,1]],dtype=complex)
+    xdown =1/2* np.array([[1,-1],[-1,1]],dtype=complex)
+    XX_actual = np.array([xup,xdown],dtype=complex)
+    ZZ_actual = np.array([[[1,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+                        [[0,0,0,0],[0,1,0,0],[0,0,0,0],[0,0,0,0]],
+                        [[0,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0]],
+                        [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,1]],],dtype=complex)
+
+    rot_dict = {
+            "X": rot_x_to_z,
+            "Y": rot_y_to_z,
+            "Z": np.eye(2)
+        }
+    outcome_list = ["up up","up down", "down up", "down down"]
+    label_list = ["XX","XY","XZ","YX","YY","YZ","ZX","ZY","ZZ"]
+    for name in filenames:
+        exp_povm = np.load(name)
+        base_name = os.path.basename(name)
+        base_name = os.path.splitext(base_name)[0]
+
+        print(base_name)
+
+        for k in range(len(exp_povm)):
+
+            matrices = np.einsum("ij,kjl,lm->kim",np.kron(rot_dict[label_list[k][0]],rot_dict[label_list[k][1]]).conj().T,exp_povm[k],
+                                np.kron(rot_dict[label_list[k][0]],rot_dict[label_list[k][1]]))
+            fig, axes = plt.subplots(len(matrices), 2, figsize=(8, 15))
+            # Compute the maximum absolute value across all real and imaginary parts of all matrices
+            max_abs = np.max([np.max(np.abs(np.real(matrix))) for matrix in matrices])
+            max_abs1 = np.max([np.max(np.abs(np.imag(matrix))) for matrix in matrices])
+            max_abs = np.max([max_abs,max_abs1])
+            
+            # Iterate through each matrix and its corresponding subplot
+            for j, matrix in enumerate(matrices):
+                
+                for i, part in enumerate(['Real', 'Imaginary']):
+                    if part == 'Real':
+                        data = np.real(matrix)
+                    else:
+                        data = np.imag(matrix)
+
+                    # Plotting real or imaginary part
+                    ax = axes[j, i]
+                    im = ax.imshow(data, cmap='RdYlBu', vmin=-max_abs, vmax=max_abs)
+                    ax.set_title(f'Outcome {outcome_list[j]} ({part} Part)')
+                    plt.colorbar(im, ax=ax)
+
+            # Adjust layout
+            fig.suptitle(f"{base_name} rotation to comp basis elements: {label_list[k]}")
+            plt.tight_layout()
+            save_path = f"{path_to_folder}/POVM_plots/{base_name}"
+            path_exists=os.path.exists(save_path)
+            if not path_exists:
+                print("Created a dictionary.")
+                os.makedirs(save_path)
+            plt.savefig(f"{save_path}/{label_list[k]}.png")
+            plt.close()
+    return 0

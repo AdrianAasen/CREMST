@@ -74,10 +74,10 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
 
     if noise_mode:
         print(f'Synthetic noise mode {noise_mode}.')
-        if n_qubits==1:
+        if  n_qubits<=2:
             noisy_POVM_list=np.array([POVM.generate_noisy_POVM(povm,noise_mode) for povm in POVM_list])
             print(f'Synthetic single qubit noise mode {noise_mode}.')
-        else: # Only depolarizing noise is implemented for multi-qubit noise
+        else: # Only depolarizing noise is implemented for more than 2 qubits
             noisy_POVM_list=np.array([POVM.depolarized_POVM(povm) for povm in POVM_list])
     else:
         noisy_POVM_list=POVM_list

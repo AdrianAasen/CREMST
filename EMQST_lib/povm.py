@@ -220,4 +220,5 @@ class POVM():
         #    eigV,U=np.linalg.eig(POVM_list[i])
         #    print(eigV)
         return cls(POVM_list)
+    
         

@@ -5,6 +5,7 @@ profiler/
 EMQST_lib/__pycache__/
 latest_run.png
 test.py
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
