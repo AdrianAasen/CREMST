@@ -14,7 +14,9 @@ from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM
 
 
-def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, calibration_states=None,bool_exp_measurements=False,exp_dictionary={},n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
+def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, 
+          calibration_mode=None,bool_exp_measurements=False,exp_dictionary={},
+          n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
     """
     Performs a complete cycle of noise corrected POVM with random sampling of states.
     Takes in experimental parameters. To be passed to both POVM calibration and QST. 
@@ -23,11 +25,10 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
     n_QST_shots_each        # shots in QST reconstruction for each POVM used. 
     n_calibraion_shots_each # shots for each calibration measurement.
     trueAngleList           List of random true states to average over.
-    POVMCalibrationAngles   Angles used for calibrating the POVM, should be 3 MUBs.
+    calibration_mode        Defines list of calibration states, Pauli (default) or SIC.
+    
 
-    returns a list of mean corrected infidelities [len(TrueAngleList) x n_QST_shots_total],
-                    list of uncorrected infidelities,
-                    complex list of corrected_rho_estm [len(TrueAngleList) x 2 x 2 ]
+    returns results dictionary
     """
 
     
@@ -53,8 +54,14 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
     with open(f'{data_path}/experimental_settings.npy','wb') as f:
         np.save(f,exp_dictionary)
 
-    if calibration_states is None:
-        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)
+    if calibration_mode is None or calibration_mode == 'Pauli':
+        print(f'POVM calibration states are Pauli eigenstates.')
+        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)    
+    elif calibration_mode == 'SIC':
+        print(f'POVM calibration states are SIC.')
+        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits,"SIC")
+
+    
     
     POVM_list=POVM.generate_Pauli_POVM(n_qubits)
 
@@ -62,6 +69,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
     print(f'Error corrected {method}.')
     print(f'{n_qubits} qubit(s).')
     print(f'{n_calibration_shots_each*len(calibration_states)} POVM calibration shots.')
+    
     print(f'{n_QST_shots_each*len(POVM_list)} QST shots.')
     print(f'{len(true_state_list)} QST averages.')
     print(f'----------------------------')
@@ -76,7 +84,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
         print(f'Synthetic noise mode {noise_mode}.')
         if  n_qubits<=2:
             noisy_POVM_list=np.array([POVM.generate_noisy_POVM(povm,noise_mode) for povm in POVM_list])
-            print(f'Synthetic single qubit noise mode {noise_mode}.')
+            
         else: # Only depolarizing noise is implemented for more than 2 qubits
             noisy_POVM_list=np.array([POVM.depolarized_POVM(povm) for povm in POVM_list])
     else:
@@ -180,8 +188,8 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, ca
         "corrected_infidelity" : corrected_infidelity,
         "uncorrected_infidelity": uncorrected_infidelity,
         "corrected_rho_estm" : corrected_rho_estm,
-        "reconstructed_POVM" : np.array([povm.get_POVM() for povm in reconstructed_POVM_list])
-
+        "reconstructed_POVM" : np.array([povm.get_POVM() for povm in reconstructed_POVM_list]),
+        "synthetic_POVM": np.array([povm.get_POVM() for povm in noisy_POVM_list])
     }
     return result
 

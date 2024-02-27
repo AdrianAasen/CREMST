@@ -73,7 +73,7 @@ def plot_POVM_folder(path_to_folder = None):
             save_path = f"{path_to_folder}/POVM_plots/{base_name}"
             path_exists=os.path.exists(save_path)
             if not path_exists:
-                print("a dictionary.")
+                print(f'Making directory {save_path}.')
                 os.makedirs(save_path)
             plt.savefig(f"{save_path}/{label_list[k]}.png")
             plt.close()

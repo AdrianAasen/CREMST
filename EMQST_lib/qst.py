@@ -23,7 +23,10 @@ class QST():
     __MH_steps=50
 
 
-    def __init__(self,POVM_list,true_state_list,n_shots_each_POVM,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=4,noise_corrected_POVM_list=np.array([]), true_state_angles_list=None):
+    def __init__(self,POVM_list,true_state_list,n_shots_each_POVM,n_qubits,
+                 bool_exp_measurements,exp_dictionary,n_cores=4,
+                 noise_corrected_POVM_list=np.array([]),
+                 true_state_angles_list=None):
         """
         Initalization of estimator.
         POVM_list:                  The measurement set to be performed (or set of measurements) array of POVM class

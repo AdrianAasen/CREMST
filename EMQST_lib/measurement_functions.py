@@ -40,9 +40,3 @@ def simulated_measurement(n_shots,povm,rho):
 
     # Return index list of outcomes 
     return np.searchsorted(cumulative_sum,r)
-
-#def downconvert_measurement():
-#    """
-#    Traces out qubit from data
-#    
-#    """

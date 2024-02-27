@@ -169,15 +169,20 @@ def power_law(x,a,b):
     return a*x**(b)
 
 
-def get_cailibration_states(n_qubits):
+def get_cailibration_states(n_qubits, calib = None):
     """
-    Generates a complete set of eigenstates of the pauli matrices.
-    These states are the default calibration set used to calibrate the detector tomography.
+    Generates a complete set of calibration states. Default is the eigenstates of the pauli matrices.
+    Other options are the SIC-states. 
     """
-    
-    one_qubit_calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
-                        [[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]],
-                        [[0,0]],[[np.pi,0]]])
+    if calib is None: # Defaults to Pauli matrices 
+        calib = "Pauli"
+        one_qubit_calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
+                            [[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]],
+                            [[0,0]],[[np.pi,0]]])
+    elif calib == "SIC":
+        one_qubit_calibration_angles = np.array([[[0,0]],[[2*np.arccos(1/np.sqrt(3)),0]],
+                                                 [[2*np.arccos(1/np.sqrt(3)),2*np.pi/3]],
+                                                 [[2*np.arccos(1/np.sqrt(3)),4*np.pi/3]]])
     calibration_angles=np.copy(one_qubit_calibration_angles)
     one_qubit_calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])
     calibration_states=np.copy(one_qubit_calibration_states)
