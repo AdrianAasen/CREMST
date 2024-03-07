@@ -148,11 +148,12 @@ def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
     iter_max = 2*10**3
     j=0
     dist=1
-
+    print(POVM_reconstruction.shape)
+    print(calibration_states.shape)
     #tol=10**-15
     
     while j<iter_max and dist>1e-9:    
-
+        
         p=np.abs(np.real(np.einsum('qij,nji->nq',POVM_reconstruction,calibration_states,optimize=optm)))
         fp=index_counts/p # Whenever p=0 it will be cancelled by the elemetns in G also being zero
     
