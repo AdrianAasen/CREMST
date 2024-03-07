@@ -24,19 +24,19 @@ def measurement(n_shots,povm,rho,bool_exp_measurements,exp_dictionary,state_angl
 
 
 def simulated_measurement(n_shots,povm,rho):
-
     """
     Takes in number of shots required from a single POVM on a single quantum states.
     Returns and outcome_index vector where the index corresponds the the POVM that occured.
     """
 
     # Find probabilites for different outcomes
-    histogram=povm.get_histogram(rho)
-    #print(histogram)
-    cumulative_sum=np.cumsum(histogram)
+    histogram = povm.get_histogram(rho)
+    
+    # Create cumulative sum
+    cumulative_sum = np.cumsum(histogram)
 
     # Sample outcomes 
-    r=np.random.random(n_shots)
+    r = np.random.random(n_shots)
 
     # Return index list of outcomes 
     return np.searchsorted(cumulative_sum,r)

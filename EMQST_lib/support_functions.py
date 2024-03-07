@@ -5,6 +5,7 @@ from joblib import Parallel, delayed
 from datetime import datetime
 import os
 import uuid
+from functools import reduce
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
@@ -258,6 +259,56 @@ def initialize_estimation(exp_dictionary):
 
 
 
+def downconvert_data(qubit_index, outcomes):
+    """
+    Downconverts data to a given qubit list. 
+    Input: 
+    qubit_index: List of qubit indecies to keep, order does not matter. [n] 
+    outcomes: Measurement outcomes. Could be in any shape. 
+    return: the downconverted data.
+    """
+    qubit_index = np.sort(qubit_index) # Sort index such that input order does not matter
+    
+    # Check the index for it's binary representation by whole number division and then modulo 2
+    floor_div = np.array([np.floor_divide(outcomes,2**index)%2 for index in qubit_index ])
+    
+    # Create binary representationf or the current string
+    binary = 2**np.arange(len(qubit_index))
+    
+    # Multiply the binary representation with their the index of the new system. 
+    donconverted_outcomes = np.einsum('i,i...->...',binary,floor_div)
+    return donconverted_outcomes
+
+
+
+def generate_calibration_states_from_hash(hash_function,one_qubit_calibration_states):
+    """
+    Creates calibration states for a given a single hash function.
+    Currently only works for two symbol hash.
+    
+    NOTE: This does scale exponentially. For experimental instructions one should only provide preparation angles, which is linear in number of qubits.
+    
+    Input:
+    hash_function: np.array contain a vector of hash with outputs
+    IMPORTANT: the hash layout should reflect the physical layout, such that the left-most element [-1] is considered the 0 qubit. [-2] the first qubit and so on.
+    The hash number tells us which new qubit grouping the belongs to, 0 means it is now the left-most qubit in the standard basis, 1 is the next and so on. 
+    
+    Return list of calibration states of size of hash_mask.
+    
+    """
+
+    # First step is to create a list of all possible calibration states
+    # Note in list comprehension, the second last "for" is theone that is the inner-most iterated, so it acts as the 0 spot. 
+    # Because we want to use the hash lable to iterate over the qubit, where 0 indicate the zero qubit, we add it on the index spot 0
+    # In other words, the chain is supposed to count inverse 00, 10, 01, 11.
+    calib_chain = np.array([np.array([b,a]) for a in one_qubit_calibration_states for b in one_qubit_calibration_states])
+    
+    # Slice out the inputs such that each qubit ends up in the correct hash. 
+    input_list = calib_chain[:,hash_function]
+    # Tensor together all the sliced states, to create the set of calibration states
+    calib_states = np.array([reduce(np.kron,input) for input in input_list ])
+    
+    return calib_states
 
 if __name__=="__main__":
     main()

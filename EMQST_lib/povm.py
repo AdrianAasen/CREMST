@@ -78,10 +78,9 @@ class POVM():
         POVM_Z=cls(POVM_set_Z,np.array([[[0,0]],[[np.pi,0]]]))
         POVM_single=np.array([POVM_X,POVM_Y,POVM_Z])
         POVM_list=np.copy(POVM_single)
-        recursion=n_qubits
-        while recursion>1:
+        
+        for _ in range(n_qubits - 1):
             POVM_list=POVM.tensor_POVM(POVM_list,POVM_single)
-            recursion-=1
             
         return POVM_list
     
@@ -101,12 +100,17 @@ class POVM():
         return cls(np.array([]),np.array([]))
     
     @classmethod
-    def z_axis_POVM(cls,n_qubits):
+    def computational_basis_POVM(cls,n_qubits=1):
         """
-        Returns z-basis POVM.
-        Currently only supports single qubits
+        Returns z-basis POVM. 
         """
-        return cls(np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex),np.array([[[0,0],[np.pi,0]]]))
+        # Set up single qubit
+        single_qubit = np.array([cls(np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex),np.array([[[0,0]],[[np.pi,0]]]))])
+        mesh  = single_qubit
+        for _ in range(n_qubits-1):
+            mesh = POVM.tensor_POVM(mesh,single_qubit)
+        
+        return mesh
 
     
     def get_histogram(self,rho):

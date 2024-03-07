@@ -1,11 +1,14 @@
 .venv/
 .work_win_venv/
+.home_win_venv/
 results/
 profiler/
 EMQST_lib/__pycache__/
 latest_run.png
 test.py
 data/
+hash_list.npy
+test.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
