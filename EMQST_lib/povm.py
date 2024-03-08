@@ -7,7 +7,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
-
+from functools import reduce
+from itertools import repeat, chain
 
 from EMQST_lib import support_functions as sf
 
@@ -276,5 +277,18 @@ class POVM():
         #    eigV,U=np.linalg.eig(POVM_list[i])
         #    print(eigV)
         return cls(POVM_list)
+    
+    @classmethod 
+    def generate_Pauli_from_comp(cls,comp_POVM):
+        comp_list = comp_POVM.get_POVM()
+        n_qubits = int(np.log2(len(comp_list[0])))
+        sigma_x = np.array([[0,1], [1,0]])
+        sigma_y = np.array([[0,-1j], [1j,0]])
+        Rot_to_x = reduce(np.kron,chain(repeat(sp.linalg.expm(-1j * np.pi/4 * sigma_y), n_qubits)))
+        Rot_to_y = reduce(np.kron,chain(repeat(sp.linalg.expm(-1j * (-np.pi/4) * sigma_x), n_qubits)))
+        new_x = np.einsum('ij,njk,kl->nil', Rot_to_x, comp_list, Rot_to_x.conj().T)
+        new_y = np.einsum('ij,njk,kl->nil', Rot_to_y, comp_list, Rot_to_y.conj().T)
+        return np.array([cls(new_x),cls(new_y),cls(comp_list)])
+        
     
         
