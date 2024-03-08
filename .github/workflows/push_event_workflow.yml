@@ -11,10 +11,10 @@ jobs:
       uses : actions/checkout@v4
       
     - name : Install Packages 
-      run : pip install numpy as np
-      run : pip install scipy as sp
-      run : pip install qutip as qt
-      run : pip install joblib
+      - run : pip install numpy as np
+      - run : pip install scipy as sp
+      - run : pip install qutip as qt
+      - run : pip install joblib
       
     - name : Run tests 
       run : python -m  unittest discover
