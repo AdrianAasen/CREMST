@@ -8,10 +8,7 @@ jobs:
     
     steps:
     - name : Checkout code
-      uses : actions/checkout@v2
-      
-    - name : Install Packages 
-      run : pip install unittest
+      uses : actions/checkout@v4
       
     - name : Run tests 
       run : python -m  unittest discover
