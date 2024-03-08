@@ -280,6 +280,10 @@ class POVM():
     
     @classmethod 
     def generate_Pauli_from_comp(cls,comp_POVM):
+        """
+        This function takes in a single qubit computational basis and turns it into a single qubit Pauli-6 basis. 
+        
+        """
         comp_list = comp_POVM.get_POVM()
         n_qubits = int(np.log2(len(comp_list[0])))
         sigma_x = np.array([[0,1], [1,0]])
