@@ -10,5 +10,11 @@ jobs:
     - name : Checkout code
       uses : actions/checkout@v4
       
+    - name : Install Packages 
+      run : pip install numpy
+      run : pip install scipy
+      run : pip install qutip
+      run : pip install joblib
+      
     - name : Run tests 
       run : python -m  unittest discover
