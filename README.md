@@ -1,4 +1,4 @@
-# Errro mitigated quantum state tomographty (EMQST)
-This is the code base used to perform readout error mitigation for the project assosiated to the publication: To be added.
+# Readout erro mitigated quantum state tomographty (REMQST)
+This is the code base used to perform readout error mitigation for the project assosiated to the publication: [Here](https://arxiv.org/abs/2312.04211).
 
-A tutorial notebook of how to run EMQST is provided with examples of how to create your own simulations and also loading in data from previous runs.  
+A tutorial notebook of how to run REMQST is provided with examples of how to create your own simulations and also loading in data from previous runs.  
