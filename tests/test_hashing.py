@@ -35,9 +35,7 @@ class TestHash(unittest.TestCase):
 
 
     def test_calibration_states_generation(self):
-        """
-        This test ensures that the ordering of the hashing function is correct. 
-        """
+        #This test ensures that the ordering of the hashing function is correct. 
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
         one_qubit_calibration_states = np.array([sf.get_density_matrix_from_angles(angle) for angle in one_qubit_calibration_angles])
         hash = np.array([1,0])

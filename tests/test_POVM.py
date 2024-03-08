@@ -34,7 +34,58 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.all(pauli[1].get_POVM() == y))
         self.assertTrue(np.all(pauli[0].get_POVM() == x))
         
+    def test_comp_to_pauli_conversion(self):
+        comp = POVM.computational_basis_POVM(1)[0]
+        comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
+        pauli = POVM.generate_Pauli_POVM(1)
+
+        self.assertTrue(np.allclose(pauli[0].get_POVM(), comp_to_pauli[0].get_POVM()),"X rotation did not work.")
+        self.assertTrue(np.allclose(pauli[1].get_POVM(), comp_to_pauli[1].get_POVM()),"Y rotation did not work.")
+        self.assertTrue(np.allclose(pauli[2].get_POVM(), comp_to_pauli[2].get_POVM()),"Identity transfer did not work.")
+        
+        # Test that it works with larger matices
+        comp = POVM.computational_basis_POVM(2)[0]
+        comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
+        pauli = POVM.generate_Pauli_POVM(2)
+        self.assertTrue(np.allclose(pauli[0].get_POVM(), comp_to_pauli[0].get_POVM()),"X rotation did not work for 2 qubits.")
+        self.assertTrue(np.allclose(pauli[4].get_POVM(), comp_to_pauli[1].get_POVM()),"Y rotation did not work for 2 qubits.")
+        self.assertTrue(np.allclose(pauli[8].get_POVM(), comp_to_pauli[2].get_POVM()),"Identity transfer did not work.")
+        
+    def test_hashed_POVM(self):
+        test_hash = np.array([1,0])
+        pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(2)])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        self.assertTrue(np.all(pauli == povm), "Standard 2 qubit assignment failed.")
+        test_hash = np.array([0,1])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        # Checks if the inverted order mathces (Write down xx xy etc..)
+        self.assertTrue(np.all(pauli[1] == povm[3]))
+        self.assertTrue(np.all(pauli[2] == povm[6]))
+        self.assertTrue(np.all(pauli[3] == povm[1]))
+        self.assertTrue(np.all(pauli[4] == povm[4]))
+        self.assertTrue(np.all(pauli[5] == povm[7]))
+        
+        # Test long hash
+        long_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(4)])
+        test_hash = np.array([1,0,1,0])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        self.assertTrue(np.all(long_pauli[0] == povm[0]))
+        self.assertTrue(np.all(long_pauli[10] == povm[1]))
+        self.assertTrue(np.all(long_pauli[20] == povm[2]))
+        self.assertTrue(np.all(long_pauli[30] == povm[3]))
+        self.assertTrue(np.all(long_pauli[40] == povm[4]))
+
+    # Test hash with more than two 2 lower qubits dims
+        test_hash = np.array([1,0,1,2])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        self.assertTrue(np.all(long_pauli[0] == povm[0]))
+        self.assertTrue(np.all(long_pauli[18] == povm[2]))
+        self.assertTrue(np.all(long_pauli[30] == povm[3]))
+        self.assertTrue(np.all(long_pauli[39] == povm[4]))
+        self.assertTrue(np.all(long_pauli[78] == povm[8]))
+        self.assertTrue(np.all(long_pauli[1] == povm[9]))
         
         
         
-        
+if __name__ == '__main__':
+    unittest.main()

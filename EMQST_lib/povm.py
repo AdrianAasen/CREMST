@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
 from functools import reduce
-from itertools import repeat, chain
+from itertools import repeat, chain, product
+
 
 from EMQST_lib import support_functions as sf
 
@@ -295,4 +296,18 @@ class POVM():
         return np.array([cls(new_x),cls(new_y),cls(comp_list)])
         
     
+    @classmethod
+    def generate_Pauli_from_hash(cls,hash):
+        n_qubit_subsystem = len(np.unique(hash))
+        n_qubits_total = len(hash)
+        single_qubit_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(1)])
+        
+        # Create all combinations of single qubit measurements to be masked by the hash
+        # The final element is to reverse the order such that the left most entire is the left most qubit (in binary counting)
+        comb_list = np.array(list(product(single_qubit_pauli, repeat=n_qubit_subsystem)))[:,::-1]
+        hashed_list = comb_list[:,hash]
+        #Tensor together the measuremers from the masked hashed list
+        toal_POVM_list = np.array([reduce(np.kron,input) for input in hashed_list])
+        #print(toal_POVM_list)
+        return np.array([cls(povm) for povm in toal_POVM_list])
         
