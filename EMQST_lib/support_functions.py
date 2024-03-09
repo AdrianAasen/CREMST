@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import uuid
 from functools import reduce
+from itertools import product, chain, repeat
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
@@ -296,18 +297,23 @@ def generate_calibration_states_from_hash(hash_function,one_qubit_calibration_st
     Return list of calibration states of size of hash_mask.
     
     """
-
+    n_qubit_subsystem = np.max(hash_function) + 1
+    
     # First step is to create a list of all possible calibration states
     # Note in list comprehension, the second last "for" is theone that is the inner-most iterated, so it acts as the 0 spot. 
     # Because we want to use the hash lable to iterate over the qubit, where 0 indicate the zero qubit, we add it on the index spot 0
     # In other words, the chain is supposed to count inverse 00, 10, 01, 11.
-    calib_chain = np.array([np.array([b,a]) for a in one_qubit_calibration_states for b in one_qubit_calibration_states])
     
+    
+    #Tensor together the measuremers from the masked hashed list
+    
+    
+    comb_list = np.array(list(product(one_qubit_calibration_states, repeat=n_qubit_subsystem)))[:,::-1]
+
     # Slice out the inputs such that each qubit ends up in the correct hash. 
-    input_list = calib_chain[:,hash_function]
+    hashed_list = comb_list[:,hash_function]
     # Tensor together all the sliced states, to create the set of calibration states
-    calib_states = np.array([reduce(np.kron,input) for input in input_list ])
-    
+    calib_states = np.array([reduce(np.kron,input) for input in hashed_list])
     return calib_states
 
 if __name__=="__main__":

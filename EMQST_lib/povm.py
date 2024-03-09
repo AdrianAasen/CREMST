@@ -298,7 +298,7 @@ class POVM():
     
     @classmethod
     def generate_Pauli_from_hash(cls,hash):
-        n_qubit_subsystem = len(np.unique(hash))
+        n_qubit_subsystem = np.max(hash) + 1
         n_qubits_total = len(hash)
         single_qubit_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(1)])
         
