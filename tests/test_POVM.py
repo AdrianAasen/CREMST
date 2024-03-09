@@ -47,9 +47,14 @@ class testPOVM(unittest.TestCase):
         comp = POVM.computational_basis_POVM(2)[0]
         comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
         pauli = POVM.generate_Pauli_POVM(2)
-        self.assertTrue(np.allclose(pauli[0].get_POVM(), comp_to_pauli[0].get_POVM()),"X rotation did not work for 2 qubits.")
-        self.assertTrue(np.allclose(pauli[4].get_POVM(), comp_to_pauli[1].get_POVM()),"Y rotation did not work for 2 qubits.")
-        self.assertTrue(np.allclose(pauli[8].get_POVM(), comp_to_pauli[2].get_POVM()),"Identity transfer did not work.")
+        for i in range(3**2):
+            self.assertTrue(np.allclose(pauli[i].get_POVM(), comp_to_pauli[i].get_POVM()),"X rotation did not work for 2 qubits.")
+        # 3 qubits
+        comp = POVM.computational_basis_POVM(3)[0]
+        comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
+        pauli = POVM.generate_Pauli_POVM(3)
+        for i in range(3**3):
+            self.assertTrue(np.allclose(pauli[i].get_POVM(), comp_to_pauli[i].get_POVM()),"X rotation did not work for 2 qubits.")
         
     def test_hashed_POVM(self):
         test_hash = np.array([1,0])

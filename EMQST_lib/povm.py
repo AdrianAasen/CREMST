@@ -282,24 +282,28 @@ class POVM():
     @classmethod 
     def generate_Pauli_from_comp(cls,comp_POVM):
         """
-        This function takes in a single qubit computational basis and turns it into a single qubit Pauli-6 basis. 
-        
+        This function takes in a single qubit computational basis and turns it into a single qubit Pauli-6 basis.   
         """
         comp_list = comp_POVM.get_POVM()
         n_qubits = int(np.log2(len(comp_list[0])))
         sigma_x = np.array([[0,1], [1,0]])
         sigma_y = np.array([[0,-1j], [1j,0]])
-        Rot_to_x = reduce(np.kron,chain(repeat(sp.linalg.expm(-1j * np.pi/4 * sigma_y), n_qubits)))
-        Rot_to_y = reduce(np.kron,chain(repeat(sp.linalg.expm(-1j * (-np.pi/4) * sigma_x), n_qubits)))
-        new_x = np.einsum('ij,njk,kl->nil', Rot_to_x, comp_list, Rot_to_x.conj().T)
-        new_y = np.einsum('ij,njk,kl->nil', Rot_to_y, comp_list, Rot_to_y.conj().T)
-        return np.array([cls(new_x),cls(new_y),cls(comp_list)])
+        rot_to_x = sp.linalg.expm(-1j * np.pi/4 * sigma_y)
+        rot_to_y = sp.linalg.expm(-1j * (-np.pi/4) * sigma_x)
+        rot_list = np.array([rot_to_x,rot_to_y,np.eye(2)])
+        comb_list = np.array(list(product(rot_list, repeat=n_qubits)))
+        tensored_rot = np.array([reduce(np.kron,comb) for comb in comb_list])
+        new_mesh = np.einsum('nij,mjk,nkl->nmil',tensored_rot,comp_list,np.transpose(tensored_rot,axes = [0,2,1]).conj())
+        return np.array([POVM(povm) for povm in new_mesh ])
         
     
     @classmethod
     def generate_Pauli_from_hash(cls,hash):
+        """
+        Takes in a hasing function and generates the corresponding Pauli-6 measurement sequece for the hash. 
+        """
         n_qubit_subsystem = np.max(hash) + 1
-        n_qubits_total = len(hash)
+        #n_qubits_total = len(hash)
         single_qubit_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(1)])
         
         # Create all combinations of single qubit measurements to be masked by the hash
@@ -308,6 +312,6 @@ class POVM():
         hashed_list = comb_list[:,hash]
         #Tensor together the measuremers from the masked hashed list
         toal_POVM_list = np.array([reduce(np.kron,input) for input in hashed_list])
-        #print(toal_POVM_list)
+
         return np.array([cls(povm) for povm in toal_POVM_list])
         
