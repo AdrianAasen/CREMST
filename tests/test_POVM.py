@@ -94,5 +94,35 @@ class testPOVM(unittest.TestCase):
         
         
         
+    # def test_noise_POVM(self):
+    #     np.random.seed(0)
+    #     POVMset=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)#np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)#
+    #     iniPOVM=POVM(POVMset,np.array([[[0,0],[np.pi,0]]]))
+    #     bool_exp_meaurement=False
+    #     expDict={}
+    #     calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
+    #                         [[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]],
+    #                         [[0,0]],[[np.pi,0]]])
+    #     calibration_states=np.array([sf.get_density_matrix_from_angles(angle) for angle in calibration_angles])
+
+
+
+    #     nShots=10**4
+    #     start = time.time()
+
+    #     for i in range(4):
+    #         noise_mode=i+1
+    #         noisy_POVM=POVM.generate_noisy_POVM(iniPOVM,noise_mode)
+    #         #print(noisy_POVM.get_POVM())
+    #         corrPOVM=dt.device_tomography(1, nShots, noisy_POVM,calibration_states,bool_exp_meaurement,expDict,iniPOVM)
+    #         #print(corrPOVM.get_POVM())
+    #         print(f'Distance between reconstructed and noisy POVM: {sf.POVM_distance(corrPOVM.get_POVM(),noisy_POVM.get_POVM())}')
+    #         #print(1/np.sqrt(nShots))
+    #         #print(np.allclose(corrPOVM.get_POVM(),noisy_POVM.get_POVM(),atol=1/np.sqrt(nShots)))
+    #         assert np.allclose(corrPOVM.get_POVM(),noisy_POVM.get_POVM(),atol=1/np.sqrt(nShots))
+        
+        
+        
+        
 if __name__ == '__main__':
     unittest.main()
