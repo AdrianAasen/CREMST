@@ -26,66 +26,126 @@ class POVM():
     def __init__(self,POVM_list,angle_representation=np.array([])):
         self.POVM_list=POVM_list
         self.angle_representation=angle_representation
-        #self.POVM_dimension=len(POVM_list[-1])
-        #self.n_elemetns=len(POVM_list)
 
     
-    
     @classmethod
-    def POVM_from_angles(cls,angles):
+    def POVM_from_angles(cls, angles):
         """
         Creates a POVM class based on a set of angles defining spin measurements. 
-        angles: ndarray n x 2 (n qubits, 2 angles [theta,phi])
-                angles defines what is considere the 'up' outcome. 
-        return POVM class. 
+
+        Args:
+            angles (ndarray): n x 2 array of angles [theta, phi] (n qubits, 2 angles)
+                angles defines what is considered the 'up' outcome. 
+
+        Returns:
+            POVM: An instance of the POVM class. 
         """
         
-        angle_representation=np.zeros((2**len(angles),len(angles),2))
+        angle_representation = np.zeros((2**len(angles), len(angles), 2))
 
-        opposite_angles=sf.get_opposing_angles(angles)
-        angle_Matrix=np.array([angles,opposite_angles])
-        projector_up=np.zeros((len(angles),2,2),dtype=complex)
-        projector_down=np.zeros((len(angles),2,2),dtype=complex)
-        #print(opposite_angles)
+        opposite_angles = sf.get_opposing_angles(angles)
+        angle_Matrix = np.array([angles, opposite_angles])
+        projector_up = np.zeros((len(angles), 2, 2), dtype=complex)
+        projector_down = np.zeros((len(angles), 2, 2), dtype=complex)
+
         for i in range(len(angles)):
-            projector_up[i]=sf.get_projector_from_angles(np.array([angles[i]]))
-            projector_down[i]=sf.get_projector_from_angles(np.array([opposite_angles[i]]))
-        projector_matrix=np.array([projector_up,projector_down]) # creates matrix with [up/down index, qubit positition, 2x2 matrix]
-        #print(projector_matrix)
-        POVM_list=np.zeros((2**len(angles),2**len(angles),2**len(angles)),dtype=complex)
-        M_temp=1
-        for i in range (2**len(angles)): # iterates over all possible bitstrings 
-            bit_string=bin(i)[2:].zfill(len(angles)) # Creates binary string of all possible permutations
-            M_temp=1
-            for j in range (len(angles)):
-                M_temp=np.kron(M_temp,projector_matrix[int(bit_string[j]),j])
-                angle_representation[i,j]=angle_Matrix[int(bit_string[j]),j]
-            POVM_list[i]=M_temp
+            projector_up[i] = sf.get_projector_from_angles(np.array([angles[i]]))
+            projector_down[i] = sf.get_projector_from_angles(np.array([opposite_angles[i]]))
             
-            #print(M_temp)
-        return cls(POVM_list,angle_representation)
+            # Creates matrix with [up/down index, qubit positition, 2x2 matrix]
+        projector_matrix = np.array([projector_up, projector_down])
+        POVM_list = np.zeros((2**len(angles), 2**len(angles), 2**len(angles)), dtype=complex)
+        M_temp = 1
+
+        for i in range(2**len(angles)): # iterates over all possible bitstrings
+            bit_string = bin(i)[2:].zfill(len(angles)) # Creates binary string of all possible permutations
+            M_temp = 1
+
+            for j in range(len(angles)):
+                M_temp = np.kron(M_temp, projector_matrix[int(bit_string[j]), j])
+                angle_representation[i, j] = angle_Matrix[int(bit_string[j]), j]
+
+            POVM_list[i] = M_temp
+
+        return cls(POVM_list, angle_representation)
+    
+    # @classmethod
+    # def POVM_from_angles(cls,angles):
+    #     """
+    #     Creates a POVM class based on a set of angles defining spin measurements. 
+    #     angles: ndarray n x 2 (n qubits, 2 angles [theta,phi])
+    #             angles defines what is considere the 'up' outcome. 
+    #     return POVM class. 
+    #     """
+        
+    #     angle_representation=np.zeros((2**len(angles),len(angles),2))
+
+    #     opposite_angles=sf.get_opposing_angles(angles)
+    #     angle_Matrix=np.array([angles,opposite_angles])
+    #     projector_up=np.zeros((len(angles),2,2),dtype=complex)
+    #     projector_down=np.zeros((len(angles),2,2),dtype=complex)
+    #     #print(opposite_angles)
+    #     for i in range(len(angles)):
+    #         projector_up[i]=sf.get_projector_from_angles(np.array([angles[i]]))
+    #         projector_down[i]=sf.get_projector_from_angles(np.array([opposite_angles[i]]))
+    #     projector_matrix=np.array([projector_up,projector_down]) # creates matrix with [up/down index, qubit positition, 2x2 matrix]
+    #     #print(projector_matrix)
+    #     POVM_list=np.zeros((2**len(angles),2**len(angles),2**len(angles)),dtype=complex)
+    #     M_temp=1
+    #     for i in range (2**len(angles)): # iterates over all possible bitstrings 
+    #         bit_string=bin(i)[2:].zfill(len(angles)) # Creates binary string of all possible permutations
+    #         M_temp=1
+    #         for j in range (len(angles)):
+    #             M_temp=np.kron(M_temp,projector_matrix[int(bit_string[j]),j])
+    #             angle_representation[i,j]=angle_Matrix[int(bit_string[j]),j]
+    #         POVM_list[i]=M_temp
+
+    #     return cls(POVM_list,angle_representation)
     
     @classmethod
-    def generate_Pauli_POVM(cls,n_qubits):
+    def generate_Pauli_POVM(cls, n_qubits):
         """
-        Recursivly create higher qubit POVMs
-        Returns a list of 3 spin POVMs along x, y and z axis. 
+        Recursively create higher qubit POVMs.
+        
+        Input:
+            n_qubits: The number of qubits.
+        
+        Returns:
+            A list of 3 spin POVMs along the x, y, and z axis.
         """
-        POVM_set_X=1/2*np.array([[[1,1],[1,1]],[[1,-1],[-1,1]]],dtype=complex)
-        POVM_set_Y=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)
-        POVM_set_Z=np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)
-        #POVM_matrix_lsit=np.array([POVM_set_X,POVM_set_Y,POVM_set_Z])
-        POVM_X=cls(POVM_set_X,np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]]]))
-        POVM_Y=cls(POVM_set_Y,np.array([[[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]]]))
-        POVM_Z=cls(POVM_set_Z,np.array([[[0,0]],[[np.pi,0]]]))
-        POVM_single=np.array([POVM_X,POVM_Y,POVM_Z])
-        POVM_list=np.copy(POVM_single)
+        POVM_set_X = 1/2 * np.array([[[1,1],[1,1]],[[1,-1],[-1,1]]], dtype=complex)
+        POVM_set_Y = 1/2 * np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]], dtype=complex)
+        POVM_set_Z = np.array([[[1,0],[0,0]],[[0,0],[0,1]]], dtype=complex)
+        
+        POVM_X = cls(POVM_set_X, np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]]]))
+        POVM_Y = cls(POVM_set_Y, np.array([[[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]]]))
+        POVM_Z = cls(POVM_set_Z, np.array([[[0,0]],[[np.pi,0]]]))
+        
+        POVM_single = np.array([POVM_X, POVM_Y, POVM_Z])
+        POVM_list = np.copy(POVM_single)
         
         for _ in range(n_qubits - 1):
-            POVM_list=POVM.tensor_POVM(POVM_list,POVM_single)
+            POVM_list = POVM.tensor_POVM(POVM_list, POVM_single)
             
         return POVM_list
     
+    @classmethod
+    def tensor_POVM(cls, POVM_1, POVM_2):
+        """
+        Tensor product of two POVMs. This method also tensor together the angle representaiton of the POVMs.
+
+        Args:
+            POVM_1 (list): List of POVM objects.
+            POVM_2 (list): List of POVM objects.
+
+        Returns:
+            np.ndarray: Array of tensor product POVMs.
+
+        """
+        POVM_list = np.array([cls(np.array([np.kron(a, b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
+                                np.array([np.concatenate((angle_a, angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()]))
+                                for POVM_a in POVM_1 for POVM_b in POVM_2])
+        return POVM_list
     @classmethod
     def tensor_POVM(cls,POVM_1,POVM_2):
         POVM_list=np.array([cls(np.array([np.kron(a,b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
@@ -97,43 +157,87 @@ class POVM():
     @classmethod
     def empty_POVM(cls):
         """
-        Returns an empty class
+        Returns an empty class.
+
+        This method creates and returns an empty instance of the POVM class.
+
+        Returns:
+        - An empty instance of the POVM class.
+
         """
-        return cls(np.array([]),np.array([]))
-    
+        return cls(np.array([]), np.array([]))
+
     @classmethod
-    def computational_basis_POVM(cls,n_qubits=1):
+    def computational_basis_POVM(cls, n_qubits=1):
         """
-        Returns z-basis POVM. 
+        Returns the z-basis POVM for the specified number of qubits.
+
+        Parameters:
+        - n_qubits (optional): The number of qubits. Default is 1.
+
+        Returns:
+        - return_POVM: The z-basis POVM.
+
         """
         # Set up single qubit
         single_qubit = np.array([cls(np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex),np.array([[[0,0]],[[np.pi,0]]]))])
-        mesh  = single_qubit
+        return_POVM  = single_qubit
         for _ in range(n_qubits-1):
-            mesh = POVM.tensor_POVM(mesh,single_qubit)
+            return_POVM = POVM.tensor_POVM(return_POVM,single_qubit)
         
-        return mesh
+        return return_POVM
 
     
-    def get_histogram(self,rho):
+    def get_histogram(self, rho):
         """
-        Takes in state of arbitrary dimension.
+        Takes in state of same dimension as the POVM.
         Returns histogram for all probabilities of outcomes defined by POVM.
         State and POVM dimension must be compatible. 
+
+        Parameters:
+        - rho: numpy.ndarray
+            The state of arbitrary dimension.
+
+        Returns:
+        - numpy.ndarray
+            The histogram of probabilities for all outcomes defined by POVM.
         """
-        return np.real(np.einsum('ijk,kj->i',self.POVM_list,rho))
+        return np.real(np.einsum('ijk,kj->i', self.POVM_list, rho))
     
     def get_POVM(self):
-        return np.copy(self.POVM_list)
+            """
+            Returns a copy of the POVM list.
+
+            Returns:
+                numpy.ndarray: A copy of the POVM list.
+            """
+            return np.copy(self.POVM_list)
     
     def get_angles(self):
-        return np.copy(self.angle_representation)
+            """
+            Returns a copy of the angle representation of the POVM.
+
+            Returns:
+                numpy.ndarray: A copy of the angle representation of the POVM.
+            """
+            return np.copy(self.angle_representation)
 
     @classmethod
-    def depolarized_POVM(cls,base_POVM,strenght=0.1):
-        base_POVM_list=base_POVM.get_POVM()
-        dim=int(len(base_POVM_list[0]))
-        new_list=strenght/dim*np.eye(dim) + (1-strenght)*base_POVM_list
+    def depolarized_POVM(cls, base_POVM, strength=0.1):
+        """
+        Creates a depolarized POVM by combining a base POVM with a depolarization strength.
+
+        Args:
+            base_POVM (POVM): The base POVM to be depolarized.
+            strength (float): The depolarization strength. Default is 0.1.
+
+        Returns:
+            POVM: The depolarized POVM.
+
+        """
+        base_POVM_list = base_POVM.get_POVM()
+        dim = int(len(base_POVM_list[0]))
+        new_list = strength/dim * np.eye(dim) + (1-strength) * base_POVM_list
         return cls(new_list)
 
     @classmethod
@@ -280,30 +384,54 @@ class POVM():
         return cls(POVM_list)
     
     @classmethod 
-    def generate_Pauli_from_comp(cls,comp_POVM):
+    def generate_Pauli_from_comp(cls, comp_POVM):
         """
-        This function takes in a single qubit computational basis and turns it into a single qubit Pauli-6 basis.   
+        This function takes in a computational basis (could be reconstructed) and turns it into a single qubit Pauli-6 basis
+        by applying all possible rotations.
+
+        Input:
+            - comp_POVM: single computation-basis POVM object.
+
+        Returns:
+            - ndarray of rotated computational POVMs in the order XX, XY, XZ, YX ...
         """
         comp_list = comp_POVM.get_POVM()
-        n_qubits = int(np.log2(len(comp_list[0])))
+        # Finds # qubits from dimension
+        n_qubits = int(np.log2(len(comp_list[0]))) 
         sigma_x = np.array([[0,1], [1,0]])
         sigma_y = np.array([[0,-1j], [1j,0]])
         rot_to_x = sp.linalg.expm(-1j * np.pi/4 * sigma_y)
         rot_to_y = sp.linalg.expm(-1j * (-np.pi/4) * sigma_x)
-        rot_list = np.array([rot_to_x,rot_to_y,np.eye(2)])
-        comb_list = np.array(list(product(rot_list, repeat=n_qubits)))
-        tensored_rot = np.array([reduce(np.kron,comb) for comb in comb_list])
-        new_mesh = np.einsum('nij,mjk,nkl->nmil',tensored_rot,comp_list,np.transpose(tensored_rot,axes = [0,2,1]).conj())
+        
+        # Create list of single qubit rotations from comp to Pauli
+        rot_list = np.array([rot_to_x, rot_to_y, np.eye(2)]) 
+        
+        # Creates all possible combinations of the single qubit list
+        comb_list = np.array(list(product(rot_list, repeat=n_qubits))) 
+        
+        # Tensors together all elements in the list
+        tensored_rot = np.array([reduce(np.kron, comb) for comb in comb_list]) 
+        
+        # Applies the rotations to the comp basis.
+        new_mesh = np.einsum('nij, mjk, nkl->nmil', tensored_rot, comp_list, np.transpose(tensored_rot, axes=[0,2,1]).conj()) 
         return np.array([POVM(povm) for povm in new_mesh ])
         
     
     @classmethod
-    def generate_Pauli_from_hash(cls,hash):
+    def generate_Pauli_from_hash(cls, hash, n_symbols):
         """
-        Takes in a hasing function and generates the corresponding Pauli-6 measurement sequece for the hash. 
+        Takes in a single hashing function and generates the corresponding Pauli-6 measurement sequece for the hash. 
+        E.g Input hash [1,0,0,1] would yield a output POVM array of size 9 (with two types the hash has 9 unique measurement (as for 2 qubits)),
+        where each POVM element is a 2^4 x 2^4 matrix. 
+        
+        Input:
+            hash = single numpy array of the size of the 
+            n_sybols = number of unique symbols in the hash
+            
+        Return:
+            numpy array of POVM elements corresponding to the hashed function
         """
-        n_qubit_subsystem = np.max(hash) + 1
-        #n_qubits_total = len(hash)
+        n_qubit_subsystem = n_symbols # Number of unique symbols in the hash
         single_qubit_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(1)])
         
         # Create all combinations of single qubit measurements to be masked by the hash

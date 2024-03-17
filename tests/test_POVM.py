@@ -58,11 +58,12 @@ class testPOVM(unittest.TestCase):
         
     def test_hashed_POVM(self):
         test_hash = np.array([1,0])
+        n_hash_sybols = 2
         pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(2)])
-        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash, n_hash_sybols)])
         self.assertTrue(np.all(pauli == povm), "Standard 2 qubit assignment failed.")
         test_hash = np.array([0,1])
-        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash, n_hash_sybols)])
         # Checks if the inverted order mathces (Write down xx xy etc..)
         self.assertTrue(np.all(pauli[1] == povm[3]))
         self.assertTrue(np.all(pauli[2] == povm[6]))
@@ -73,7 +74,7 @@ class testPOVM(unittest.TestCase):
         # Test long hash
         long_pauli = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(4)])
         test_hash = np.array([1,0,1,0])
-        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash, n_hash_sybols)])
         self.assertTrue(np.all(long_pauli[0] == povm[0]))
         self.assertTrue(np.all(long_pauli[10] == povm[1]))
         self.assertTrue(np.all(long_pauli[20] == povm[2]))
@@ -82,7 +83,8 @@ class testPOVM(unittest.TestCase):
 
     # Test hash with more than two 2 lower qubits dims
         test_hash = np.array([1,0,1,2])
-        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash)])
+        n_hash_sybols = 3
+        povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_from_hash(test_hash, n_hash_sybols)])
         self.assertTrue(np.all(long_pauli[0] == povm[0]))
         self.assertTrue(np.all(long_pauli[18] == povm[2]))
         self.assertTrue(np.all(long_pauli[30] == povm[3]))
