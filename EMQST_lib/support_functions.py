@@ -58,37 +58,53 @@ def get_angles_from_density_matrix_single_qubit(rho):
     Bloch_vector=np.real(np.array([np.trace(X@rho),np.trace(Y@rho),np.trace(Z@rho)]))
     return np.array([[np.arccos(Bloch_vector[2]),np.arctan2(Bloch_vector[1], Bloch_vector[0])]])
 
+
 def get_opposing_angles(angles):
-    """"
+    """
     Takes in a set of angles and returns the angles
     anti-parallel to the vector created by input angles.
+
+    Parameters:
+    angles (numpy.ndarray): Array of shape (N, 2) containing the input angles in radians.
+
+    Returns:
+    numpy.ndarray: Array of shape (N, 2) containing the anti-parallel angles in radians.
     """
 
-    anti_angles=np.zeros_like(angles,dtype=float)
-    for i in range (len(angles)):
-        x = np.sin(angles[i,0]) * np.cos(angles[i,1])
-        y = np.sin(angles[i,0]) * np.sin(angles[i,1])
-        z = np.cos(angles[i,0])
-        Bloch_vector=np.array([-x,-y,-z])
+    # anti_angles = np.zeros_like(angles, dtype=float)
+    # for i in range(len(angles)):
+    #     x = np.sin(angles[i, 0]) * np.cos(angles[i, 1])
+    #     y = np.sin(angles[i, 0]) * np.sin(angles[i, 1])
+    #     z = np.cos(angles[i, 0])
+    #     Bloch_vector = np.array([-x, -y, -z])
         
-        anti_angles[i]=np.array([[np.arccos(Bloch_vector[2]),np.arctan2(Bloch_vector[1], Bloch_vector[0])]])
+    #     anti_angles[i] = np.array([[np.arccos(Bloch_vector[2]), np.arctan2(Bloch_vector[1], Bloch_vector[0])]])
+    anti_angles = np.array([[np.pi - angle[0], (np.pi + angle[1]) % (2 * np.pi)] for angle in angles])
     return anti_angles
-
 
 
 
 #print 'random positive semi-define matrix for today is', B
 def generate_random_Hilbert_Schmidt_mixed_state(nQubit):
     """ 
-    Generates random mixed state from the Hilbert-Schmidt metric.
-    """
-    # Generate a random complex square matrix with gaussian random numbers.
-    A=np.random.normal(size=(4**nQubit)) + np.random.normal(size=(4**nQubit))*1j
-    A=np.reshape(A,(2**nQubit,2**nQubit))
+    Generates a random mixed state from the Hilbert-Schmidt metric.
 
-    # Project the random matrix onto positive semi-definite space of density matrices. 
-    randomRho=A@A.conj().T/(np.trace(A@A.conj().T))
+    Parameters:
+    nQubit (int): The number of qubits.
+
+    Returns:
+    randomRho (ndarray): The randomly generated mixed state.
+
+    """
+    # Generate a random complex square matrix with Gaussian random numbers.
+    A = np.random.normal(size=(4**nQubit)) + np.random.normal(size=(4**nQubit))*1j
+    A = np.reshape(A, (2**nQubit, 2**nQubit))
+
+    # Project the random matrix onto the positive semi-definite space of density matrices. 
+    randomRho = A @ A.conj().T / (np.trace(A @ A.conj().T))
     return randomRho
+
+
 
 
 def generate_random_Bures_mixed_state(nQubit):
@@ -167,8 +183,22 @@ def Pauli_expectation_value(rho):
     return np.real(np.einsum('ij,kji->k',rho,np.array([X,Y,Z])))
 
 
-def power_law(x,a,b):
-    return a*x**(b)
+def power_law(x, a, b):
+    """
+    Calculates the power law function.
+
+    Parameters:
+    x (float): The input value.
+    a (float): The coefficient.
+    b (float): The exponent.
+
+    Returns:
+    float: The result of the power law function.
+
+    """
+    # Calculate the power law function
+    return a * x ** b
+
 
 
 def get_cailibration_states(n_qubits, calib = None):
@@ -260,13 +290,13 @@ def initialize_estimation(exp_dictionary):
 
 
 
-def downconvert_data(qubit_index, outcomes):
+def downconvert_outcomes(qubit_index, outcomes):
     """
     Downconverts data to a given qubit list. 
     Input: 
     qubit_index: List of qubit indecies to keep, order does not matter. [n] 
     outcomes: Measurement outcomes. Could be in any shape. 
-    return: the downconverted data.
+    return: the downconverted outcomes.
     """
     qubit_index = np.sort(qubit_index) # Sort index such that input order does not matter
     
@@ -281,8 +311,44 @@ def downconvert_data(qubit_index, outcomes):
     return donconverted_outcomes
 
 
+def downconvert_frequencies(subsystem_index,outcome_frequencies):
+    """
+    Takes in the outcome frequency measurement of the whole system and a set of qubit subsystem indices,
+    and return the downconverted frequencies.
+    Here the row structure matters, so outcome frequencies should be flattend to be m x n_outcomes. One can reshape back to original structure afterwards.
+    Input:
+        - system_index ndarray [n_subsystem_qubits]
+        - outcome_frequencies ndarray n x 2**n_qubits_total
+    Return:
+        - The downconverted frequencies ndarray n x 2**len(subsystem_index)
+    """
+    # Check how many qubits are in the total system
+    n_qubits_total = int(np.log2(len(outcome_frequencies[0])))
+    
+    # Define the axis that need to be traced out
+    # Find the indices that are not present int he above, and invert the order (such that qubit 0 is axis n_qubit_total). 
+    traced_indices = tuple(n_qubits_total-1 - get_traced_out_indicies(subsystem_index,n_qubits_total))
+    
+    # Define the subsystem shape
+    reshape_tuple = (2,)*n_qubits_total
 
-def generate_calibration_states_from_hash(hash_function,one_qubit_calibration_states):
+    # Sum over all cases where the subsystem indecies are the same, then reshape to be in the same shape as original list. 
+    downconverted_frequencies = np.array([np.sum(measurement.reshape(reshape_tuple), axis = traced_indices).reshape(2**len(subsystem_index)) for measurement in outcome_frequencies])
+    return downconverted_frequencies
+
+
+def get_traced_out_indicies(index_list,n_qubits_total):
+    """
+    Takes in a list of qubits of intrest, and returns the list of all qubit indices to trace over.
+    """
+    # Creates a full list of all qubits
+    full_list = np.arange(n_qubits_total)
+    # Checks which qubits qubits are not present in original list
+    traced_indices = np.setdiff1d(full_list,index_list)
+    #print(traced_indices)
+    return np.sort(traced_indices)
+
+def generate_calibration_states_from_hash(hash_function, one_qubit_calibration_states, n_hash_symbols):
     """
     Creates calibration states for a given a single hash function.
     Currently only works for two symbol hash.
@@ -297,18 +363,15 @@ def generate_calibration_states_from_hash(hash_function,one_qubit_calibration_st
     Return list of calibration states of size of hash_mask.
     
     """
-    n_qubit_subsystem = np.max(hash_function) + 1
+    #n_qubit_subsystem = np.max(hash_function) + 1
     
     # First step is to create a list of all possible calibration states
     # Note in list comprehension, the second last "for" is theone that is the inner-most iterated, so it acts as the 0 spot. 
     # Because we want to use the hash lable to iterate over the qubit, where 0 indicate the zero qubit, we add it on the index spot 0
     # In other words, the chain is supposed to count inverse 00, 10, 01, 11.
     
-    
     #Tensor together the measuremers from the masked hashed list
-    
-    
-    comb_list = np.array(list(product(one_qubit_calibration_states, repeat=n_qubit_subsystem)))[:,::-1]
+    comb_list = np.array(list(product(one_qubit_calibration_states, repeat = n_hash_symbols)))[:,::-1]
 
     # Slice out the inputs such that each qubit ends up in the correct hash. 
     hashed_list = comb_list[:,hash_function]
