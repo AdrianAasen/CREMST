@@ -6,7 +6,40 @@ from EMQST_lib import measurement_functions as mf
 from EMQST_lib.povm import POVM
 from EMQST_lib import support_functions as sf
 
-class TestMesh(unittest.TestCase):
+
+class TestOutcomesToFrequencies(unittest.TestCase):
+    def test_outcomes_to_frequencies(self):
+        # Test case 1: Single outcome
+        outcomes = np.array([1])
+        min_length = 3
+        expected_result = np.array([0, 1, 0])
+        self.assertTrue(np.all(mf.outcomes_to_frequencies(outcomes, min_length) == expected_result))
+
+        # Test case 2: Multiple outcomes with repetitions
+        outcomes = np.array([1, 2, 1, 3, 2, 2])
+        min_length = 4
+        expected_result = np.array([0, 2, 3, 1])
+        self.assertTrue(np.all(mf.outcomes_to_frequencies(outcomes, min_length) == expected_result))
+
+        # Test case 3: All outcomes present
+        outcomes = np.array([0, 1, 2])
+        min_length = 3
+        expected_result = np.array([1, 1, 1])
+        self.assertTrue(np.all(mf.outcomes_to_frequencies(outcomes, min_length) == expected_result))
+
+        # Test case 4: No outcomes
+        outcomes = np.array([])
+        min_length = 2
+        expected_result = np.array([0, 0])
+        self.assertTrue(np.all(mf.outcomes_to_frequencies(outcomes, min_length) == expected_result))
+
+        # Test case 5: Empty array
+        outcomes = np.array([])
+        min_length = 0
+        expected_result = np.array([])
+        self.assertTrue(np.all(mf.outcomes_to_frequencies(outcomes, min_length) == expected_result))
+        
+        
     def test_simulated_measurement(self):
         rho = np.array([[1,0],[0,0]])
         n_shots = 100
@@ -49,11 +82,11 @@ class TestMesh(unittest.TestCase):
         rho = np.array([[1,0],[0,0]])
         
         outcome_frequencies = mf.simulated_measurement(n_shots,comp_povm,rho,return_frequencies)
-        self.assertEqual(outcome_frequencies,np.array([n_shots]))
+        self.assertTrue(np.all(outcome_frequencies == np.array([n_shots,0])))
         
         rho = np.array([[0,0],[0,1]])
         outcome_frequencies = mf.simulated_measurement(n_shots,comp_povm,rho,return_frequencies)
-        self.assertEqual(outcome_frequencies,np.array([n_shots]))
+        self.assertTrue(np.all(outcome_frequencies == np.array([0,n_shots])))
         
         np.random.seed(0) # Set random seed. 
         rho = 1/2 * np.array([[1,1],[1,1]])
@@ -81,4 +114,19 @@ class TestMesh(unittest.TestCase):
         [0.517672, 0.69213,  0.281892, 0.463051 ,0.199737, 0.423756, 0.611773 ,0.81554,
         0.833552, 0.502384],
         [0.220338, 0.270147, 0.088223, 0.003455, 0.10485,  0.767328, 0.218644, 0.699056,
-        0.788635, 0.111963]])))
+        0.788635, 0.111963]])),'Average value for single qubit Pauli-6 was not measured correctly.')
+        
+        
+    def test_higher_qubit_pauli_6_measurements(self):
+        np.random.seed(0)
+        n_qubits=6
+        n_shots = 100
+        povm_mesh=POVM.generate_Pauli_POVM(n_qubits)
+        rho = sf.generate_random_pure_state(n_qubits)
+        results = np.array([mf.simulated_measurement(n_shots,povm,rho) for povm in povm_mesh])
+        self.assertTrue(np.all(results.shape == (3**n_qubits,100)), 'Pauli-6 measurements not generated correctly for 6 qubits.')
+        
+        
+
+if __name__ == '__main__':
+    unittest.main()

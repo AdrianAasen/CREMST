@@ -3,7 +3,7 @@ from EMQST_lib import support_functions as sf
 
 
 
-def measurement(n_shots,povm,rho,bool_exp_measurements = False,exp_dictionary = None,state_angle_representation = None, custom_measurement_function = None, return_frequencies = False):
+def measurement(n_shots, povm, rho, bool_exp_measurements = False, exp_dictionary = None, state_angle_representation = None, custom_measurement_function = None, return_frequencies = False):
     """
     Measurment settings and selects either experimental or simulated measurements. 
     For experimental measurements some settings are converted to angle arrays. 
@@ -31,7 +31,7 @@ def simulated_measurement(n_shots,povm,rho, return_frequencies = False):
 
     # Find probabilites for different outcomes
     histogram = povm.get_histogram(rho)
-    
+
     # Create cumulative sum
     cumulative_sum = np.cumsum(histogram)
 
@@ -41,9 +41,22 @@ def simulated_measurement(n_shots,povm,rho, return_frequencies = False):
     # Return index list of outcomes 
     outcome_list = np.searchsorted(cumulative_sum, r)
     if return_frequencies:
-        _, frequncies = np.unique(outcome_list, return_counts = True)
-        return frequncies
+            
+        min_unique_outcomes = len(histogram)
+        frequencies = outcomes_to_frequencies(outcome_list,min_unique_outcomes)
+        return frequencies
     else:    
         return outcome_list
 
+def outcomes_to_frequencies(outcomes,min_lenght):
+    # Count the occurrences of each outcome
+    unique_outcomes, frequencies = np.unique(outcomes, return_counts=True)
 
+
+    if len(unique_outcomes) < min_lenght:
+        # Pad frequencies where unique_elements_to_contain does not appear in unique_found
+        missing_outcomes = np.setdiff1d(np.arange(min_lenght), unique_outcomes)
+        # Insert where we have the missing outcome in the list (loop to keep )
+        for outcome in missing_outcomes:
+            frequencies = np.insert(frequencies, outcome, 0)
+    return frequencies
