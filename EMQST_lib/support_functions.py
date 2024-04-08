@@ -388,7 +388,7 @@ def instruction_equivalence(instruction, possible_instructions, instruction_equi
     """
     # Create instruction dictionary
     instruction_dict = dict(zip(possible_instructions, instruction_equivalence))
-    #print(instruction_dict)
+    #print(instruction)
     new_instruction = np.array([instruction_dict[element] for element in instruction])
     #print(new_instruction)
     return new_instruction

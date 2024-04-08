@@ -146,12 +146,12 @@ class POVM():
                                 np.array([np.concatenate((angle_a, angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()]))
                                 for POVM_a in POVM_1 for POVM_b in POVM_2])
         return POVM_list
-    @classmethod
-    def tensor_POVM(cls,POVM_1,POVM_2):
-        POVM_list=np.array([cls(np.array([np.kron(a,b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
-                                np.array([np.concatenate((angle_a,angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()] ))
-                             for POVM_a in POVM_1 for POVM_b in POVM_2])
-        return POVM_list
+    # @classmethod
+    # def tensor_POVM(cls,POVM_1,POVM_2):
+    #     POVM_list=np.array([cls(np.array([np.kron(a,b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
+    #                             np.array([np.concatenate((angle_a,angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()] ))
+    #                          for POVM_a in POVM_1 for POVM_b in POVM_2])
+    #     return POVM_list
         
     
     @classmethod
@@ -386,8 +386,8 @@ class POVM():
     @classmethod 
     def generate_Pauli_from_comp(cls, comp_POVM):
         """
-        This function takes in a computational basis (could be reconstructed) and turns it into a single qubit Pauli-6 basis
-        by applying all possible rotations.
+        This function takes in a computational basis (could be reconstructed) and turns it a Pauli-6 basis
+        by applying all possible rotations. This function scales exponentially. 
 
         Input:
             - comp_POVM: single computation-basis POVM object.
@@ -425,7 +425,7 @@ class POVM():
         where each POVM element is a 2^4 x 2^4 matrix. 
         
         Input:
-            hash = single numpy array of the size of the 
+            hash = single numpy array of the size of the qubit system
             n_sybols = number of unique symbols in the hash
             
         Return:
@@ -438,7 +438,7 @@ class POVM():
         # The final element is to reverse the order such that the left most entire is the left most qubit (in binary counting)
         comb_list = np.array(list(product(single_qubit_pauli, repeat=n_qubit_subsystem)))[:,::-1]
         hashed_list = comb_list[:,hash]
-        #Tensor together the measuremers from the masked hashed list
+        # Tensor together the measuremers from the masked hashed list
         toal_POVM_list = np.array([reduce(np.kron,input) for input in hashed_list])
 
         return np.array([cls(povm) for povm in toal_POVM_list])
