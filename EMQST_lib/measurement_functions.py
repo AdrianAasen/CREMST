@@ -60,3 +60,26 @@ def outcomes_to_frequencies(outcomes,min_lenght):
         for outcome in missing_outcomes:
             frequencies = np.insert(frequencies, outcome, 0)
     return frequencies
+
+def measure_separable_state(n_shots, povm_array, rho_array):
+    """
+    Takes in a list of single qubit states, a list of single qubit POVMs, and the number of shots.
+    Returns a list of outcomes for each qubit. Each measurement is sampled independently for each qubit.
+    This function is designed to be used for large system sizes.
+
+    Parameters:
+    - n_shots (int): The number of shots for each measurement.
+    - povm_list (ndarray): A numpy array of single qubit POVMs.
+    - rho_list (ndarray): A numpy array of single qubit states.
+
+    Returns:
+    - outcomes (ndarray): A numpy array of shape (n_shots, n_qubits) containing the outcomes for each qubit.
+    """
+    
+    n_qubits = len(rho_array)
+    outcomes_temp = np.array([simulated_measurement(n_shots, povm_array[i], rho_array[i]) for i in range(n_qubits)])
+    # Change axis such that order matches what is expected from experiments.
+    outcomes = np.moveaxis(outcomes_temp, 0, -1)
+    return outcomes
+
+

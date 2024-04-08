@@ -290,25 +290,45 @@ def initialize_estimation(exp_dictionary):
 
 
 
-def downconvert_outcomes(qubit_index, outcomes):
+def trace_out(qubit_to_keep_labels, qubit_array):
     """
-    Downconverts data to a given qubit list. 
-    Input: 
-    qubit_index: List of qubit indecies to keep, order does not matter. [n] 
-    outcomes: Measurement outcomes. Could be in any shape. 
-    return: the downconverted outcomes.
+    Trace out qubits from an array.
+    
+    Args:
+        qubit_to_keep_labels (ndarray): List of labels of qubits to keep. The order does not matter.
+        qubit_array (ndarray): Array that contains qubit information. The array is provided in a shape where the last axis iterates over the qubits. 
+        
+    Returns:
+        ndarray: The traced out array.
     """
-    qubit_index = np.sort(qubit_index) # Sort index such that input order does not matter
+    # Sort labels such that input order does not matter.
+    # Note the last onversion as we order our qubits in reverse order, [3,2,1,0]
+    qubit_to_keep_labels = np.sort(qubit_to_keep_labels)[::-1]
+    qubit_to_keep_index = qubit_label_to_list_index(qubit_to_keep_labels, qubit_array.shape[-1])
+    traced_down_outcomes = qubit_array[..., qubit_to_keep_index]
+    return traced_down_outcomes
+
+
+# def trace_out_outcomes(qubit_to_keep_labels, outcomes):
+#     """
+#     Trace out qubits from a measurement outcome.
+#     Input: 
+#     qubit_labels: list of labels of qubits to keep, order does not matter. [n] 
+#     outcomes: Measurement outcomes. Could be in any shape. 
+#     return: the downconverted outcomes.
+#     """
+#     qubit_to_keep_labels = np.sort(qubit_to_keep_labels) # Sort labels such that input order does not matter
+#     #qubit_index = qubit_label_to_list_index(qubit_labels, len(outcomes.shape))
     
-    # Check the index for it's binary representation by whole number division and then modulo 2
-    floor_div = np.array([np.floor_divide(outcomes,2**index)%2 for index in qubit_index ])
+#     # Check the index for it's binary representation by whole number division and then modulo 2
+#     floor_div = np.array([np.floor_divide(outcomes,2**index)%2 for index in qubit_to_keep_labels ])
     
-    # Create binary representationf or the current string
-    binary = 2**np.arange(len(qubit_index))
+#     # Create binary representationf or the current string
+#     binary = 2**np.arange(len(qubit_to_keep_labels))
     
-    # Multiply the binary representation with their the index of the new system. 
-    donconverted_outcomes = np.einsum('i,i...->...',binary,floor_div)
-    return donconverted_outcomes
+#     # Multiply the binary representation with their the index of the new system. 
+#     donconverted_outcomes = np.einsum('i,i...->...',binary,floor_div)
+#     return donconverted_outcomes
 
 
 def downconvert_frequencies(subsystem_index,outcome_frequencies):
@@ -348,36 +368,132 @@ def get_traced_out_indicies(index_list,n_qubits_total):
     #print(traced_indices)
     return np.sort(traced_indices)
 
-def generate_calibration_states_from_hash(hash_function, one_qubit_calibration_states, n_hash_symbols):
-    """
-    Creates calibration states for a given a single hash function.
-    Currently only works for two symbol hash.
-    
-    NOTE: This does scale exponentially. For experimental instructions one should only provide preparation angles, which is linear in number of qubits.
-    
-    Input:
-    hash_function: np.array contain a vector of hash with outputs
-    IMPORTANT: the hash layout should reflect the physical layout, such that the left-most element [-1] is considered the 0 qubit. [-2] the first qubit and so on.
-    The hash number tells us which new qubit grouping the belongs to, 0 means it is now the left-most qubit in the standard basis, 1 is the next and so on. 
-    
-    Return list of calibration states of size of hash_mask.
-    
-    """
-    #n_qubit_subsystem = np.max(hash_function) + 1
-    
-    # First step is to create a list of all possible calibration states
-    # Note in list comprehension, the second last "for" is theone that is the inner-most iterated, so it acts as the 0 spot. 
-    # Because we want to use the hash lable to iterate over the qubit, where 0 indicate the zero qubit, we add it on the index spot 0
-    # In other words, the chain is supposed to count inverse 00, 10, 01, 11.
-    
-    #Tensor together the measuremers from the masked hashed list
-    comb_list = np.array(list(product(one_qubit_calibration_states, repeat = n_hash_symbols)))[:,::-1]
 
-    # Slice out the inputs such that each qubit ends up in the correct hash. 
-    hashed_list = comb_list[:,hash_function]
-    # Tensor together all the sliced states, to create the set of calibration states
-    calib_states = np.array([reduce(np.kron,input) for input in hashed_list])
+
+def instruction_equivalence(instruction, possible_instructions, instruction_equivalence):
+    """
+    Translate instructions to the corresponding instruction in the ordered_instruction_equivalence list. 
+    Primary use it to create Hilbert Space objects from simple instructions that can be stored. 
+
+    Parameters:
+    - instruction: The instruction to be translated.
+    - instruction_equivalence (list): A list of instructions in the desired order.
+    - possible_instructions (list): A list of all possible accepted.
+
+    Returns:
+    - list: The translated instruction.
+    
+    NOTE: This function is not optimized for speed, if keys and value are the same, e.g. {1:2, 2:3}, you get a bug where both 1 and 2 is set
+
+    """
+    # Create instruction dictionary
+    instruction_dict = dict(zip(possible_instructions, instruction_equivalence))
+    #print(instruction_dict)
+    new_instruction = np.array([instruction_dict[element] for element in instruction])
+    #print(new_instruction)
+    return new_instruction
+
+
+def calibration_states_from_instruction(instruction, one_qubit_calibration_states, return_tesored=False):
+    """
+    Creates calibration states for a set of instructions.
+    
+    This function takes a set of instructions and generates calibration states based on those instructions.
+    
+    Args:
+        instructions (numpy.ndarray): A list of instructions. Needs to be on form [0, 1, 2, 3]. 
+        one_qubit_calibration_states (numpy.ndarray): A list of one-qubit calibration states.
+        return_tesored (bool, optional): Whether to return the calibration states tensored together. 
+                                          Defaults to False.
+                                          Note:
+                                          This function scales exponentially. For n qubits, the number of calibration states is 4^n.
+    
+    Returns:
+        numpy.ndarray: An array of calibration states.
+    """
+    
+    possible_instructions = np.array([0, 1, 2, 3])
+    calib_states = instruction_equivalence(instruction, possible_instructions, one_qubit_calibration_states)
+    if return_tesored:  # Tensor together for convenience
+        calib_states = reduce(np.kron, calib_states)
+    
     return calib_states
+
+
+def create_unique_combinations(elements, n_repeat):
+    """
+    Generate unique combinations of elements with repetition. Where entries with all equal elements are removed.
+
+    Args:
+        elements (iterable): The elements to be combined.
+        n_repeat (int): The number of times each element can be repeated in a combination.
+
+    Returns:
+        numpy.ndarray: An array of unique combinations.
+    """
+    comb_list = np.array(list(product(elements, repeat=n_repeat)))
+   
+    # Remove the duplicate elements
+    n_unique_instructions = len(elements)
+    indicies = np.linspace(0, len(comb_list)-1, n_unique_instructions, dtype=int)
+    mask_array = np.ones(len(comb_list), dtype=bool)
+    mask_array[indicies] = False
+    prune_comb_list = comb_list[mask_array]
+    
+    return prune_comb_list
+
+
+def qubit_label_to_list_index(qubit_label, n_total_qubits):
+    """
+    Function that takes in a hash function and returns the corresponding index of the qubit in a list.
+
+    Parameters:
+    - qubit_label: A list of qubit labels (e.g. a hash function)
+    - n_total_qubits: The total number of qubits (e.g. the number of hash symbols)
+
+    Returns:
+    - The corresponding index of the qubit in a list.
+
+    Example:
+    >>> qubit_label_to_list_index(3, 5)
+    1
+    """
+    return (n_total_qubits - 1) - qubit_label
+
+def hash_to_instruction(hash_function, instruction_list, n_hash_symbols):
+    """
+    Function that takes in a hash function and returns the corresponding instruction list.
+
+    Parameters:
+    - hash_function: The hash function used to determine the instruction list.
+    - instruction_list: The list of instructions.
+    - n_hash_symbols: The number of hash symbols.
+
+    Returns:
+    - The corresponding instruction list based on the hash function.
+
+    The instruction list contains operations that are supposed to be distributed such that they are all present for each qubit combination according to the hash.
+    This function does also remove the cases where all outputs are the same, to avoid creating duplicate instructions in each hash function.
+    """
+    # Translate hash qubit labels to list index
+    qubit_index = qubit_label_to_list_index(hash_function, n_hash_symbols)
+    # Remove the cases where all outputs are the same, to avoid creating duplicate instructions in each hash function.
+    pruned_comb_list = create_unique_combinations(instruction_list, n_hash_symbols)
+    
+    return pruned_comb_list[:, qubit_index] 
+
+def binary_to_decimal(a):
+    """
+    Converts an arbitrary sized binary array to its decimal integer representation.
+
+    Parameters:
+    a (ndarray): The binary array to be converted.
+
+    Returns:
+    ndarrya : The decimal integer representation of the binary array. This array has one dimension less the inital array.
+    """
+    return a.dot(1 << np.arange(a.shape[-1] - 1, -1, -1)).copy()
+
 
 if __name__=="__main__":
     main()

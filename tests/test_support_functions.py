@@ -129,6 +129,38 @@ class TestHash(unittest.TestCase):
         result_density = np.array([sf.get_density_matrix_from_angles(np.array([angle])) for angle in result])
         self.assertTrue(np.allclose(np.array([0,0,0]), np.einsum('ijk,ikj->i',density,result_density)))
         
+    def test_binary_to_decimal(self):
+        # Test case 1
+        a1 = np.array([[1, 0, 1]])
+        expected1 = np.array([5])
+        assert sf.binary_to_decimal(a1) == expected1
+
+        # Test case 2
+        a2 = np.array([1, 1, 0, 1])
+        expected2 = 13
+        assert sf.binary_to_decimal(a2) == expected2
+
+        # Test case 3
+        a3 = np.array([0, 0, 0, 0, 1])
+        expected3 = 1
+        assert sf.binary_to_decimal(a3) == expected3
+
+        # Test case 4
+        a4 = np.array([[1, 1, 1, 1], [0, 0, 0, 0]])
+        expected4 = np.array([15, 0])
+        assert np.all(sf.binary_to_decimal(a4) == expected4)
+
+        # Test case 5
+        a5 = np.array([[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]])
+        expected5 = np.array([21, 10])
+        assert np.all(sf.binary_to_decimal(a5) == expected5)
+
+        
+        # Test case 5
+        a6 = np.array([[[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]],[[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]]])
+        expected6 = np.array([[21, 10],[21, 10]])
+        assert np.all(sf.binary_to_decimal(a6) == expected6)
+        # Add more test cases if needed
         
 if __name__ == '__main__':
     unittest.main()

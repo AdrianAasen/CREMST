@@ -127,6 +127,23 @@ class TestOutcomesToFrequencies(unittest.TestCase):
         self.assertTrue(np.all(results.shape == (3**n_qubits,100)), 'Pauli-6 measurements not generated correctly for 6 qubits.')
         
         
+    def test_measure_separable_state(self):
+        n_shots = 4
+        povm_list = np.array([POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0]])
+        rho_list = np.array([[[1,0],[0,0]],[[0,0],[0,1]]])
+        
+        outcomes = mf.measure_separable_state(n_shots, povm_list, rho_list)
+ 
+        expected_outcomes = np.array([[0, 1], [0,1],[0,1], [0,1]])
+        self.assertTrue(np.all(outcomes == expected_outcomes))
+        
+        povm_list = np.array([POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0]])
+        rho_list = np.array([[[1,0],[0,0]], [[0,0],[0,1]], [[1/2,1/2],[1/2,1/2]]])
+        np.random.seed(0)
+        n_shots = 5
+        outcomes = mf.measure_separable_state(n_shots, povm_list, rho_list)
+        expected_outcomes = np.array([[0, 1, 1], [0, 1, 1] , [0, 1, 1], [0, 1, 1], [0,1,0]])
+        self.assertTrue(np.all(outcomes == expected_outcomes))
 
 if __name__ == '__main__':
     unittest.main()
