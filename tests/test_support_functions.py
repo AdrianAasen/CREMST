@@ -8,79 +8,8 @@ from EMQST_lib import support_functions as sf
 
 
 
-class TestHash(unittest.TestCase):
-    def test_frequency_donconvertion(self):
-        subsystem_index = np.array([3,2])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = sf.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,0,:,:])))
-        self.assertTrue(np.all(downconverted_freq[0,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,1,:,:])))
-        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,1,0,:,:])))
-        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,1,:,:])))
-        subsystem_index = np.array([2,0])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        #print(outcome_frequencies)
-        downconverted_freq = sf.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        
-        #print(np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0]))
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0])))
-        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,1,:,0])))
-        self.assertTrue(np.all(downconverted_freq[2,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,0,:,0])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,1,:,0])))
-        
-        subsystem_index = np.array([3,1])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = sf.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,0,:])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,1,:])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,0,:])))
-        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,:,1,:])))
-        
-        subsystem_index = np.array([3,0])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = sf.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,:,1])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[4,1,:,:,1])))
-        
-        # Test different size systems
-    
-        subsystem_index = np.array([3,0])
-        outcome_frequencies= np.arange(5*32).reshape(5,32)
-        downconverted_freq = sf.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[0,:,0,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[3,:,0,:,:,1])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[2,:,1,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[4,:,1,:,:,1])))
-                
-        
-    def test_get_traced_out_indicies(self):
-        index_to_keep = np.array([0,3])
-        traced_out = sf.get_traced_out_indicies(index_to_keep,4)
-        self.assertTrue(np.all(traced_out == np.array([1,2])))
-        
-        traced_out = sf.get_traced_out_indicies(index_to_keep,5)
-        self.assertTrue(np.all(traced_out == np.array([1,2,4])))
-        
-        index_to_keep = np.array([0])
-        traced_out = sf.get_traced_out_indicies(index_to_keep,5)
-        self.assertTrue(np.all(traced_out == np.array([1,2,3,4])))
-        
-        index_to_keep = np.array([1,2,3])
-        traced_out = sf.get_traced_out_indicies(index_to_keep,3)
-        self.assertTrue(np.all(traced_out == np.array([])))
-        
-        
-        index_to_keep = np.array([2])
-        traced_out = sf.get_traced_out_indicies(index_to_keep,3)
-        self.assertTrue(np.all(traced_out == np.array([0,1])))
-        
-        traced_out = sf.get_traced_out_indicies(index_to_keep,11)
-        self.assertTrue(np.all(traced_out == np.array([0,1,3,4,5,6,7,8,9,10])))
-        
+class TestSupport(unittest.TestCase):
+
    
     def test_infidelity(self):
         # Test for the one_qubit_infidelity function

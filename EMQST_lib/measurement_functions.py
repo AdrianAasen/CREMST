@@ -1,5 +1,6 @@
 import numpy as np
 from EMQST_lib import support_functions as sf
+from EMQST_lib import overlapping_tomography as ot
 
 
 
@@ -61,6 +62,7 @@ def outcomes_to_frequencies(outcomes,min_lenght):
             frequencies = np.insert(frequencies, outcome, 0)
     return frequencies
 
+
 def measure_separable_state(n_shots, povm_array, rho_array):
     """
     Takes in a list of single qubit states, a list of single qubit POVMs, and the number of shots.
@@ -83,3 +85,34 @@ def measure_separable_state(n_shots, povm_array, rho_array):
     return outcomes
 
 
+
+
+def measure_hashed_calibration_states(n_shots, povm_array, one_qubit_calibration_states, hashed_QDT_instructions):
+    """
+    Function takes in a hash function and a creates set of calibration states,
+    and returns the list of measurements.
+    
+    Outcomes has shape [n hash, n_calib, n_shots, n_qubts ]
+    """
+    
+    # Create hashed calibration states
+    hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in hashed_QDT_instructions])
+    #base_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in base_QDT_instructions])
+    
+    outcomes = np.array([measure_separable_state(n_shots,povm_array, rho_array) for rho_array in hashed_calib_states])
+    #base_outcomes = np.array([measure_separable_state(n_shots,povm_array, rho_array) for rho_array in base_calib_states])
+    return outcomes
+
+
+def measure_hashed_POVM(n_shots, rho_array, single_qubit_pauli_6, hashed_QDT_instructions ):
+    
+    possible_instruction_array = np.array(["X", "Y", "Z"])
+
+    hashed_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in hashed_QDT_instructions])
+    #base_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in base_QDT_instructions])
+    # base_POVM = np.array([[single_qubit_pauli_6[0]]*n_qubits, [single_qubit_pauli_6[1]]*n_qubits, [single_qubit_pauli_6[2]]*n_qubits])
+    
+    # Measure with the hashed POVMs
+    outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in hashed_POVM])
+    #base_outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in base_POVM])
+    return outcomes

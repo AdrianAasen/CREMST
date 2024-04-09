@@ -4,7 +4,7 @@ from functools import reduce
 import sys
 sys.path.append('../') # Adding path to library
 from EMQST_lib import support_functions as sf
-
+from EMQST_lib import overlapping_tomography as ot
 
 
 
@@ -18,21 +18,21 @@ class TestHash(unittest.TestCase):
         qubit_to_keep_labels = np.array([0, 2])
         qubit_array = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
         expected_result = np.array([[[1, 3],[4,6]],[ [7, 9],[10, 12]]])
-        result = sf.trace_out(qubit_to_keep_labels, qubit_array)
+        result = ot.trace_out(qubit_to_keep_labels, qubit_array)
         self.assertTrue(np.allclose(result, expected_result))
 
         # Test case 2
         qubit_to_keep_labels = [1]
         qubit_array = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
         expected_result = np.array([[[2], [5]],[ [8], [11]]])
-        result = sf.trace_out(qubit_to_keep_labels, qubit_array)
+        result = ot.trace_out(qubit_to_keep_labels, qubit_array)
         self.assertTrue(np.allclose(result, expected_result))
 
         # Test case 3
         qubit_to_keep_labels = [2, 0]
         qubit_array = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
         expected_result = np.array([[[1, 3],[4,6]],[ [7, 9],[10, 12]]])
-        result = sf.trace_out(qubit_to_keep_labels, qubit_array)
+        result = ot.trace_out(qubit_to_keep_labels, qubit_array)
         self.assertTrue(np.allclose(result, expected_result))
     
     
@@ -63,12 +63,12 @@ class TestHash(unittest.TestCase):
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
         one_qubit_calibration_states = np.array([sf.get_density_matrix_from_angles(angle) for angle in one_qubit_calibration_angles])
         instruction = np.array([1,0])
-        test = sf.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
+        test = ot.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
         self.assertEqual(test[1,0,0],1)
         self.assertEqual(test[0,1,1],1)
         
         instruction = np.array([0,1])
-        test = sf.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
+        test = ot.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
         self.assertEqual(test[0,0,0],1)
         self.assertEqual(test[1,1,1],1)
 
@@ -77,14 +77,14 @@ class TestHash(unittest.TestCase):
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
         one_qubit_calibration_states = np.array([sf.get_density_matrix_from_angles(angle) for angle in one_qubit_calibration_angles])
         instruction = np.array([1,1])
-        test = sf.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
+        test = ot.calibration_states_from_instruction(instruction,one_qubit_calibration_states)
         self.assertEqual(test[0,1,1],1)
         self.assertEqual(test[1,1,1],1)
 
         
         # Test duplicate calibration, but more symbols
         instruction = np.array([0,0])
-        test = sf.calibration_states_from_instruction(instruction, one_qubit_calibration_states)
+        test = ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states)
         self.assertEqual(test[0,0,0],1)
         self.assertEqual(test[1,0,0],1)
         
@@ -92,15 +92,15 @@ class TestHash(unittest.TestCase):
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
         one_qubit_calibration_states = np.array([sf.get_density_matrix_from_angles(angle) for angle in one_qubit_calibration_angles])
         instruction = np.array([1,0])
-        test = sf.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
+        test = ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
         self.assertEqual(test[2,2],1)
         
         instruction = np.array([0,1,1])
-        test = sf.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
+        test = ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
         self.assertEqual(test[3,3],1)
         
         instruction = np.array([1,1,1])
-        test = sf.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
+        test = ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states,True)
         self.assertEqual(test[7,7],1)
         
 
@@ -109,7 +109,7 @@ class TestHash(unittest.TestCase):
         elements = [1, 2, 3]
         n_repeat = 2
         expected_result = np.array([ [1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2]])
-        result = sf.create_unique_combinations(elements, n_repeat)
+        result = ot.create_unique_combinations(elements, n_repeat)
         self.assertTrue(np.array_equal(result, expected_result))
 
         elements = ['A', 'B', 'C']
@@ -119,7 +119,7 @@ class TestHash(unittest.TestCase):
                                     ['B', 'A', 'C'], ['B', 'B', 'A'], ['B', 'B', 'C'], ['B', 'C', 'A'], ['B', 'C', 'B'],
                                     ['B', 'C', 'C'], ['C', 'A', 'A'], ['C', 'A', 'B'], ['C', 'A', 'C'], ['C', 'B', 'A'],
                                     ['C', 'B', 'B'], ['C', 'B', 'C'], ['C', 'C', 'A'], ['C', 'C', 'B']])
-        result = sf.create_unique_combinations(elements, n_repeat)
+        result = ot.create_unique_combinations(elements, n_repeat)
         self.assertTrue(np.array_equal(result, expected_result))
 
         elements = [0, 1]
@@ -127,13 +127,13 @@ class TestHash(unittest.TestCase):
         expected_result = np.array([[0, 0, 0, 1], [0, 0, 1, 0], [0, 0, 1, 1], [0, 1, 0, 0], [0, 1, 0, 1], [0, 1, 1, 0],
                                     [0, 1, 1, 1], [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 1, 0], [1, 0, 1, 1], [1, 1, 0, 0],
                                     [1, 1, 0, 1], [1, 1, 1, 0]])
-        result = sf.create_unique_combinations(elements, n_repeat)
+        result = ot.create_unique_combinations(elements, n_repeat)
         self.assertTrue(np.array_equal(result, expected_result))
 
         elements = [[0,0], [1,1]]
         n_repeat = 2
         expected_result = np.array([[[0, 0], [1, 1]], [[1, 1], [0, 0]]])
-        result = sf.create_unique_combinations(elements, n_repeat)
+        result = ot.create_unique_combinations(elements, n_repeat)
         self.assertTrue(np.array_equal(result, expected_result))
         
         
@@ -144,33 +144,33 @@ class TestHash(unittest.TestCase):
                                     ['C', 'F'], ['D', 'A'], ['D', 'B'], ['D', 'C'], ['D', 'E'], ['D', 'F'], ['E', 'A'],
                                     ['E', 'B'], ['E', 'C'], ['E', 'D'], ['E', 'F'], ['F', 'A'], ['F', 'B'], ['F', 'C'],
                                     ['F', 'D'], ['F', 'E']])
-        result = sf.create_unique_combinations(elements, n_repeat)
+        result = ot.create_unique_combinations(elements, n_repeat)
         self.assertTrue(np.array_equal(result, expected_result))
         
         
         
     def test_qubit_label_to_list_index(self):
-        self.assertEqual(sf.qubit_label_to_list_index(3, 5), 1)
+        self.assertEqual(ot.qubit_label_to_list_index(3, 5), 1)
         
         hash_1 = np.array([0, 0, 1, 1])
         n_hash_symbols = 2
-        self.assertTrue(np.array_equal(sf.qubit_label_to_list_index(hash_1, n_hash_symbols), np.array([1, 1, 0, 0])))
+        self.assertTrue(np.array_equal(ot.qubit_label_to_list_index(hash_1, n_hash_symbols), np.array([1, 1, 0, 0])))
         
         hash_2 = np.array([0, 1, 0, 1])
         n_hash_symbols = 2
-        self.assertTrue(np.array_equal(sf.qubit_label_to_list_index(hash_2, n_hash_symbols), np.array([1, 0, 1, 0])))
+        self.assertTrue(np.array_equal(ot.qubit_label_to_list_index(hash_2, n_hash_symbols), np.array([1, 0, 1, 0])))
         
         hash_3 = np.array([0, 1, 1, 0])
         n_hash_symbols = 10
-        self.assertTrue(np.array_equal(sf.qubit_label_to_list_index(hash_3, n_hash_symbols), np.array([9, 8, 8, 9])))
+        self.assertTrue(np.array_equal(ot.qubit_label_to_list_index(hash_3, n_hash_symbols), np.array([9, 8, 8, 9])))
         
         hash_4 = np.array([0, 1, 2, 3])
         n_hash_symbols = 4
-        self.assertTrue(np.array_equal(sf.qubit_label_to_list_index(hash_4, n_hash_symbols), np.array([3, 2, 1, 0])))
+        self.assertTrue(np.array_equal(ot.qubit_label_to_list_index(hash_4, n_hash_symbols), np.array([3, 2, 1, 0])))
         
         hash_5 = np.array([0, 1, 2, 3, 4, 5])
         n_hash_symbols = 6
-        self.assertTrue(np.array_equal(sf.qubit_label_to_list_index(hash_5, n_hash_symbols), np.array([5, 4, 3, 2, 1, 0])))
+        self.assertTrue(np.array_equal(ot.qubit_label_to_list_index(hash_5, n_hash_symbols), np.array([5, 4, 3, 2, 1, 0])))
         
         
         
@@ -179,14 +179,14 @@ class TestHash(unittest.TestCase):
         instruction_list =np.array( ['A', 'B', 'C'])
         n_hash_symbols = 2
         expected_result = np.array([['B', 'A', 'B'], ['C', 'A', 'C'], ['A', 'B', 'A'], ['C', 'B', 'C'], ['A', 'C', 'A'], ['B', 'C', 'B']])
-        result = sf.hash_to_instruction(hash_function, instruction_list, n_hash_symbols)
+        result = ot.hash_to_instruction(hash_function, instruction_list, n_hash_symbols)
         self.assertTrue(np.all(result == expected_result))  
         
         hash_function = np.array([0, 2, 1])
         instruction_list =np.array( ['A', 'B'])
         n_hash_symbols = 3
         expected_result = np.array([['B', 'A', 'A'], ['A', 'A', 'B'], ['B', 'A', 'B'], ['A', 'B', 'A'], ['B', 'B', 'A'], ['A', 'B', 'B']])
-        result = sf.hash_to_instruction(hash_function, instruction_list, n_hash_symbols)
+        result = ot.hash_to_instruction(hash_function, instruction_list, n_hash_symbols)
         self.assertTrue(np.all(result == expected_result))  
         
         
@@ -198,26 +198,92 @@ class TestHash(unittest.TestCase):
         # Test case 1: Single instruction
         instruction = ['A']
         expected_output = np.array(['X'])
-        self.assertTrue(np.array_equal(sf.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
+        self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
 
         # Test case 2: Multiple instructions
         instruction = ['A', 'B', 'C']
         expected_output = np.array(['X', 'Y', 'Z'])
-        self.assertTrue(np.array_equal(sf.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
+        self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
 
 
-        # Test case 3: Empty instruction
-        #instruction = []
-        #expected_output = np.array([])
-        #self.assertTrue(np.array_equal(sf.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
-    
-        
-        # Test case 2: Multiple instructions
+        # Test case 3: Multiple instructions
         instruction_equivalence = [0, 1, 2]
         instruction = ['A', 'B', 'C']
         expected_output = np.array([0, 1, 2])
-        self.assertTrue(np.array_equal(sf.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
-
+        self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
+    
+    def test_frequency_donconvertion(self):
+        subsystem_index = np.array([3,2])
+        outcome_frequencies= np.arange(5*16).reshape(5,16)
+        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,0,:,:])))
+        self.assertTrue(np.all(downconverted_freq[0,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,1,:,:])))
+        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,1,0,:,:])))
+        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,1,:,:])))
+        subsystem_index = np.array([2,0])
+        outcome_frequencies= np.arange(5*16).reshape(5,16)
+        #print(outcome_frequencies)
+        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+        
+        #print(np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0]))
+        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0])))
+        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,1,:,0])))
+        self.assertTrue(np.all(downconverted_freq[2,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,0,:,0])))
+        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,1,:,0])))
+        
+        subsystem_index = np.array([3,1])
+        outcome_frequencies= np.arange(5*16).reshape(5,16)
+        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,0,:])))
+        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,1,:])))
+        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,0,:])))
+        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,:,1,:])))
+        
+        subsystem_index = np.array([3,0])
+        outcome_frequencies= np.arange(5*16).reshape(5,16)
+        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+        
+        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,:,0])))
+        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,:,1])))
+        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,:,0])))
+        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[4,1,:,:,1])))
+        
+        # Test different size systems
+    
+        subsystem_index = np.array([3,0])
+        outcome_frequencies= np.arange(5*32).reshape(5,32)
+        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+        
+        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[0,:,0,:,:,0])))
+        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[3,:,0,:,:,1])))
+        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[2,:,1,:,:,0])))
+        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[4,:,1,:,:,1])))
+                
+        
+    def test_get_traced_out_indicies(self):
+        index_to_keep = np.array([0,3])
+        traced_out = ot.get_traced_out_indicies(index_to_keep,4)
+        self.assertTrue(np.all(traced_out == np.array([1,2])))
+        
+        traced_out = ot.get_traced_out_indicies(index_to_keep,5)
+        self.assertTrue(np.all(traced_out == np.array([1,2,4])))
+        
+        index_to_keep = np.array([0])
+        traced_out = ot.get_traced_out_indicies(index_to_keep,5)
+        self.assertTrue(np.all(traced_out == np.array([1,2,3,4])))
+        
+        index_to_keep = np.array([1,2,3])
+        traced_out = ot.get_traced_out_indicies(index_to_keep,3)
+        self.assertTrue(np.all(traced_out == np.array([])))
+        
+        
+        index_to_keep = np.array([2])
+        traced_out = ot.get_traced_out_indicies(index_to_keep,3)
+        self.assertTrue(np.all(traced_out == np.array([0,1])))
+        
+        traced_out = ot.get_traced_out_indicies(index_to_keep,11)
+        self.assertTrue(np.all(traced_out == np.array([0,1,3,4,5,6,7,8,9,10])))
+        
     
 if __name__ == '__main__':
     unittest.main()
