@@ -7,8 +7,9 @@ import os
 import uuid
 from functools import reduce
 from itertools import product, chain, repeat
-from EMQST_lib import overlapping_tomography as ot
+from EMQST_lib import support_functions as sf
 from EMQST_lib.povm import POVM
+from EMQST_lib import dt
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
@@ -88,6 +89,7 @@ def qubit_label_to_list_index(qubit_label, n_total_qubits):
     1
     """
     return (n_total_qubits - 1) - qubit_label
+
 
 def hash_to_instruction(hash_function, instruction_list, n_hash_symbols):
     """
@@ -217,15 +219,15 @@ def create_traced_out_calibration_states(subsystem_labels, hash_family, one_qubi
     # Instructions here indicate the number of calibration states, by default 4.
     instructin_list = np.array([0, 1, 2, 3])
     # Get qubit index of the subsystem in the total qubit system
-    subsystem_qubit_index = ot.qubit_label_to_list_index(subsystem_labels,n_qubits_total)
+    subsystem_qubit_index = qubit_label_to_list_index(subsystem_labels,n_qubits_total)
     # Create the instructions for the hashed subsystem (NOTE we slice out only the subsystem qubits from the hash family)
-    hashed_subsystem_instructions = np.array([ot.hash_to_instruction(function, instructin_list, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
+    hashed_subsystem_instructions = np.array([hash_to_instruction(function, instructin_list, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
     #print(hashed_subsystem_instructions.shape)
     # Base instructions are the same for all subsystems.
     base_subsystem_instructions = np.array([[0]*n_subsystem_qubits,[1]*n_subsystem_qubits,[2]*n_subsystem_qubits,[3]*n_subsystem_qubits])
     combined_hashed_subsystem_instructions = np.vstack((hashed_subsystem_instructions,base_subsystem_instructions))
     # The calibration states are tensored together, to be at most 4 qubit operators, according to the traced down hash. 
-    traced_out_calib_states = np.array([ot.calibration_states_from_instruction(instruction,one_qubit_calibration_states,True) for instruction in combined_hashed_subsystem_instructions])
+    traced_out_calib_states = np.array([calibration_states_from_instruction(instruction,one_qubit_calibration_states,True) for instruction in combined_hashed_subsystem_instructions])
     #traced_out_base_states = np.array([ot.calibration_states_from_instruction(instruction,one_qubit_calibration_states,True) for instruction in base_subsystem_instructions])
     #print(traced_out_calib_states.shape)
     # Reshape and combine the calibration sates with the base states into one large set of measurements. 
@@ -247,11 +249,11 @@ def create_traced_out_reconstructed_POVM(subsystem_labels, reconstructed_comp_PO
     n_subsystem_qubits = len(subsystem_labels)
     # ii) Create the POVM list that assosicated to each row in the downconverted frequency list
     # Get qubit index of the subsystem in the total qubit system
-    subsystem_qubit_index = ot.qubit_label_to_list_index(subsystem_labels,n_qubits_total)
+    subsystem_qubit_index = qubit_label_to_list_index(subsystem_labels,n_qubits_total)
     possible_instructions = np.array([0, 1, 2])
     #options_check = np.array(["X","Y", "Z"])
     # Create the instructions for the hashed subsystem (NOTE we slice out only the subsystem qubits from the hash family)
-    hashed_subsystem_instructions = np.array([ot.hash_to_instruction(function, possible_instructions, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
+    hashed_subsystem_instructions = np.array([hash_to_instruction(function, possible_instructions, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
     base_instructions = np.array([[0]*n_hash_symbols,[1]*n_hash_symbols,[2]*n_hash_symbols])
     #print(hashed_subsystem_instructions.shape)
     combined_hash_instructions = np.vstack((hashed_subsystem_instructions, base_instructions))
@@ -270,6 +272,63 @@ def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_sub
     
     povm_array = np.array([reconstructed_Pauli_POVM[np.dot(instruction,base_3)] for instruction in instructions])
     return povm_array
+
+
+
+def get_traced_out_index_counts(outcomes, subsystem_label):
+    n_subsystem_qubits = len(subsystem_label)
+    traced_out_outcomes = trace_out(subsystem_label,outcomes)
+    decimal_outcomes = sf.binary_to_decimal(traced_out_outcomes)
+    index_counts = get_index_counts_from_decimal_outcomes(decimal_outcomes,n_subsystem_qubits)
+    return index_counts
+
+
+def OT_MLE(hashed_subsystem_reconstructed_Pauli_6: np.array, index_counts: np.array ):
+    '''
+    Estimates state according to iterative MLE.
+    :param full_operator_list: full list of POVM elemnts
+    :outcome_index: list of all outcome_indices such that
+            full_operator_list[index] = POVM element
+    :return: dxd array of iterative MLE estimator
+    '''
+
+    
+    full_operator_list = np.array([a.get_POVM() for a in hashed_subsystem_reconstructed_Pauli_6])
+    dim = full_operator_list.shape[-1]
+    OP_list = full_operator_list.reshape(-1,dim,dim)
+    index_counts = index_counts.reshape(-1)
+
+
+    iter_max = 1000
+    dist     = float(1)
+
+    rho_1 = np.eye(dim)/dim
+    rho_2 = np.eye(dim)/dim
+    j = 0
+
+    while j<iter_max and dist>1e-14:
+        p      = np.einsum('ik,nki->n', rho_1, OP_list)
+        R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
+        update = R@rho_1@R
+        rho_1  = update/np.trace(update)
+
+        if j>=40 and j%20==0:
+            dist  = sf.one_qubit_infidelity(rho_1, rho_2)
+        rho_2 = rho_1
+        j += 1
+    return rho_1
+
+def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM):
+    hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
+    rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
+    return rho_recon
+
+def QDT(subsystem_label,QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
+    n_subsystem_qubits = len(subsystem_label)
+    hashed_subsystem_calibration_states = create_traced_out_calibration_states(subsystem_label, hash_family, one_qubit_calibration_states, n_hash_symbols, n_qubits)
+    guess_POVM = POVM.computational_basis_POVM(n_subsystem_qubits)[0]
+    reconstructed_comp_POVM = dt.POVM_MLE(n_subsystem_qubits, QDT_index_counts, hashed_subsystem_calibration_states, guess_POVM)
+    return reconstructed_comp_POVM
 
 # def trace_out_outcomes(qubit_to_keep_labels, outcomes):
 #     """
