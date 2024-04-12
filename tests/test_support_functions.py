@@ -91,6 +91,35 @@ class TestSupport(unittest.TestCase):
         assert np.all(sf.binary_to_decimal(a6) == expected6)
         # Add more test cases if needed
         
+        
+    def test_get_angles_from_density_matrix_single_qubit(self):
+        # Test case 1
+        rho1 = np.array([[1, 0], [0, 0]], dtype=complex)  # Pure state |0⟩
+        expected1 = np.array([[0, 0]])  # Bloch angles for |0⟩
+        self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho1), expected1))
+
+        # Test case 2
+        rho2 = np.array([[0.5, 0.5], [0.5, 0.5]], dtype=complex)  # X state (|0⟩ + |1⟩)/√2
+        expected2 = np.array([[np.pi/2, 0]])  # Bloch angles for X state
+        self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho2), expected2))
+
+        # Test case 3
+        rho3 = np.array([[0.5, -0.5j], [0.5j, 0.5]], dtype=complex)  # Y state (|0⟩ + i|1⟩)/√2
+        expected3 = np.array([[np.pi/2, np.pi/2]])  # Bloch angles for Y state
+        self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho3), expected3))
+
+        # Test case 4
+        rho4 = np.array([[0.5, -0.5], [-0.5, 0.5]], dtype=complex)  # -X state (|0⟩ - |1⟩)/√2
+        expected4 = np.array([[np.pi/2, np.pi]])  # Bloch angles for -X state
+        self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho4), expected4))
+
+        # Test case 5
+        rho5 = np.array([[0.5, 0.5j], [-0.5j, 0.5]], dtype=complex)  # - Y state (|0⟩ - i|1⟩)/√2
+        expected5 = np.array([[np.pi/2, -np.pi/2]])  # Bloch angles for -Y state
+        self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho5), expected5))
+        
+
+
 if __name__ == '__main__':
     unittest.main()
 

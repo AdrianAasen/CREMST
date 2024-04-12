@@ -87,32 +87,69 @@ def measure_separable_state(n_shots, povm_array, rho_array):
 
 
 
-def measure_hashed_calibration_states(n_shots, povm_array, one_qubit_calibration_states, hashed_QDT_instructions):
+def measure_hashed_calibration_states(n_shots, povm_array, one_qubit_calibration_states, hashed_QDT_instructions, experimental_dictionary = {"Experimental_run": False}):
     """
     Function takes in a hash function and a creates set of calibration states,
-    and returns the list of measurements.
+    and calls apropriate measurement function. Returns the list of measurements.
     
-    Outcomes has shape [n hash, n_calib, n_shots, n_qubts ]
+    Args:
+        n_shots (int): The number of shots for each measurement.
+        povm_array (numpy.ndarray): The array of POVMs (Positive Operator-Valued Measures).
+        one_qubit_calibration_states (numpy.ndarray): The array of one-qubit calibration states.
+        hashed_QDT_instructions (numpy.ndarray): The array of hashed QDT (Quantum Decision Tree) instructions.
+        experimental_dictionary (dict, optional): A dictionary containing experimental settings. Defaults to {"Experimental_run": False}.
+    
+    Returns:
+        numpy.ndarray: The array of measurement outcomes.
+        
+    Notes:
+        - The outcomes array has shape [n_hashed_instructions, n_shots, n_qubits].
+        - If experimental_dictionary["experimental_run"] is True, the measurements are performed using experimental settings.
+        - If experimental_dictionary["experimental_run"] is False, the measurements are simulated.
     """
-    
-    # Create hashed calibration states
-    hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in hashed_QDT_instructions])
-    #base_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in base_QDT_instructions])
-    
-    outcomes = np.array([measure_separable_state(n_shots,povm_array, rho_array) for rho_array in hashed_calib_states])
-    #base_outcomes = np.array([measure_separable_state(n_shots,povm_array, rho_array) for rho_array in base_calib_states])
+        
+    if experimental_dictionary["experimental_run"]:
+        possible_instruction_array = np.array([0, 1, 2, 3])
+        one_qubit_calibration_angles = experimental_dictionary["one_qubit_calibration_angles"]
+        comp_measurement_angles = experimental_dictionary["comp_measurement_angles"]
+        hashed_state_angles = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, one_qubit_calibration_angles) for instruction in hashed_QDT_instructions])
+        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, state_angles, comp_measurement_angles, experimental_dictionary) for state_angles in hashed_state_angles])
+    else:
+        # Create hashed calibration states
+        hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in hashed_QDT_instructions])
+        # Simulate measurements
+        outcomes = np.array([measure_separable_state(n_shots,povm_array, rho_array) for rho_array in hashed_calib_states])
     return outcomes
 
 
-def measure_hashed_POVM(n_shots, rho_array, single_qubit_pauli_6, hashed_QDT_instructions ):
-    
-    possible_instruction_array = np.array(["X", "Y", "Z"])
+def measure_hashed_POVM(n_shots, rho_array, single_qubit_pauli_6, hashed_QST_instructions, experimental_dictionary={"Experimental_run": False}):
+    """
+    Creates hashed POVMs and measures the array of quantum state.
 
-    hashed_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in hashed_QDT_instructions])
-    #base_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in base_QDT_instructions])
-    # base_POVM = np.array([[single_qubit_pauli_6[0]]*n_qubits, [single_qubit_pauli_6[1]]*n_qubits, [single_qubit_pauli_6[2]]*n_qubits])
+    Parameters:
+    - n_shots (int): The number of measurement shots to perform.
+    - rho_array (numpy.ndarray): An array of quantum states to measure.
+    - single_qubit_pauli_6 (numpy.ndarray): An array of single-qubit Pauli matrices.
+    - hashed_QST_instructions (numpy.ndarray): An array of hashed QST instructions.
+    - experimental_dictionary (dict): A dictionary containing experimental settings (default: {"Experimental_run": False}).
+
+    Returns:
+    - outcomes (numpy.ndarray): An array of measurement outcomes.
     
-    # Measure with the hashed POVMs
-    outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in hashed_POVM])
-    #base_outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in base_POVM])
+    Notes:
+        - The outcomes array has shape [n_hashed_instructions, n_shots, n_qubits].
+        - If experimental_dictionary["experimental_run"] is True, the measurements are performed using experimental settings.
+        - If experimental_dictionary["experimental_run"] is False, the measurements are simulated.
+    """
+    possible_instruction_array = np.array(["X", "Y", "Z"])
+    if experimental_dictionary["experimental_run"]:
+        true_state_angles = experimental_dictionary["true_state_angles"]
+        single_qubit_measurement_angles = experimental_dictionary["single_qubit_measurement_angles"]
+        hashed_POVM_angles = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_measurement_angles) for instruction in hashed_QST_instructions])
+        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, true_state_angles, POVM_angles, experimental_dictionary) for POVM_angles in hashed_POVM_angles])
+    else:
+        hashed_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in hashed_QST_instructions])
+        # Measure with the hashed POVMs
+        outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in hashed_POVM])
+
     return outcomes

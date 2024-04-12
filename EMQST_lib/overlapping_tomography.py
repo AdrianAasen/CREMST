@@ -114,31 +114,6 @@ def hash_to_instruction(hash_function, instruction_list, n_hash_symbols):
     return pruned_comb_list[:, qubit_index] 
 
 
-def downconvert_frequencies(subsystem_index,outcome_frequencies):
-    """
-    Takes in the outcome frequency measurement of the whole system and a set of qubit subsystem indices,
-    and return the downconverted frequencies.
-    Here the row structure matters, so outcome frequencies should be flattend to be m x n_outcomes. One can reshape back to original structure afterwards.
-    Input:
-        - system_index ndarray [n_subsystem_qubits]
-        - outcome_frequencies ndarray n x 2**n_qubits_total
-    Return:
-        - The downconverted frequencies ndarray n x 2**len(subsystem_index)
-    """
-    # Check how many qubits are in the total system
-    n_qubits_total = int(np.log2(len(outcome_frequencies[0])))
-    
-    # Define the axis that need to be traced out
-    # Find the indices that are not present int he above, and invert the order (such that qubit 0 is axis n_qubit_total). 
-    traced_indices = tuple(n_qubits_total-1 - get_traced_out_indicies(subsystem_index,n_qubits_total))
-    
-    # Define the subsystem shape
-    reshape_tuple = (2,)*n_qubits_total
-
-    # Sum over all cases where the subsystem indecies are the same, then reshape to be in the same shape as original list. 
-    downconverted_frequencies = np.array([np.sum(measurement.reshape(reshape_tuple), axis = traced_indices).reshape(2**len(subsystem_index)) for measurement in outcome_frequencies])
-    return downconverted_frequencies
-
 
 def get_traced_out_indicies(index_list,n_qubits_total):
     """
@@ -283,21 +258,23 @@ def get_traced_out_index_counts(outcomes, subsystem_label):
     return index_counts
 
 
-def OT_MLE(hashed_subsystem_reconstructed_Pauli_6: np.array, index_counts: np.array ):
-    '''
-    Estimates state according to iterative MLE.
-    :param full_operator_list: full list of POVM elemnts
-    :outcome_index: list of all outcome_indices such that
-            full_operator_list[index] = POVM element
-    :return: dxd array of iterative MLE estimator
-    '''
+def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
+    """
+    Performs Overlapping Tomography Maximum Likelihood Estimation (OT-MLE) on a given set of hashed subsystems.
 
-    
+    Parameters:
+    hashed_subsystem_reconstructed_Pauli_6 (ndarray): A list of measurementd from a traced down subsystem. 
+    index_counts (ndarray): An array containing the index counts.
+
+    Returns:
+    ndarray: The estimated density matrix of the system.
+
+    """
+
     full_operator_list = np.array([a.get_POVM() for a in hashed_subsystem_reconstructed_Pauli_6])
     dim = full_operator_list.shape[-1]
     OP_list = full_operator_list.reshape(-1,dim,dim)
     index_counts = index_counts.reshape(-1)
-
 
     iter_max = 1000
     dist     = float(1)
@@ -319,16 +296,73 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6: np.array, index_counts: np.ar
     return rho_1
 
 def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM):
+    """
+    Performs Quantum overlapping State Tomography (OT) on a subsystem.
+
+    Args:
+        subsystem_label (ndarray): The label of the subsystem.
+        QST_index_counts (ndarray): A array containing the counts of measurement outcomes for each measurement index.
+        hash_family (ndarray): The hash family used for creating the traced-out reconstructed POVM.
+        n_hash_symbols (int): The number of hash symbols used for creating the traced-out reconstructed POVM.
+        n_qubits (int): The number of qubits in the system.
+        reconstructed_comp_POVM (ndarray): A array of reconstructed complementary POVMs.
+
+    Returns:
+        rho_recon (numpy.ndarray): The reconstructed density matrix of the subsystem.
+    """
     hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
     rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
     return rho_recon
 
-def QDT(subsystem_label,QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
+def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
+    """
+    Performs Quantum Overlapping Detector Tomography (QDT) on a subsystem.
+
+    Args:
+         subsystem_label (ndarray): The label of the subsystem
+        QDT_index_counts (ndarray): A array containing the counts of measurement outcomes for each measurement index.
+        hash_family (ndarray): The hash family used for creating traced out calibration states.
+        n_hash_symbols (int): The number of hash symbols.
+        n_qubits (int): The number of qubits in the subsystem.
+        one_qubit_calibration_states (list): A list of one-qubit calibration states.
+
+    Returns:
+        reconstructed_comp_POVM (ndarray): The reconstructed computational POVM.
+
+    """
     n_subsystem_qubits = len(subsystem_label)
     hashed_subsystem_calibration_states = create_traced_out_calibration_states(subsystem_label, hash_family, one_qubit_calibration_states, n_hash_symbols, n_qubits)
     guess_POVM = POVM.computational_basis_POVM(n_subsystem_qubits)[0]
     reconstructed_comp_POVM = dt.POVM_MLE(n_subsystem_qubits, QDT_index_counts, hashed_subsystem_calibration_states, guess_POVM)
     return reconstructed_comp_POVM
+
+
+def create_2RDM_hash(n_total_qubits):
+    """
+    Create a hash family for the 2-RDM (two-particle reduced density matrix) using the Wilczek hashing function.
+    
+    Parameters:
+        n_total_qubits (int): The total number of qubits.
+    
+    Returns:
+        hash_family (ndarray): The hash family for the 2-RDM.
+    
+    References:
+        - Cotler, J.,  Wilczek, F. (2020). Quantum Overlapping Tomography. Physical Review Letters, 124(10), 100401.
+          https://link.aps.org/doi/10.1103/PhysRevLett.124.100401
+    """
+    # Create array of qubit labels
+    qubit_array = np.arange(n_total_qubits)
+    # Find the max lenght of binary string
+    binary_length = int(np.ceil(np.log2(n_total_qubits)))
+    # Create binary array for each interger
+    binary_array = (((qubit_array[:, None] & (1 << np.arange(binary_length)))) > 0).astype(int)
+    # Transpose binary array to create the hash family. 
+    hash_family = np.transpose(binary_array)
+    return hash_family
+    
+    
+    
 
 # def trace_out_outcomes(qubit_to_keep_labels, outcomes):
 #     """
@@ -351,4 +385,27 @@ def QDT(subsystem_label,QDT_index_counts, hash_family, n_hash_symbols, n_qubits,
 #     donconverted_outcomes = np.einsum('i,i...->...',binary,floor_div)
 #     return donconverted_outcomes
 
+# def downconvert_frequencies(subsystem_index,outcome_frequencies):
+#     """
+#     Takes in the outcome frequency measurement of the whole system and a set of qubit subsystem indices,
+#     and return the downconverted frequencies.
+#     Here the row structure matters, so outcome frequencies should be flattend to be m x n_outcomes. One can reshape back to original structure afterwards.
+#     Input:
+#         - system_index ndarray [n_subsystem_qubits]
+#         - outcome_frequencies ndarray n x 2**n_qubits_total
+#     Return:
+#         - The downconverted frequencies ndarray n x 2**len(subsystem_index)
+#     """
+#     # Check how many qubits are in the total system
+#     n_qubits_total = int(np.log2(len(outcome_frequencies[0])))
+    
+#     # Define the axis that need to be traced out
+#     # Find the indices that are not present int he above, and invert the order (such that qubit 0 is axis n_qubit_total). 
+#     traced_indices = tuple(n_qubits_total-1 - get_traced_out_indicies(subsystem_index,n_qubits_total))
+    
+#     # Define the subsystem shape
+#     reshape_tuple = (2,)*n_qubits_total
 
+#     # Sum over all cases where the subsystem indecies are the same, then reshape to be in the same shape as original list. 
+#     downconverted_frequencies = np.array([np.sum(measurement.reshape(reshape_tuple), axis = traced_indices).reshape(2**len(subsystem_index)) for measurement in outcome_frequencies])
+#     return downconverted_frequencies

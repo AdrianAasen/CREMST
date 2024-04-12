@@ -212,52 +212,52 @@ class TestHash(unittest.TestCase):
         expected_output = np.array([0, 1, 2])
         self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
     
-    def test_frequency_donconvertion(self):
-        subsystem_index = np.array([3,2])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,0,:,:])))
-        self.assertTrue(np.all(downconverted_freq[0,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,1,:,:])))
-        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,1,0,:,:])))
-        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,1,:,:])))
-        subsystem_index = np.array([2,0])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        #print(outcome_frequencies)
-        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+    # def test_frequency_donconvertion(self):
+    #     subsystem_index = np.array([3,2])
+    #     outcome_frequencies= np.arange(5*16).reshape(5,16)
+    #     downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+    #     self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,0,:,:])))
+    #     self.assertTrue(np.all(downconverted_freq[0,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,1,:,:])))
+    #     self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,1,0,:,:])))
+    #     self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,1,:,:])))
+    #     subsystem_index = np.array([2,0])
+    #     outcome_frequencies= np.arange(5*16).reshape(5,16)
+    #     #print(outcome_frequencies)
+    #     downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
         
-        #print(np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0]))
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0])))
-        self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,1,:,0])))
-        self.assertTrue(np.all(downconverted_freq[2,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,0,:,0])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,1,:,0])))
+    #     #print(np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0]))
+    #     self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,0,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[0,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,:,1,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[2,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,0,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,:,1,:,0])))
         
-        subsystem_index = np.array([3,1])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,0,:])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,1,:])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,0,:])))
-        self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,:,1,:])))
+    #     subsystem_index = np.array([3,1])
+    #     outcome_frequencies= np.arange(5*16).reshape(5,16)
+    #     downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+    #     self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,0,:])))
+    #     self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,1,:])))
+    #     self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,0,:])))
+    #     self.assertTrue(np.all(downconverted_freq[1,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[1,1,:,1,:])))
         
-        subsystem_index = np.array([3,0])
-        outcome_frequencies= np.arange(5*16).reshape(5,16)
-        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+    #     subsystem_index = np.array([3,0])
+    #     outcome_frequencies= np.arange(5*16).reshape(5,16)
+    #     downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
         
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,:,1])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[4,1,:,:,1])))
+    #     self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[0,0,:,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[3,0,:,:,1])))
+    #     self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[2,1,:,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2)[4,1,:,:,1])))
         
-        # Test different size systems
+    #     # Test different size systems
     
-        subsystem_index = np.array([3,0])
-        outcome_frequencies= np.arange(5*32).reshape(5,32)
-        downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
+    #     subsystem_index = np.array([3,0])
+    #     outcome_frequencies= np.arange(5*32).reshape(5,32)
+    #     downconverted_freq = ot.downconvert_frequencies(subsystem_index,outcome_frequencies)
         
-        self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[0,:,0,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[3,:,0,:,:,1])))
-        self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[2,:,1,:,:,0])))
-        self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[4,:,1,:,:,1])))
+    #     self.assertTrue(np.all(downconverted_freq[0,0] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[0,:,0,:,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[3,1] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[3,:,0,:,:,1])))
+    #     self.assertTrue(np.all(downconverted_freq[2,2] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[2,:,1,:,:,0])))
+    #     self.assertTrue(np.all(downconverted_freq[4,3] == np.sum(outcome_frequencies.reshape(5,2,2,2,2,2)[4,:,1,:,:,1])))
                 
         
     def test_get_traced_out_indicies(self):
@@ -284,6 +284,28 @@ class TestHash(unittest.TestCase):
         traced_out = ot.get_traced_out_indicies(index_to_keep,11)
         self.assertTrue(np.all(traced_out == np.array([0,1,3,4,5,6,7,8,9,10])))
         
+    def test_create_2RDM_hash(self):
+        # Test case 1: n_total_qubits = 2
+        n_total_qubits = 2
+        expected_hash_family = np.array([[0, 1]])
+        self.assertTrue(np.array_equal(ot.create_2RDM_hash(n_total_qubits), expected_hash_family))       
+        
+        
+        # Test case 2: n_total_qubits = 3
+        n_total_qubits = 3
+        expected_hash_family = np.array([[0, 1, 0], [0, 0, 1]])
+        self.assertTrue(np.array_equal(ot.create_2RDM_hash(n_total_qubits), expected_hash_family))
+
+        # Test case 3: n_total_qubits = 4
+        n_total_qubits = 4
+        expected_hash_family = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
+        self.assertTrue(np.array_equal(ot.create_2RDM_hash(n_total_qubits), expected_hash_family))
+
+        # Test case 4: n_total_qubits = 5
+        n_total_qubits = 5
+        expected_hash_family = np.array([[0, 1, 0, 1, 0], [0, 0, 1, 1, 0], [0, 0, 0, 0, 1]])
+        self.assertTrue(np.array_equal(ot.create_2RDM_hash(n_total_qubits), expected_hash_family))
+         
     
 if __name__ == '__main__':
     unittest.main()
