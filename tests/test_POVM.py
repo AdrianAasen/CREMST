@@ -92,6 +92,13 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.all(long_pauli[78] == povm[8]))
         self.assertTrue(np.all(long_pauli[1] == povm[9]))
         
+    def test_computational_basis_POVM(self):
+        # Test normalization
+        basis = POVM.computational_basis_POVM(1)[0]
+        norm = np.sum(basis.get_POVM(),axis = 0)
+        
+        self.assertTrue(np.all(norm == np.eye(2)),"Normalization failed.")
+        
         
         
     # def test_noise_POVM(self):
