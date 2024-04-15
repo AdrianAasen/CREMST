@@ -305,7 +305,31 @@ class TestHash(unittest.TestCase):
         n_total_qubits = 5
         expected_hash_family = np.array([[0, 1, 0, 1, 0], [0, 0, 1, 1, 0], [0, 0, 0, 0, 1]])
         self.assertTrue(np.array_equal(ot.create_2RDM_hash(n_total_qubits), expected_hash_family))
-         
+
+
+
+    def test_check_qubit_pairs(self):
+       
+        subsystem_labels1 = np.array([[0, 1], [2, 3], [4, 5]])
+        expected1 = np.array([[0, 1], [2, 3], [0, 1]])
+        n_total_qubits = 4
+        self.assertTrue(np.all(ot.check_qubit_pairs(subsystem_labels1, n_total_qubits)== expected1))
+
+ 
+        subsystem_labels2 = np.array([[0, 0], [1, 1], [3, 4]])
+        expected2 = np.array([[0, 1], [1, 2], [3, 0]])
+        self.assertTrue(np.all(ot.check_qubit_pairs(subsystem_labels2,n_total_qubits)== expected2))
+
+
+        subsystem_labels3 = np.array([[0, 1], [1, 1], [2, 3], [3, 3]])
+        expected3 = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
+        self.assertTrue(np.all(ot.check_qubit_pairs(subsystem_labels3, n_total_qubits)== expected3))
+
+
+        # Test case 4: Empty input
+        subsystem_labels4 = np.array([])
+        expected4 = np.array([])
+        self.assertTrue(np.all(ot.check_qubit_pairs(subsystem_labels4, n_total_qubits) ==  expected4))
     
 if __name__ == '__main__':
     unittest.main()

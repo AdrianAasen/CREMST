@@ -361,7 +361,28 @@ def create_2RDM_hash(n_total_qubits):
     hash_family = np.transpose(binary_array)
     return hash_family
     
+
+
+def check_qubit_pairs(subsystem_labels,n_total_qubits):
+    """
+    Check and adjust qubit pairs if they are the same.
+    If they are equal the second qubit label is adjusted to be the next qubit label.
+
+    Args:
+        subsystem_labels (ndarray): A list of qubit pairs.
+
+    Returns:
+        ndarray: The number of qubits in the subsystem.
+
+    """
+    subsystem_labels = subsystem_labels% n_total_qubits # Convert them to be in the range of the total number of qubits
+    for pair in subsystem_labels:
+        if pair[0] == pair[1]:
+            print(f'Adjusted pair {pair}')
+            pair[1] = (pair[1] + 1) % n_total_qubits
+            
     
+    return subsystem_labels
     
 
 # def trace_out_outcomes(qubit_to_keep_labels, outcomes):

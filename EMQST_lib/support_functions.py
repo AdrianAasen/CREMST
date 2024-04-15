@@ -303,5 +303,8 @@ def binary_to_decimal(a):
     return a.dot(1 << np.arange(a.shape[-1] - 1, -1, -1)).copy()
 
 
+
+
+
 if __name__=="__main__":
     main()
