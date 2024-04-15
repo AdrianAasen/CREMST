@@ -226,12 +226,12 @@ def get_cailibration_states(n_qubits, calib = None):
         recursion-=1
     return calibration_states, calibration_angles
 
-def one_qubit_infidelity(rho_1: np.array, rho_2: np.array):
+def qubit_infidelity(rho_1: np.array, rho_2: np.array):
     '''
     Calculates the infidelity of two one qubit states according to Wikipedia.
     :param rho_1: dxd array of density matrix
     :param rho_2: dxd array of density matrix
-    :retur: infidelity
+    :return: infidelity
     '''
     if np.any([is_pure(rho_1), is_pure(rho_2)]):
         return 1-np.real(np.trace(rho_1@rho_2))

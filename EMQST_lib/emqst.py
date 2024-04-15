@@ -68,10 +68,10 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
     print(f'----------------------------')
     print(f'Error corrected {method}.')
     print(f'{n_qubits} qubit(s).')
-    print(f'{n_calibration_shots_each*len(calibration_states)} POVM calibration shots.')
+    print(f'{n_calibration_shots_each*len(calibration_states):,} POVM calibration shots.')
     
-    print(f'{n_QST_shots_each*len(POVM_list)} QST shots.')
-    print(f'{len(true_state_list)} QST averages.')
+    print(f'{n_QST_shots_each*len(POVM_list):,} QST shots.')
+    print(f'{len(true_state_list):,} QST averages.')
     print(f'----------------------------')
 
 

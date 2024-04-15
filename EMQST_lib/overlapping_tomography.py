@@ -290,7 +290,7 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
         rho_1  = update/np.trace(update)
 
         if j>=40 and j%20==0:
-            dist  = sf.one_qubit_infidelity(rho_1, rho_2)
+            dist  = sf.qubit_infidelity(rho_1, rho_2)
         rho_2 = rho_1
         j += 1
     return rho_1
@@ -305,7 +305,7 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
         hash_family (ndarray): The hash family used for creating the traced-out reconstructed POVM.
         n_hash_symbols (int): The number of hash symbols used for creating the traced-out reconstructed POVM.
         n_qubits (int): The number of qubits in the system.
-        reconstructed_comp_POVM (ndarray): A array of reconstructed complementary POVMs.
+        reconstructed_comp_POVM (ndarray): A array of reconstructed computational basis POVMs.
 
     Returns:
         rho_recon (numpy.ndarray): The reconstructed density matrix of the subsystem.
@@ -327,7 +327,7 @@ def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits
         one_qubit_calibration_states (list): A list of one-qubit calibration states.
 
     Returns:
-        reconstructed_comp_POVM (ndarray): The reconstructed computational POVM.
+        reconstructed_comp_POVM (POVM): The reconstructed computational POVM.
 
     """
     n_subsystem_qubits = len(subsystem_label)

@@ -15,23 +15,23 @@ class TestSupport(unittest.TestCase):
         # Test for the one_qubit_infidelity function
         rho = np.array([[1, 0], [0, 0]])  # Pure state |0⟩
         sigma = np.array([[0, 0], [0, 1]])  # Pure state |1⟩
-        self.assertTrue(sf.one_qubit_infidelity(rho, sigma) == 1)
+        self.assertTrue(sf.qubit_infidelity(rho, sigma) == 1)
         
         rho = np.array([[0.5, 0.5], [0.5, 0.5]])  # X state (|0⟩ + |1⟩)/√2
         sigma = np.array([[1, 0], [0, 0]])  # Pure state |0⟩
-        self.assertTrue(sf.one_qubit_infidelity(rho, sigma) == 0.5)
+        self.assertTrue(sf.qubit_infidelity(rho, sigma) == 0.5)
         
         rho = np.array([[0.5, 0.5], [0.5, 0.5]])  # X state
         sigma = np.array([[0.5, 0.5], [0.5, 0.5]])  # X state
-        self.assertTrue(sf.one_qubit_infidelity(rho, sigma) == 0)
+        self.assertTrue(sf.qubit_infidelity(rho, sigma) == 0)
         
         rho = np.array([[0.5, 0.5], [0.5, 0.5]])  # X state
         sigma = np.array([[0, 0], [0, 1]])  # Pure state |1⟩
-        self.assertTrue(sf.one_qubit_infidelity(rho, sigma) == 0.5)
+        self.assertTrue(sf.qubit_infidelity(rho, sigma) == 0.5)
         
         rho = np.array([[1, 0], [0, 0]])  # Pure state |0⟩
         sigma = np.array([[1, 0], [0, 0]])  # Pure state |0⟩
-        self.assertTrue(sf.one_qubit_infidelity(rho, sigma) == 0)
+        self.assertTrue(sf.qubit_infidelity(rho, sigma) == 0)
 
 
     def test_get_opposing_angles(self):

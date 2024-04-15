@@ -250,7 +250,7 @@ class QST():
             rho_1  = update/np.trace(update)
 
             if j>=40 and j%20==0:
-                dist  = sf.one_qubit_infidelity(rho_1, rho_2)
+                dist  = sf.qubit_infidelity(rho_1, rho_2)
             rho_2 = rho_1
 
             j += 1
@@ -407,7 +407,7 @@ def average_Bures(rho_bank,weights,n_qubits,n_cores):
     # Checks wether we are one or two qubits
     if n_qubits==1:
         for i in range(len(rho_bank)):
-            infid=sf.one_qubit_infidelity(rho_bank[i],mean_state)
+            infid=sf.qubit_infidelity(rho_bank[i],mean_state)
             b+=2*(infid)*weights[i]
     else: # 2 Qubit case is much slower, NEW: parallelized fidelity computation. 
         fid=Parallel(n_jobs=n_cores)(delayed(parallel_Bures)(rho,mean_state) for rho in rho_bank)
