@@ -56,10 +56,10 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
 
     if calibration_mode is None or calibration_mode == 'Pauli':
         print(f'POVM calibration states are Pauli eigenstates.')
-        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)    
+        calibration_states,calibration_angles=sf.get_calibration_states(n_qubits)    
     elif calibration_mode == 'SIC':
         print(f'POVM calibration states are SIC.')
-        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits,"SIC")
+        calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
 
     
     

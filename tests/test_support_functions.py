@@ -119,7 +119,6 @@ class TestSupport(unittest.TestCase):
         self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho5), expected5))
         
 
-
 if __name__ == '__main__':
     unittest.main()
 

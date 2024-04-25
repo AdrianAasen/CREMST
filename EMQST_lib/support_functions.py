@@ -201,7 +201,7 @@ def power_law(x, a, b):
 
 
 
-def get_cailibration_states(n_qubits, calib = None):
+def get_calibration_states(n_qubits, calib = None):
     """
     Generates a complete set of calibration states. Default is the eigenstates of the pauli matrices.
     Other options are the SIC-states. 
@@ -214,11 +214,14 @@ def get_cailibration_states(n_qubits, calib = None):
     elif calib == "SIC":
         one_qubit_calibration_angles = np.array([[[0,0]],[[2*np.arccos(1/np.sqrt(3)),0]],
                                                  [[2*np.arccos(1/np.sqrt(3)),2*np.pi/3]],
-                                                 [[2*np.arccos(1/np.sqrt(3)),4*np.pi/3]]])
+                                                 [[2*np.arccos(1/np.sqrt(3)),4*np.pi/3]]])    
+    elif calib == "Comp":
+        one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
+        
     calibration_angles=np.copy(one_qubit_calibration_angles)
     one_qubit_calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])
     calibration_states=np.copy(one_qubit_calibration_states)
-
+        
     recursion=n_qubits
     while recursion>1:
         calibration_states=np.array([np.kron(a,b) for a in calibration_states for b in one_qubit_calibration_states])
@@ -298,7 +301,7 @@ def binary_to_decimal(a):
     a (ndarray): The binary array to be converted.
 
     Returns:
-    ndarrya : The decimal integer representation of the binary array. This array has one dimension less the inital array.
+    ndarray : The decimal integer representation of the binary array. This array has one dimension less the initial array.
     """
     return a.dot(1 << np.arange(a.shape[-1] - 1, -1, -1)).copy()
 

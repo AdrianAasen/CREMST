@@ -83,7 +83,7 @@ def donwconverted_device_tomography(n_qubits,downconvert_to_qubits,n_shots_each,
     returns both POVM and donwconverted POVM. 
     """
     
-    calibration_states, _ = sf.get_cailibration_states(n_qubits)
+    calibration_states, _ = sf.get_calibration_states(n_qubits)
     povm_initial = POVM.generate_Pauli_POVM(n_qubits)
     # If no experimental angles are provided
     if calibration_angles is None:
@@ -117,7 +117,7 @@ def donwconverted_device_tomography(n_qubits,downconvert_to_qubits,n_shots_each,
     downcoverted_index_counts = downconvert_QDT_counts(index_counts,downconvert_to_qubits)
     
     # For the moment we assume that the downconverted POVM would be the Pauli states and pauli POVM. 
-    downconverted_calibration_states, _ = sf.get_cailibration_states(downconvert_to_qubits)
+    downconverted_calibration_states, _ = sf.get_calibration_states(downconvert_to_qubits)
     downconverted_inital_POVM = POVM.generate_Pauli_POVM(downconvert_to_qubits)
     
     parallel_dt_start=time.time()
@@ -186,7 +186,7 @@ def experimental_QDT(n_qubits,n_calibration_shots_each,exp_dictionary,n_cores = 
         POVM_list = POVM.generate_Pauli_POVM(n_qubits)
     
     if calibration_states is None:
-        calibration_states,calibration_angles=sf.get_cailibration_states(n_qubits)
+        calibration_states,calibration_angles=sf.get_calibration_states(n_qubits)
         
     reconstructed_POVM_list = device_tomography(n_qubits,n_calibration_shots_each,POVM_list,calibration_states,n_cores = n_cores, bool_exp_meaurements = True,exp_dictionary=exp_dictionary,initial_guess_POVM=POVM_list,calibration_angles=calibration_angles)
     return reconstructed_POVM_list
