@@ -1,7 +1,7 @@
 import numpy as np
 from EMQST_lib import support_functions as sf
 from EMQST_lib import overlapping_tomography as ot
-
+from functools import reduce
 
 
 def measurement(n_shots, povm, rho, bool_exp_measurements = False, exp_dictionary = None, state_angle_representation = None, custom_measurement_function = None, return_frequencies = False):
@@ -153,3 +153,28 @@ def measure_hashed_POVM(n_shots, rho_array, single_qubit_pauli_6, hashed_QST_ins
         outcomes = np.array([measure_separable_state(n_shots, povm, rho_array) for povm in hashed_POVM])
 
     return outcomes
+
+
+
+def measure_clusters(n_shots, povm_array, factorized_rho, cluster_size):
+    """
+    This function takes in a factorized density matrix and measures it using the cluster noise povm_list.
+    """
+
+    n_qubits = np.sum(cluster_size)
+    n_clusters = len(cluster_size)
+    full_outcomes = np.zeros((n_shots, n_qubits),dtype = int)
+    for i in range(n_clusters):
+
+        sub_rho = factorized_rho[sum(cluster_size[:i]):sum(cluster_size[:i+1])]
+        
+        # tensor together rho
+        rho = reduce(np.kron, sub_rho)
+        outcome = simulated_measurement(n_shots, povm_array[i], rho)
+
+        # Add outcomes to the full_outcomes array in binary form
+        full_outcomes[:,sum(cluster_size[:i]):sum(cluster_size[:i+1])] = sf.decimal_to_binary_array(outcome, cluster_size[i])
+
+        # Concatinate all outcomes into a single array
+
+    return full_outcomes 
