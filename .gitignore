@@ -9,6 +9,8 @@ test.py
 data/
 hash_list.npy
 test.ipynb
+.gitignore
+EMQST_lib/hash_family
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

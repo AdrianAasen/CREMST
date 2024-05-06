@@ -44,14 +44,14 @@ class TestOutcomesToFrequencies(unittest.TestCase):
         rho = np.array([[1,0],[0,0]])
         n_shots = 100
 
-        comp_povm = POVM.computational_basis_POVM(1)[0]
+        comp_povm = POVM.generate_computational_POVM(1)[0]
         outcomes = mf.simulated_measurement(n_shots,comp_povm,rho)
         true = np.array([0]*n_shots)
         self.assertTrue(np.all(outcomes == true),"Computational basis measurements are not correct.")
         
         
         np.random.seed(0) # Set random seed
-        iniPOVM1 = POVM.computational_basis_POVM(1)[0]
+        iniPOVM1 = POVM.generate_computational_POVM(1)[0]
         POVMset2 = 1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)
         #iniPOVM1 = POVM(POVMset1,np.array([[[0,0],[np.pi,0]]]))
         iniPOVM2 = POVM(POVMset2,np.array([[[np.pi/2,np.pi/2],[np.pi/2,3*np.pi/2]]]))   
@@ -76,7 +76,7 @@ class TestOutcomesToFrequencies(unittest.TestCase):
         
         
     def test_simulated_frequencies(self): 
-        comp_povm = POVM.computational_basis_POVM(1)[0]
+        comp_povm = POVM.generate_computational_POVM(1)[0]
         n_shots = 100
         return_frequencies = True
         rho = np.array([[1,0],[0,0]])
@@ -129,7 +129,7 @@ class TestOutcomesToFrequencies(unittest.TestCase):
         
     def test_measure_separable_state(self):
         n_shots = 4
-        povm_list = np.array([POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0]])
+        povm_list = np.array([POVM.generate_computational_POVM(1)[0], POVM.generate_computational_POVM(1)[0]])
         rho_list = np.array([[[1,0],[0,0]],[[0,0],[0,1]]])
         
         outcomes = mf.measure_separable_state(n_shots, povm_list, rho_list)
@@ -137,7 +137,7 @@ class TestOutcomesToFrequencies(unittest.TestCase):
         expected_outcomes = np.array([[0, 1], [0,1],[0,1], [0,1]])
         self.assertTrue(np.all(outcomes == expected_outcomes))
         
-        povm_list = np.array([POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0], POVM.computational_basis_POVM(1)[0]])
+        povm_list = np.array([POVM.generate_computational_POVM(1)[0], POVM.generate_computational_POVM(1)[0], POVM.generate_computational_POVM(1)[0]])
         rho_list = np.array([[[1,0],[0,0]], [[0,0],[0,1]], [[1/2,1/2],[1/2,1/2]]])
         np.random.seed(0)
         n_shots = 5

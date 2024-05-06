@@ -62,33 +62,33 @@ class TestSupport(unittest.TestCase):
         # Test case 1
         a1 = np.array([[1, 0, 1]])
         expected1 = np.array([5])
-        assert sf.binary_to_decimal(a1) == expected1
+        assert sf.binary_to_decimal_array(a1) == expected1
 
         # Test case 2
         a2 = np.array([1, 1, 0, 1])
         expected2 = 13
-        assert sf.binary_to_decimal(a2) == expected2
+        assert sf.binary_to_decimal_array(a2) == expected2
 
         # Test case 3
         a3 = np.array([0, 0, 0, 0, 1])
         expected3 = 1
-        assert sf.binary_to_decimal(a3) == expected3
+        assert sf.binary_to_decimal_array(a3) == expected3
 
         # Test case 4
         a4 = np.array([[1, 1, 1, 1], [0, 0, 0, 0]])
         expected4 = np.array([15, 0])
-        assert np.all(sf.binary_to_decimal(a4) == expected4)
+        assert np.all(sf.binary_to_decimal_array(a4) == expected4)
 
         # Test case 5
         a5 = np.array([[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]])
         expected5 = np.array([21, 10])
-        assert np.all(sf.binary_to_decimal(a5) == expected5)
+        assert np.all(sf.binary_to_decimal_array(a5) == expected5)
 
         
         # Test case 5
         a6 = np.array([[[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]],[[1, 0, 1, 0, 1], [0, 1, 0, 1, 0]]])
         expected6 = np.array([[21, 10],[21, 10]])
-        assert np.all(sf.binary_to_decimal(a6) == expected6)
+        assert np.all(sf.binary_to_decimal_array(a6) == expected6)
         # Add more test cases if needed
         
         
@@ -117,6 +117,33 @@ class TestSupport(unittest.TestCase):
         rho5 = np.array([[0.5, 0.5j], [-0.5j, 0.5]], dtype=complex)  # - Y state (|0⟩ - i|1⟩)/√2
         expected5 = np.array([[np.pi/2, -np.pi/2]])  # Bloch angles for -Y state
         self.assertTrue(np.allclose(sf.get_angles_from_density_matrix_single_qubit(rho5), expected5))
+        
+        
+    def test_decimal_to_binary_array(self):
+        # Test case 1
+        decimal_array1 = np.array([5, 10, 15])
+        expected1 = np.array([[0, 1, 0, 1], [1, 0, 1, 0], [1, 1, 1, 1]])
+        self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array1), expected1))
+
+        # Test case 2
+        decimal_array2 = np.array([0, 1, 2, 3])
+        expected2 = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+        self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array2), expected2))
+
+        # Test case 3
+        decimal_array3 = np.array([7, 8, 9])
+        expected3 = np.array([[0, 1, 1, 1], [1, 0, 0, 0], [1, 0, 0, 1]])
+        self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array3), expected3))
+
+        # Test case 4
+        decimal_array4 = np.array([0])
+        expected4 = np.array([[0]])
+        self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array4), expected4))
+
+        # Test case 5
+        decimal_array5 = np.array([0, 1, 2, 3])
+        expected5 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1]])
+        self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array5,3), expected5))
         
 
 if __name__ == '__main__':

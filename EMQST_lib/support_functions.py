@@ -10,6 +10,7 @@ from itertools import product, chain, repeat
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
+from EMQST_lib.povm import POVM
 #from povm import *
 
 
@@ -162,19 +163,24 @@ def POVM_distance(M,N):
     It is based on maximizing over all possible quantum states the "Total-Variation" distance.
     Currently only works for single qubit
     """
+    # Check if the instance i POVM. If not, convert it to POVM.
+    if isinstance(M, POVM):
+        M = M.get_POVM()
+    if isinstance(N, POVM):
+        N = N.get_POVM()
     d=0
     n=1000
     n_qubits=int(np.log2(len(M[0])))
-    for _ in range(n):
+    d = np.zeros(n)
+    for i in range(n):
         rho=generate_random_Hilbert_Schmidt_mixed_state(n_qubits)
         p=np.real(np.einsum('nij,ji->n',M,rho))
         q=np.real(np.einsum('nij,ji->n',N,rho))
-        dTemp=1/2*np.sum(np.abs(p-q))
-        if dTemp>d:
-            d=dTemp
-            #worst=p-q
-    #print(f'Worst: {worst}')
-    return d
+        d[i]=1/2*np.sum(np.abs(p-q))
+        
+    return np.max(d)
+
+    
 
 def Pauli_expectation_value(rho):
     X=np.array([[0,1],[1,0]])
@@ -293,7 +299,7 @@ def initialize_estimation(exp_dictionary):
 
 
 
-def binary_to_decimal(a):
+def binary_to_decimal_array(a):
     """
     Converts an arbitrary sized binary array to its decimal integer representation.
 
@@ -304,6 +310,31 @@ def binary_to_decimal(a):
     ndarray : The decimal integer representation of the binary array. This array has one dimension less the initial array.
     """
     return a.dot(1 << np.arange(a.shape[-1] - 1, -1, -1)).copy()
+
+
+def decimal_to_binary_array(decimal_array, max_length=None):
+    """
+    Takes in an array of decimal numbers and converts it into an array of binary numbers.
+
+    Parameters:
+    - decimal_array (array-like): An array of decimal numbers.
+    - max_length (int, optional): The maximum length of the binary representation. If not provided, it is calculated based on the maximum decimal value in the array.
+
+    Returns:
+    - binary_array (ndarray): An array of binary numbers.
+    """
+    
+    if max_length is None:
+        max_len = np.max(decimal_array)
+        if np.max(max_len) == 0:
+            max_length = 1
+        else: 
+            max_length = int(np.ceil(np.log2(max_len)))
+    
+    # Create binary array for each integer
+    binary_array = (((decimal_array[:, None] & (1 << np.arange(max_length)[::-1]))) > 0).astype(int)
+    
+    return binary_array
 
 
 

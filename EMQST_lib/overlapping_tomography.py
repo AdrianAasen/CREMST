@@ -153,7 +153,7 @@ def instruction_equivalence(instruction, possible_instructions, instruction_equi
 
 
 
-def create_unique_combinations(elements, n_repeat):
+def create_unique_combinations(elements, n_repeat, remove_duplicates=True):
     """
     Generate unique combinations of elements with repetition. Where entries with all equal elements are removed.
 
@@ -165,15 +165,14 @@ def create_unique_combinations(elements, n_repeat):
         numpy.ndarray: An array of unique combinations.
     """
     comb_list = np.array(list(product(elements, repeat=n_repeat)))
-   
-    # Remove the duplicate elements
-    n_unique_instructions = len(elements)
-    indicies = np.linspace(0, len(comb_list)-1, n_unique_instructions, dtype=int)
-    mask_array = np.ones(len(comb_list), dtype=bool)
-    mask_array[indicies] = False
-    prune_comb_list = comb_list[mask_array]
-    
-    return prune_comb_list
+    if remove_duplicates:
+        # Remove the duplicate elements
+        n_unique_instructions = len(elements)
+        indicies = np.linspace(0, len(comb_list)-1, n_unique_instructions, dtype=int)
+        mask_array = np.ones(len(comb_list), dtype=bool)
+        mask_array[indicies] = False
+        comb_list = comb_list[mask_array]
+    return comb_list
 
 
 def get_index_counts_from_decimal_outcomes(decimal_outcomes,n_subsysten_qubits):
@@ -253,7 +252,7 @@ def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_sub
 def get_traced_out_index_counts(outcomes, subsystem_label):
     n_subsystem_qubits = len(subsystem_label)
     traced_out_outcomes = trace_out(subsystem_label,outcomes)
-    decimal_outcomes = sf.binary_to_decimal(traced_out_outcomes)
+    decimal_outcomes = sf.binary_to_decimal_array(traced_out_outcomes)
     index_counts = get_index_counts_from_decimal_outcomes(decimal_outcomes,n_subsystem_qubits)
     return index_counts
 
@@ -332,7 +331,7 @@ def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits
     """
     n_subsystem_qubits = len(subsystem_label)
     hashed_subsystem_calibration_states = create_traced_out_calibration_states(subsystem_label, hash_family, one_qubit_calibration_states, n_hash_symbols, n_qubits)
-    guess_POVM = POVM.computational_basis_POVM(n_subsystem_qubits)[0]
+    guess_POVM = POVM.generate_computational_POVM(n_subsystem_qubits)[0]
     reconstructed_comp_POVM = dt.POVM_MLE(n_subsystem_qubits, QDT_index_counts, hashed_subsystem_calibration_states, guess_POVM)
     return reconstructed_comp_POVM
 
@@ -383,6 +382,90 @@ def check_qubit_pairs(subsystem_labels,n_total_qubits):
             
     
     return subsystem_labels
+
+
+def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters):
+    """
+    Finds the qubit labels that should be clustered together based on the quantum correlation coefficients.
+
+    Parameters:
+    two_point_qubit_labels (numpy.ndarray): List of qubit labels for two-point correlations n_correlators x 2.
+    quantum_correlation_array (numpy.ndarray): Array of quantum correlation coefficients.
+    subsystem_labels (numpy.ndarray): Array of subsystem labels.
+    max_clusters (int): Maximum number of qubits in a cluster.
+
+    Returns:
+    numpy.ndarray: Array of qubit labels that should be clustered together.
+    """
+    if max_clusters <=2:
+        print(f"Max cluster size must be 2 or larger.")
+        return two_point_qubit_labels
+    
+    cluster_qubits = np.empty((len(two_point_qubit_labels),max_clusters),dtype = int)
+    for i in range(len(two_point_qubit_labels)):
+
+        mask = np.any(np.isin(subsystem_labels,two_point_qubit_labels[i] ),axis=1)
+
+        cluster_correlators = quantum_correlation_array[mask]
+        temp_list = subsystem_labels[mask]
+        
+        indecis = np.argpartition(cluster_correlators, -(max_clusters-1))[-(max_clusters-1):]
+        
+        if not np.any(np.all(np.isin(temp_list[indecis],two_point_qubit_labels[i] ),axis=1)): # If the original correlator is NOT in the top correlators, remove lowest correlated pair and add original correlator.
+            indecis = np.argpartition(cluster_correlators, -(max_clusters-2))[-(max_clusters-2):]
+            temp_list = np.append(temp_list[indecis],two_point_qubit_labels[i]).reshape(-1,2)
+        else:
+            temp_list = temp_list[indecis]
+        #print('Highest correlators:\n', temp_list)
+        #print('Highest correlators:', cluster_correlators[indecis])
+        cluster_qubits[i] = np.unique(temp_list)
+        
+    return cluster_qubits
+
+
+
+def generate_random_hash(n_qubits,k_hash_symbols):
+    hash = (np.arange(n_qubits))%k_hash_symbols
+    np.random.shuffle(hash)
+    return hash
+
+
+def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
+    """
+    Brute force algorithm to create kRDM perfect hash family
+    """
+
+    
+    #test_list = np.array(list(itertools.combinations(number_list, 4)))
+    
+    def _is_hash_perfect(hash_list,k_hash_symbols):
+        """
+        Checks if hash list is perfect
+        """
+        number_array = np.arange(len(hash_list[0]))
+        k_array = np.arange(k_hash_symbols) 
+        # Create all possible k-RDM labels
+        check_array_index = np.array(list(combinations(number_array, k_hash_symbols)))
+
+        #print(hash_list[:,check_array_index[0]].T)
+        #print(k_array)
+        new_list = np.all(np.array ([[np.isin(k_array,hash_list[:,line].T) for line in check] for check in check_array_index]),axis=(1,2))
+  
+        return  np.all(new_list) # Returns true othewise
+    
+    
+    hash_list = np.array([(np.arange(n_qubits) )%k_hash_symbols])
+    #hash_list = np.append(hash_list,[generate_random_hash(n_qubits, k_hash_symbols)],axis = 0)
+    #print(hash_list)
+    perfect_hash = False
+    while perfect_hash == False:
+    
+        hash_list = np.append(hash_list,[generate_random_hash(n_qubits, k_hash_symbols)],axis = 0)
+        #print(hash_list)
+        perfect_hash = _is_hash_perfect(hash_list,k_hash_symbols)
+        #print(f'Added hash \n{hash_list[-1]}')
+    
+    return hash_list
     
 
 # def trace_out_outcomes(qubit_to_keep_labels, outcomes):
