@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 import uuid
 from functools import reduce
-from itertools import product, chain, repeat
+from itertools import product, chain, repeat, combinations
 from EMQST_lib import support_functions as sf
 from EMQST_lib.povm import POVM
 from EMQST_lib import dt
