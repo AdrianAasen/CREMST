@@ -14,18 +14,18 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.all(simple_POVM == test.get_POVM()),"Setting and getting does not work.")
         
         self.assertTrue(np.all(test.get_angles()==angles))
-        povm = POVM.computational_basis_POVM(1)
+        povm = POVM.generate_computational_POVM(1)
         self.assertTrue(np.all(povm[0].get_POVM()==simple_POVM))
     
     def test_angles(self):
-        povm = POVM.computational_basis_POVM(1)[0]
+        povm = POVM.generate_computational_POVM(1)[0]
         angles = np.array([[[0,0]],[[np.pi,0]]])
         angles_povm = povm.get_angles()
         self.assertTrue(np.all(angles == angles_povm))
     
     def test_pauli(self):
         pauli = POVM.generate_Pauli_POVM(1)
-        comp_basis = POVM.computational_basis_POVM(1)[0]
+        comp_basis = POVM.generate_computational_POVM(1)[0]
         y = np.array([[[0.5,-0.5j],[0.5j,0.5]],[[0.5,0.5j],[-0.5j,0.5]]], dtype = complex)
         x = np.array([[[0.5,0.5],[0.5,0.5]],[[0.5,-0.5],[-0.5,0.5]]], dtype = complex)
         # Check z measurement is equal to comp. basis
@@ -35,7 +35,7 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.all(pauli[0].get_POVM() == x))
         
     def test_comp_to_pauli_conversion(self):
-        comp = POVM.computational_basis_POVM(1)[0]
+        comp = POVM.generate_computational_POVM(1)[0]
         comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
         pauli = POVM.generate_Pauli_POVM(1)
 
@@ -44,13 +44,13 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.allclose(pauli[2].get_POVM(), comp_to_pauli[2].get_POVM()),"Identity transfer did not work.")
         
         # Test that it works with larger matices
-        comp = POVM.computational_basis_POVM(2)[0]
+        comp = POVM.generate_computational_POVM(2)[0]
         comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
         pauli = POVM.generate_Pauli_POVM(2)
         for i in range(3**2):
             self.assertTrue(np.allclose(pauli[i].get_POVM(), comp_to_pauli[i].get_POVM()),"X rotation did not work for 2 qubits.")
         # 3 qubits
-        comp = POVM.computational_basis_POVM(3)[0]
+        comp = POVM.generate_computational_POVM(3)[0]
         comp_to_pauli = POVM.generate_Pauli_from_comp(comp)
         pauli = POVM.generate_Pauli_POVM(3)
         for i in range(3**3):
@@ -94,13 +94,70 @@ class testPOVM(unittest.TestCase):
         
     def test_computational_basis_POVM(self):
         # Test normalization
-        basis = POVM.computational_basis_POVM(1)[0]
+        basis = POVM.generate_computational_POVM(1)[0]
         norm = np.sum(basis.get_POVM(),axis = 0)
         
         self.assertTrue(np.all(norm == np.eye(2)),"Normalization failed.")
         
         
         
+        
+    def test_trace_down_POVM(self):
+        # Test case 1: Two qubit POVM
+        povm = POVM.generate_computational_POVM(2)[0]
+        rho = 1/2*np.array([[1,0],[0,1]]) # Thermals state
+        traced_down_povm = povm.partial_trace(rho)
+        expected1 = POVM.generate_computational_POVM(1)[0] # Single qubit POVM
+        self.assertTrue(traced_down_povm == expected1)
+
+        # Test case 2: Invalid POVM
+        povm = POVM.generate_computational_POVM(4)[0]
+        traced_down_povm = povm.partial_trace(rho)
+        self.assertIsNone(traced_down_povm)
+
+        # Test case 3: Test Pauli POVM
+        povm_array = POVM.generate_Pauli_POVM(2)
+        traced_down_povm =  np.array([povm.partial_trace(rho) for povm in povm_array])
+        expected3 = POVM.generate_Pauli_POVM(1)  # Single qubit POVM
+        self.assertTrue(all(expected3[0] == povm for povm in traced_down_povm[:3]))   
+        self.assertTrue(all(expected3[1] == povm for povm in traced_down_povm[3:6]))     
+        self.assertTrue(all(expected3[2] == povm for povm in traced_down_povm[9:]))        
+        
+        
+    def test_POVM_equality(self):
+        povm1 = POVM.generate_computational_POVM(1)[0]
+        povm2 = POVM.generate_computational_POVM(1)[0]
+        self.assertTrue(povm1 == povm2)
+        povm2 = POVM.generate_computational_POVM(2)[0]
+        self.assertFalse(povm1 == povm2)
+        self.assertFalse(povm1 == 1)
+        
+        
+
+    def test_get_classical_correlation_coefficient(self):
+        # Test case 1: Two qubit POVM
+        povm = POVM.generate_computational_POVM(2)[0]
+        c = povm.get_classical_correlation_coefficient()
+        self.assertEqual(c, 0)
+
+        # # Test case 2: Non-two qubit POVM
+        # POVM_list = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        # p = povm.POVM(POVM_list)
+        # c = p.get_classical_correlation_coefficient()
+        # self.assertIsNone(c)
+
+        # # Test case 3: Custom two qubit POVM
+        # POVM_list = [[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]]
+        # p = povm.POVM(POVM_list)
+        # c = p.get_classical_correlation_coefficient()
+        # self.assertEqual(c, 1)
+        
+        
+        
+    def test_get_quantum_correlation_coefficient(self):
+        povm = POVM.generate_computational_POVM(2)[0]
+        c = povm.get_quantum_correlation_coefficient()
+        self.assertTrue(np.isclose(c, 0))
     # def test_noise_POVM(self):
     #     np.random.seed(0)
     #     POVMset=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)#np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)#
