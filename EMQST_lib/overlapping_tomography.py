@@ -313,6 +313,7 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
     rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
     return rho_recon
 
+
 def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
     """
     Performs Quantum Overlapping Detector Tomography (QDT) on a subsystem.
@@ -391,34 +392,36 @@ def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsyste
     Parameters:
     two_point_qubit_labels (numpy.ndarray): List of qubit labels for two-point correlations n_correlators x 2.
     quantum_correlation_array (numpy.ndarray): Array of quantum correlation coefficients.
-    subsystem_labels (numpy.ndarray): Array of subsystem labels.
+    subsystem_labels (numpy.ndarray): Array of subsystem labels. The correlation coefficients tells us
+                                     how much the first index qubit is affected by the second index qubit.
     max_clusters (int): Maximum number of qubits in a cluster.
 
     Returns:
     numpy.ndarray: Array of qubit labels that should be clustered together.
     """
-    if max_clusters <=2:
+    if max_clusters <2:
         print(f"Max cluster size must be 2 or larger.")
         return two_point_qubit_labels
     
     cluster_qubits = np.empty((len(two_point_qubit_labels),max_clusters),dtype = int)
     for i in range(len(two_point_qubit_labels)):
-
-        mask = np.any(np.isin(subsystem_labels,two_point_qubit_labels[i] ),axis=1)
-
+        # Create a mask that removed all correlators not connected to any of the target qubits
+        mask = np.isin(subsystem_labels[:,0],two_point_qubit_labels[i] )
+        #print(mask)
+        # Apply mask to both the correlators and the labels. 
         cluster_correlators = quantum_correlation_array[mask]
-        temp_list = subsystem_labels[mask]
-        
-        indecis = np.argpartition(cluster_correlators, -(max_clusters-1))[-(max_clusters-1):]
-        
-        if not np.any(np.all(np.isin(temp_list[indecis],two_point_qubit_labels[i] ),axis=1)): # If the original correlator is NOT in the top correlators, remove lowest correlated pair and add original correlator.
-            indecis = np.argpartition(cluster_correlators, -(max_clusters-2))[-(max_clusters-2):]
-            temp_list = np.append(temp_list[indecis],two_point_qubit_labels[i]).reshape(-1,2)
-        else:
-            temp_list = temp_list[indecis]
-        #print('Highest correlators:\n', temp_list)
-        #print('Highest correlators:', cluster_correlators[indecis])
-        cluster_qubits[i] = np.unique(temp_list)
+        masked_subsystem_labels = subsystem_labels[mask]
+        #print(masked_subsystem_labels)
+        # Compute the highest correlators, returns the indecis of these correlators in the masked subsystem_labels
+        #indecis = np.argpartition(cluster_correlators, -(max_clusters))[-(max_clusters):]
+        #print(indecis)
+        highest_label_array = np.array(two_point_qubit_labels[i])
+        it = 1
+        while len(np.unique(highest_label_array))<max_clusters and it < 10**3: 
+            indecis = np.argpartition(cluster_correlators, -(it))[-(it):]
+            highest_label_array = np.append(masked_subsystem_labels[indecis],two_point_qubit_labels[i]).reshape(-1,2)
+            it +=1
+        cluster_qubits[i] = np.unique(highest_label_array)
         
     return cluster_qubits
 
@@ -440,7 +443,7 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
     
     def _is_hash_perfect(hash_list,k_hash_symbols):
         """
-        Checks if hash list is perfect
+        Checks if hash list is perfect.
         """
         number_array = np.arange(len(hash_list[0]))
         k_array = np.arange(k_hash_symbols) 
@@ -449,9 +452,9 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
 
         #print(hash_list[:,check_array_index[0]].T)
         #print(k_array)
-        new_list = np.all(np.array ([[np.isin(k_array,hash_list[:,line].T) for line in check] for check in check_array_index]),axis=(1,2))
+        masked_list = np.all(np.array([[np.isin(k_array,hash_list[:,line].T) for line in check] for check in check_array_index]),axis=(1,2))
   
-        return  np.all(new_list) # Returns true othewise
+        return  np.all(masked_list) # Return if all checks pass. 
     
     
     hash_list = np.array([(np.arange(n_qubits) )%k_hash_symbols])

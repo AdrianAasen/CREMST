@@ -331,5 +331,46 @@ class TestHash(unittest.TestCase):
         expected4 = np.array([])
         self.assertTrue(np.all(ot.check_qubit_pairs(subsystem_labels4, n_total_qubits) ==  expected4))
     
+    
+    def test_find_2PC_cluster(self):
+            # Test case 1
+            subsystem_labels = np.array([[0, 1], [1, 0], [2, 3], [3, 4], [0,2],[2,0],[0,4],[1,3],[2,4]])
+            quantum_correlation_array = np.array([0.8, 0.6, 0.4, 0.2, 0.9,1,0.2,0.3,1])
+            two_point_qubit_labels = np.array([[0, 1],[1,2]])
+            max_clusters = 3
+            expected1 = np.array([[0, 1, 2],[1,2,4]])
+            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected1))
+
+                
+
+             
+                
+            # Test case 2
+            subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
+            quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
+            two_point_qubit_labels = np.array([[0, 1]])
+            max_clusters = 4
+            expected2 = np.array([[0, 1, 2 ,4]])
+            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected2))
+
+            # Test case 3
+            subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
+            quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
+            two_point_qubit_labels = np.array([[0, 1]])
+            max_clusters = 2
+            expected3 = np.array([[0, 1]])
+            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected3))
+            
+            
+            # the the order of qubits in the subsystem labels should not matter
+            subsystem_labels = np.array([[0, 1], [1,2],[3,1],[1,4], [0,4]])
+            quantum_correlation_array = np.array([0.05, 0.1, 0.9, 0.3,0.1])
+            two_point_qubit_labels = np.array([[0, 1]])
+            max_clusters = 3
+            expected4 = np.array([[0, 1, 4]])
+            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected4)) 
 if __name__ == '__main__':
     unittest.main()

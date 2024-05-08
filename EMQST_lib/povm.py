@@ -454,51 +454,62 @@ class POVM():
         """ 
         For two qubit POVMs one can compute how correlated the POVMs are. and extract a correlation coefficient. 
         This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661
+        
+        The procedure will return both variants of the correlation coefficient, tracing down first the first qubit and then the second qubit.
         """
         
         # Check if the POVM is a two qubit POVM
         if len(self.POVM_list[0]) != 4:
             print("The POVM is not a two qubit POVM")
             return None
-        if False:
+        # if False:
 
 
-            # Trace down the first qubit
-            n_iter = 500 # The number of randomly generated states to find the largest correlation coefficients. 
-            c = np.zeros(n_iter)
-            for i in range(n_iter):
-                rho = sf.generate_random_pure_state(1)
-                sigma = sf.generate_random_pure_state(1)
-                POVM_A = self.partial_trace(rho)    
-                POVM_B = self.partial_trace(sigma)
-                c[i] = sf.POVM_distance(POVM_A, POVM_B)
-            return np.max(c)
-        else:
-            x0 = np.array([0,0,0,0,0,0])
+        #     # Trace down the first qubit
+        #     n_iter = 500 # The number of randomly generated states to find the largest correlation coefficients. 
+        #     c = np.zeros(n_iter)
+        #     for i in range(n_iter):
+        #         rho = sf.generate_random_pure_state(1)
+        #         sigma = sf.generate_random_pure_state(1)
+        #         POVM_A = self.partial_trace(rho)    
+        #         POVM_B = self.partial_trace(sigma)
+        #         c[i] = sf.POVM_distance(POVM_A, POVM_B)
+        #     return np.max(c)
+        # else:
+        x0 = np.array([0,0,0,0,0,0])
 
-            def func(x, *args):
-                M = args[0]
-                vec1 = x[:3]
-                vec2 = x[3:]
-                sigma_vec = np.array([[[0,1],[1,0]], [[0,-1j],[1j,0]], [[1,0],[0,-1]]])
-                Delta = np.einsum('ijk,i->jk',sigma_vec,vec1-vec2)
+        def func(x, *args):
+            M = args[0]
+            qubit = args[1]
+            vec1 = x[:3]
+            vec2 = x[3:]
+            sigma_vec = np.array([[[0,1],[1,0]], [[0,-1j],[1j,0]], [[1,0],[0,-1]]])
+            Delta = np.einsum('ijk,i->jk',sigma_vec,vec1-vec2)
+            if qubit==0:
                 op = (M@np.kron(np.eye(2),Delta)).reshape(2,2,2,2)
                 op = np.einsum('jklk->jl',op)
-                return -1/2*np.linalg.norm(op, ord = 2)
+            else:
+                op = (M@np.kron(Delta,np.eye(2))).reshape(2,2,2,2)
+                op = np.einsum('kjkl->jl',op)
+            return -1/2*np.linalg.norm(op, ord = 2)
 
-            def cons_1(x):
-                return np.linalg.norm(x[:3])-1
-            def cons_2(x):
-                return np.linalg.norm(x[3:])-1
-            bnds = ((-1,1),(-1,1),(-1,1),(-1,1),(-1,1),(-1,1))
-            cons = [{'type':'eq','fun':cons_1},{'type':'eq','fun':cons_2}]
+        def cons_1(x):
+            return np.linalg.norm(x[:3])-1
+        def cons_2(x):
+            return np.linalg.norm(x[3:])-1
+        bound = sp.optimize.Bounds(-1.000,1.000)
+        cons = [{'type':'eq','fun':cons_1},{'type':'eq','fun':cons_2}]
 
-
-            M = self.POVM_list[0] + self.POVM_list[1]
-
-
-            sol = minimize(func, x0, args=(M), method='SLSQP', bounds=bnds, constraints=cons)
-            return -sol['fun']
+        # Define M for tracing out qubit 0
+        M0 = self.POVM_list[0] + self.POVM_list[1]
+        # Define M for tracing out qubit 1
+        M1 = self.POVM_list[0] + self.POVM_list[2]
+        tolerance = {"ftol": 1e-8} 
+        tol = 10**-8
+        sol0 = minimize(func, x0, args=(M0,0), method='SLSQP', bounds=bound, constraints=cons, tol=tol, options=tolerance)
+        x0 = np.array([0,0,0,0,0,0])
+        sol1 = minimize(func, x0, args=(M1,1), method='SLSQP', bounds=bound, constraints=cons, tol = tol, options=tolerance)
+        return -np.array([sol0['fun'],sol1['fun']])
         
     
     
@@ -506,7 +517,9 @@ class POVM():
     def get_classical_correlation_coefficient(self):
         """ 
         For two qubit POVMs one can compute how correlated the POVMs are, optimized over only classical states (e.g. pure states in the computational basis. ) and extract a correlation coefficient. 
-        This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661
+        This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661.
+        
+        The procedure will return both variants of the correlation coefficient, tracing down first the first qubit and then the second qubit.
         """
         # Check if the POVM is a two qubit POVM
         if len(self.POVM_list[0]) != 4:
@@ -514,19 +527,23 @@ class POVM():
             return None
         states = np.array([[[1,0], [0,0]],[[0,0], [0,1]] ])
         
-        POVM_A = self.partial_trace(states[0])    
-        POVM_B = self.partial_trace(states[1])
-        c = sf.POVM_distance(POVM_A, POVM_B)
-        return c
+        POVM_A = self.partial_trace(states[0],0)    
+        POVM_B = self.partial_trace(states[1],0)
+        c_0 = 1/2*np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+        c0 = sf.POVM_distance(POVM_A, POVM_B)
+        #print(c_0, c0)
+        POVM_A = self.partial_trace(states[0],1)    
+        POVM_B = self.partial_trace(states[1],1)
+        c_1 = 1/2*np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+        c1 = sf.POVM_distance(POVM_A, POVM_B)
+        return np.array([c_0,c_1])
         
-            
-        
-        
+             
         
     
-    def partial_trace(self, rho):
+    def partial_trace(self, rho, qubit=0):
         """
-        Traces down a two qubit POVM to a single qubit POVM. Following the procedute explained in  http://arxiv.org/abs/2311.10661.
+        Traces down a two qubit POVM to a single qubit POVM. By default it traces out the 0 qubit. Following the procedute explained in  http://arxiv.org/abs/2311.10661.
         Rho single qubit state of the environment.
         """
         if len(self.POVM_list[0]) != 4:
@@ -535,8 +552,16 @@ class POVM():
         
         povm_array = self.POVM_list
         
-        op = np.kron(np.eye(2),rho)
-        combined_op = np.einsum('ijk,kl->ijl',povm_array,op).reshape((-1,2,2,2,2))
-        traced_down_povm = np.einsum('ijklk->ijl',combined_op)
-        summed_povm = np.array([traced_down_povm[0] + traced_down_povm[1], traced_down_povm[2] + traced_down_povm[3]])
+
+        if qubit == 0:
+            op = np.kron(np.eye(2),rho)
+            combined_op = np.einsum('ijk,kl->ijl',povm_array,op).reshape((-1,2,2,2,2))
+            traced_down_povm = np.einsum('ijklk->ijl',combined_op)
+            summed_povm = np.array([traced_down_povm[0] + traced_down_povm[1], traced_down_povm[2] + traced_down_povm[3]])
+        else: 
+            op = np.kron(rho, np.eye(2))
+            combined_op = np.einsum('ijk,kl->ijl',povm_array,op).reshape((-1,2,2,2,2))
+            traced_down_povm = np.einsum('ikjkl->ijl',combined_op)
+            summed_povm = np.array([traced_down_povm[0] + traced_down_povm[2],traced_down_povm[1] + traced_down_povm[3]])
+        
         return POVM(summed_povm)

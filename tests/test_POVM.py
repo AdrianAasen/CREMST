@@ -138,8 +138,18 @@ class testPOVM(unittest.TestCase):
         # Test case 1: Two qubit POVM
         povm = POVM.generate_computational_POVM(2)[0]
         c = povm.get_classical_correlation_coefficient()
-        self.assertEqual(c, 0)
+        
+        self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
 
+        noisy_povm = noisy_povm = POVM.generate_noisy_POVM(povm, 4)
+        c = noisy_povm.get_classical_correlation_coefficient()
+        self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
+
+        #noisy_povm = noisy_povm = POVM.generate_noisy_POVM(povm, 3)
+        #c = noisy_povm.get_classical_correlation_coefficient()
+        #print(c)
+        
+        #self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
         # # Test case 2: Non-two qubit POVM
         # POVM_list = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         # p = povm.POVM(POVM_list)
@@ -157,7 +167,28 @@ class testPOVM(unittest.TestCase):
     def test_get_quantum_correlation_coefficient(self):
         povm = POVM.generate_computational_POVM(2)[0]
         c = povm.get_quantum_correlation_coefficient()
-        self.assertTrue(np.isclose(c, 0))
+        
+        self.assertTrue(np.all(np.isclose(c,np.array([0,0]))))
+        # Check uncorrelated noise
+        noisy_povm = POVM.generate_noisy_POVM(povm, 4)
+        c = noisy_povm.get_quantum_correlation_coefficient()
+
+        self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
+        np.random.seed(1)
+        # Check quantum noise larger than classical noise.
+        for i in range(7):
+            noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
+            c = noisy_povm.get_quantum_correlation_coefficient()
+            classical = noisy_povm.get_classical_correlation_coefficient()
+            #print(i,c,classical)
+            self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+            
+        for _ in range(10): # Testing random noise
+            noisy_povm = POVM.generate_random_POVM(4,4)
+            c = noisy_povm.get_quantum_correlation_coefficient()
+            classical = noisy_povm.get_classical_correlation_coefficient()
+            print(c,classical)
+            self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
     # def test_noise_POVM(self):
     #     np.random.seed(0)
     #     POVMset=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)#np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)#
