@@ -180,14 +180,14 @@ class testPOVM(unittest.TestCase):
             noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
             c = noisy_povm.get_quantum_correlation_coefficient()
             classical = noisy_povm.get_classical_correlation_coefficient()
-            #print(i,c,classical)
+            print(i,c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
             
         for _ in range(10): # Testing random noise
             noisy_povm = POVM.generate_random_POVM(4,4)
             c = noisy_povm.get_quantum_correlation_coefficient()
             classical = noisy_povm.get_classical_correlation_coefficient()
-            print(c,classical)
+            #print(c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
     # def test_noise_POVM(self):
     #     np.random.seed(0)
