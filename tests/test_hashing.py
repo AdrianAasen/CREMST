@@ -211,6 +211,16 @@ class TestHash(unittest.TestCase):
         instruction = ['A', 'B', 'C']
         expected_output = np.array([0, 1, 2])
         self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
+        
+        
+        
+        # Test matrix instructions
+        instruction = ['A', 'B', 'C']
+        instruction_equivalence =[np.eye(2), np.ones((2,2)), np.array([[1,0],[0,-1]])] 
+        #instruction_equivalence = [0, 1, 2]
+        expected_output = instruction_equivalence
+        self.assertTrue(np.array_equal(ot.instruction_equivalence(instruction, possible_instructions, instruction_equivalence), expected_output))
+        
     
     # def test_frequency_donconvertion(self):
     #     subsystem_index = np.array([3,2])

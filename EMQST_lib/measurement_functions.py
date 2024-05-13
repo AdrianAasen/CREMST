@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 from EMQST_lib import support_functions as sf
 from EMQST_lib import overlapping_tomography as ot
 from functools import reduce
@@ -178,3 +179,29 @@ def measure_clusters(n_shots, povm_array, factorized_rho, cluster_size):
         # Concatinate all outcomes into a single array
 
     return full_outcomes 
+
+
+
+def measure_cluster_QST(n_QST_shots, povm_array, rho_true_array, hashed_QST_instructions,cluster_size):
+    """
+    Because we have genuine clusted POVMs, we need to apply the rotations to the qubits rather than the POVMs for the meaurements.
+    Luckily the instructions are are single qubit rotations, so we can simply create a copy of the factorized rhos and apply the appropriete unitary in accordance with the hashed_QST_instructions.
+    """
+    
+    possible_instructions = np.array(["X", "Y", "Z"])
+    sigma_x = np.array([[0,1], [1,0]])
+    sigma_y = np.array([[0,-1j], [1j,0]])
+    # NOTE: measuring in the x-basis is eqivalent to rotate the x eigenstte to become a z state, which requires a rotation of -pi/2 around the y-axis.
+    # NOTE: that this is the inverse rotation as we used in for the rotations applied to the POVMs in def generate_Pauli_from_comp in the povm class.
+    rot_x_to_z = sp.linalg.expm(-1j * (-np.pi/4) * sigma_y)
+    rot_y_to_z = sp.linalg.expm(-1j * (np.pi/4) * sigma_x)
+    
+    # Create list of single qubit rotations from comp to Pauli
+    rotation_matrices = np.array([rot_x_to_z, rot_y_to_z, np.eye(2)]) 
+
+    #conjugate_rotation_matrices = np.array([rot_x_to_z.conj().T, rot_y_to_z.conj().T, np.eye(2)]) 
+    hashed_unitaries = np.array([ot.instruction_equivalence(hashed_QST_instruction, possible_instructions , rotation_matrices) for hashed_QST_instruction in hashed_QST_instructions])
+    #hashed_conjugate_unitaries = ot.instruction_equivalence(hashed_QST_instructions, possible_instructions , conjugate_rotation_matrices)
+    hashed_factorized_rhos = np.einsum('nmij,mjk,nmlk->nmil', hashed_unitaries, rho_true_array,hashed_unitaries.conj()) # Note that the second hashed_unitaries are swapped to perform a transpose. 
+    outcomes = np.array([measure_clusters(n_QST_shots, povm_array, rho_array, cluster_size) for rho_array in hashed_factorized_rhos])
+    return outcomes 

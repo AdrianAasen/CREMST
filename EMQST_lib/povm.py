@@ -149,6 +149,11 @@ class POVM():
             np.ndarray: Array of tensor product POVMs.
 
         """
+        if isinstance(POVM_1, POVM): # If they send in POVM elements, we need to make them into a list. 
+            POVM_1 = np.array([POVM_1])
+        if isinstance(POVM_2, POVM):
+            POVM_2 = np.array([POVM_2])
+            
         POVM_list = np.array([cls(np.array([np.kron(a, b) for a in POVM_a.get_POVM() for b in POVM_b.get_POVM()]),
                                 np.array([np.concatenate((angle_a, angle_b)) for angle_a in POVM_a.get_angles() for angle_b in POVM_b.get_angles()]))
                                 for POVM_a in POVM_1 for POVM_b in POVM_2])
