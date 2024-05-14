@@ -379,8 +379,9 @@ class TestHash(unittest.TestCase):
             quantum_correlation_array = np.array([0.05, 0.1, 0.9, 0.3,0.1])
             two_point_qubit_labels = np.array([[0, 1]])
             max_clusters = 3
-            expected4 = np.array([[0, 1, 4]])
+            expected4 = np.array([[0, 1, 3]])
             #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+            
             self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected4)) 
 if __name__ == '__main__':
     unittest.main()

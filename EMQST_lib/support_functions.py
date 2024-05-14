@@ -335,8 +335,18 @@ def decimal_to_binary_array(decimal_array, max_length=None):
     binary_array = (((decimal_array[:, None] & (1 << np.arange(max_length)[::-1]))) > 0).astype(int)
     
     return binary_array
+def partial_trace(rho, qubit = 0):
+    """
+    Takes the partial trace of a list of 2 qubit density matrices. 
+    """
 
+    rho = np.reshape(rho,(2,2,2,2))
+    if qubit == 0:
+        traced_down_rho = np.einsum('jiki->jk',rho)
+    else:
+        traced_down_rho = np.einsum('ijik->jk',rho)
 
+    return traced_down_rho
 
 
 

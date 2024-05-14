@@ -28,7 +28,7 @@ def trace_out(qubit_to_keep_labels, qubit_array):
         ndarray: The traced out array.
     """
     # Sort labels such that input order does not matter.
-    # Note the last onversion as we order our qubits in reverse order, [3,2,1,0]
+    # Note the last conversion as we order our qubits in reverse order, [3,2,1,0]
     qubit_to_keep_labels = np.sort(qubit_to_keep_labels)[::-1]
     qubit_to_keep_index = qubit_label_to_list_index(qubit_to_keep_labels, qubit_array.shape[-1])
     traced_down_outcomes = qubit_array[..., qubit_to_keep_index]
@@ -146,7 +146,7 @@ def instruction_equivalence(instruction, possible_instructions, instruction_equi
     """
     # Create instruction dictionary
     instruction_dict = dict(zip(possible_instructions, instruction_equivalence))
-    #print(instruction)
+
     new_instruction = np.array([instruction_dict[element] for element in instruction])
     #print(new_instruction)
     return new_instruction
@@ -385,7 +385,7 @@ def check_qubit_pairs(subsystem_labels,n_total_qubits):
     return subsystem_labels
 
 
-def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters):
+def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters, cluster_limit = 0.1, update_list = False):
     """
     Finds the qubit labels that should be clustered together based on the quantum correlation coefficients.
 
@@ -395,6 +395,7 @@ def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsyste
     subsystem_labels (numpy.ndarray): Array of subsystem labels. The correlation coefficients tells us
                                      how much the first index qubit is affected by the second index qubit.
     max_clusters (int): Maximum number of qubits in a cluster.
+    cluster_limit(float): maximal value of the correlation coefficient to be clustered.
 
     Returns:
     numpy.ndarray: Array of qubit labels that should be clustered together.
@@ -403,25 +404,46 @@ def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsyste
         print(f"Max cluster size must be 2 or larger.")
         return two_point_qubit_labels
     
-    cluster_qubits = np.empty((len(two_point_qubit_labels),max_clusters),dtype = int)
+    cluster_qubits = []#np.empty((len(two_point_qubit_labels),max_clusters),dtype = int)
+    
     for i in range(len(two_point_qubit_labels)):
         # Create a mask that removed all correlators not connected to any of the target qubits
-        mask = np.isin(subsystem_labels[:,0],two_point_qubit_labels[i] )
+
+        # Searches among two-way correlations
+        mask = np.any(np.isin(subsystem_labels,two_point_qubit_labels[i] ),axis=1)
         #print(mask)
         # Apply mask to both the correlators and the labels. 
         cluster_correlators = quantum_correlation_array[mask]
         masked_subsystem_labels = subsystem_labels[mask]
-        #print(masked_subsystem_labels)
+        # Remove all correlators which are below cluster limit
+        correlator_limit_mask = np.abs(cluster_correlators) > cluster_limit
+        cluster_correlators = cluster_correlators[correlator_limit_mask]
+        masked_subsystem_labels = masked_subsystem_labels[correlator_limit_mask]
         # Compute the highest correlators, returns the indecis of these correlators in the masked subsystem_labels
-        #indecis = np.argpartition(cluster_correlators, -(max_clusters))[-(max_clusters):]
-        #print(indecis)
-        highest_label_array = np.array(two_point_qubit_labels[i])
+
+        highest_label_array = np.array(two_point_qubit_labels[i]) # Defined to just be part of the while argument. 
         it = 1
-        while len(np.unique(highest_label_array))<max_clusters and it < 10**3: 
-            indecis = np.argpartition(cluster_correlators, -(it))[-(it):]
-            highest_label_array = np.append(masked_subsystem_labels[indecis],two_point_qubit_labels[i]).reshape(-1,2)
-            it +=1
-        cluster_qubits[i] = np.unique(highest_label_array)
+        if len(np.unique( np.append(masked_subsystem_labels,two_point_qubit_labels[i])))<max_clusters: # Checks if there are high enough correlators to warrent a search. 
+            highest_label_array = np.unique(np.append(masked_subsystem_labels,two_point_qubit_labels[i]))
+        else: # If there are enough candidates, select the ones with highest correlation coefficients. 
+            while len(np.unique(highest_label_array))<max_clusters and len(np.unique(masked_subsystem_labels)): # It keeps adding one more qubit correlator untill the cluster is at max size. 
+                indecis = np.argpartition(cluster_correlators, -(it))[-(it):]
+                highest_label_array = np.append(masked_subsystem_labels[indecis],two_point_qubit_labels[i]).reshape(-1,2)
+                it +=1
+                if update_list: # The list of cluster qubits are updated with each added qubit. 
+                    temp_subsystem_labels = np.unique(highest_label_array)
+
+                    mask = np.any(np.isin(subsystem_labels,temp_subsystem_labels ),axis=1)
+                    # Update masked arrays
+                    cluster_correlators = quantum_correlation_array[mask]
+                    masked_subsystem_labels = subsystem_labels[mask]
+            
+            if len(np.unique(highest_label_array))>max_clusters:
+                print(f"Cluster {i} is larger than max cluster size {max_clusters}, removing lowest cluster")
+                indecis = np.argpartition(cluster_correlators, -(it-2))[-(it-2):]
+                highest_label_array = np.append(masked_subsystem_labels[indecis],two_point_qubit_labels[i]).reshape(-1,2)
+        cluster_qubits.append(np.unique(highest_label_array))
+
         
     return cluster_qubits
 

@@ -309,7 +309,7 @@ class POVM():
             ISWAP=np.array([[1,0,0,0],[0,0,1j,0],[0,1j,0,0],[0,0,0,1]],dtype=complex)
             if noise_mode == 1: 
                 noise_transformation=CNOT
-                k = 0.4 # Mixing strenght (probability)
+                k = 0.2 # Mixing strenght (probability)
                 noisy_POVM_list=k*base_POVM_list + (1-k)*np.einsum('jk,ikl,lm->ijm',noise_transformation.conj().T,base_POVM_list,noise_transformation)
                 return cls(noisy_POVM_list) 
             elif noise_mode == 2:
@@ -534,13 +534,13 @@ class POVM():
         
         POVM_A = self.partial_trace(states[0],0)    
         POVM_B = self.partial_trace(states[1],0)
-        c_0 = 1/2*np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
-        c0 = sf.POVM_distance(POVM_A, POVM_B)
+        c_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+        #c0 = sf.POVM_distance(POVM_A, POVM_B)
         #print(c_0, c0)
         POVM_A = self.partial_trace(states[0],1)    
         POVM_B = self.partial_trace(states[1],1)
-        c_1 = 1/2*np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
-        c1 = sf.POVM_distance(POVM_A, POVM_B)
+        c_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+        #c1 = sf.POVM_distance(POVM_A, POVM_B)
         return np.array([c_0,c_1])
         
              
