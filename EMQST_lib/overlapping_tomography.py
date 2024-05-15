@@ -228,10 +228,10 @@ def create_traced_out_reconstructed_POVM(subsystem_labels, reconstructed_comp_PO
     #options_check = np.array(["X","Y", "Z"])
     # Create the instructions for the hashed subsystem (NOTE we slice out only the subsystem qubits from the hash family)
     hashed_subsystem_instructions = np.array([hash_to_instruction(function, possible_instructions, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
-    base_instructions = np.array([[0]*n_hash_symbols,[1]*n_hash_symbols,[2]*n_hash_symbols])
+    base_instructions = np.array([[0]*n_subsystem_qubits,[1]*n_subsystem_qubits,[2]*n_subsystem_qubits])
     #print(hashed_subsystem_instructions.shape)
     combined_hash_instructions = np.vstack((hashed_subsystem_instructions, base_instructions))
-    combined_povm_array = subsystem_instructions_to_POVM(combined_hash_instructions, reconstructed_Pauli_POVM, n_subsystem_qubits = n_hash_symbols)
+    combined_povm_array = subsystem_instructions_to_POVM(combined_hash_instructions, reconstructed_Pauli_POVM, n_subsystem_qubits = n_subsystem_qubits)
     return combined_povm_array
 
 
