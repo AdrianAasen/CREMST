@@ -288,7 +288,7 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
         update = R@rho_1@R
         rho_1  = update/np.trace(update)
 
-        if j>=40 and j%20==0:
+        if j>=40 and j%100==0:
             dist  = sf.qubit_infidelity(rho_1, rho_2)
         rho_2 = rho_1
         j += 1
@@ -319,7 +319,7 @@ def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits
     Performs Quantum Overlapping Detector Tomography (QDT) on a subsystem.
 
     Args:
-         subsystem_label (ndarray): The label of the subsystem
+        subsystem_label (ndarray): The label of the subsystem
         QDT_index_counts (ndarray): A array containing the counts of measurement outcomes for each measurement index.
         hash_family (ndarray): The hash family used for creating traced out calibration states.
         n_hash_symbols (int): The number of hash symbols.
@@ -437,6 +437,10 @@ def find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsyste
                     # Update masked arrays
                     cluster_correlators = quantum_correlation_array[mask]
                     masked_subsystem_labels = subsystem_labels[mask]
+                    # Cut off the non-relevant correlators
+                    correlator_limit_mask = np.abs(cluster_correlators) > cluster_limit
+                    cluster_correlators = cluster_correlators[correlator_limit_mask]
+                    masked_subsystem_labels = masked_subsystem_labels[correlator_limit_mask]
             
             if len(np.unique(highest_label_array))>max_clusters:
                 print(f"Cluster {i} is larger than max cluster size {max_clusters}, removing lowest cluster")

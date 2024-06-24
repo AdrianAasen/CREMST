@@ -467,21 +467,8 @@ class POVM():
         if len(self.POVM_list[0]) != 4:
             print("The POVM is not a two qubit POVM")
             return None
-        # if False:
 
 
-        #     # Trace down the first qubit
-        #     n_iter = 500 # The number of randomly generated states to find the largest correlation coefficients. 
-        #     c = np.zeros(n_iter)
-        #     for i in range(n_iter):
-        #         rho = sf.generate_random_pure_state(1)
-        #         sigma = sf.generate_random_pure_state(1)
-        #         POVM_A = self.partial_trace(rho)    
-        #         POVM_B = self.partial_trace(sigma)
-        #         c[i] = sf.POVM_distance(POVM_A, POVM_B)
-        #     return np.max(c)
-        # else:
-        x0 = np.array([0,0,0,0,0,0])
 
         def func(x, *args):
             M = args[0]
@@ -496,7 +483,7 @@ class POVM():
             else:
                 op = (M@np.kron(Delta,np.eye(2))).reshape(2,2,2,2)
                 op = np.einsum('kjkl->jl',op)
-            return -1/2*np.linalg.norm(op, ord = 2)
+            return -1/2*np.linalg.norm(op, ord = 2) # Why do we devide by 2?
 
         def cons_1(x):
             return np.linalg.norm(x[:3])-1
@@ -511,8 +498,9 @@ class POVM():
         M1 = self.POVM_list[0] + self.POVM_list[2]
         tolerance = {"ftol": 1e-8} 
         tol = 10**-8
+        x0 = np.array([0,0,1,0,0,0])
         sol0 = minimize(func, x0, args=(M0,0), method='SLSQP', bounds=bound, constraints=cons, tol=tol, options=tolerance)
-        x0 = np.array([0,0,0,0,0,0])
+        x0 = np.array([0,0,-1,0,0,0])
         sol1 = minimize(func, x0, args=(M1,1), method='SLSQP', bounds=bound, constraints=cons, tol = tol, options=tolerance)
         return -np.array([sol0['fun'],sol1['fun']])
         
@@ -535,12 +523,11 @@ class POVM():
         POVM_A = self.partial_trace(states[0],0)    
         POVM_B = self.partial_trace(states[1],0)
         c_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
-        #c0 = sf.POVM_distance(POVM_A, POVM_B)
-        #print(c_0, c0)
+
         POVM_A = self.partial_trace(states[0],1)    
         POVM_B = self.partial_trace(states[1],1)
         c_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
-        #c1 = sf.POVM_distance(POVM_A, POVM_B)
+  
         return np.array([c_0,c_1])
         
              
