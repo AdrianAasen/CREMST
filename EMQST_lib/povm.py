@@ -498,9 +498,9 @@ class POVM():
         M1 = self.POVM_list[0] + self.POVM_list[2]
         tolerance = {"ftol": 1e-8} 
         tol = 10**-8
-        x0 = np.array([0,0,1,0,0,0])
+        x0 = np.array([0,0,1,0,0,-1])
         sol0 = minimize(func, x0, args=(M0,0), method='SLSQP', bounds=bound, constraints=cons, tol=tol, options=tolerance)
-        x0 = np.array([0,0,-1,0,0,0])
+        x0 = np.array([0,0,1,0,0,-1])
         sol1 = minimize(func, x0, args=(M1,1), method='SLSQP', bounds=bound, constraints=cons, tol = tol, options=tolerance)
         return -np.array([sol0['fun'],sol1['fun']])
         

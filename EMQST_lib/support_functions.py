@@ -10,8 +10,8 @@ from itertools import product, chain, repeat
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
-from EMQST_lib.povm import POVM
-#from povm import *
+# from EMQST_lib.povm import POVM
+
 
 
 
@@ -164,10 +164,10 @@ def POVM_distance(M,N):
     Currently only works for single qubit
     """
     # Check if the instance i POVM. If not, convert it to POVM.
-    if isinstance(M, POVM):
-        M = M.get_POVM()
-    if isinstance(N, POVM):
-        N = N.get_POVM()
+    #if isinstance(M, POVM):
+    #    M = M.get_POVM()
+    #if isinstance(N, POVM):
+    #    N = N.get_POVM()
     d=0
     n=1000
     n_qubits=int(np.log2(len(M[0])))
