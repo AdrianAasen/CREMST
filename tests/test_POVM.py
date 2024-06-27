@@ -138,13 +138,17 @@ class testPOVM(unittest.TestCase):
         # Test case 1: Two qubit POVM
         povm = POVM.generate_computational_POVM(2)[0]
         c = povm.get_classical_correlation_coefficient()
-        
+        c_ac = povm.get_classical_correlation_coefficient("AC" )
         self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
-
-        noisy_povm = noisy_povm = POVM.generate_noisy_POVM(povm, 4)
+        self.assertTrue(np.all(np.isclose(c_ac, np.array([0,0]))))
+        
+        noisy_povm = POVM.generate_noisy_POVM(povm, 4)
         c = noisy_povm.get_classical_correlation_coefficient()
         self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
 
+        
+        
+        
         #noisy_povm = noisy_povm = POVM.generate_noisy_POVM(povm, 3)
         #c = noisy_povm.get_classical_correlation_coefficient()
         #print(c)
@@ -177,18 +181,37 @@ class testPOVM(unittest.TestCase):
         np.random.seed(1)
         # Check quantum noise larger than classical noise.
         for i in range(7):
+            mode = "WC"
             noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
-            c = noisy_povm.get_quantum_correlation_coefficient()
-            classical = noisy_povm.get_classical_correlation_coefficient()
+            c = noisy_povm.get_quantum_correlation_coefficient(mode)
+            classical = noisy_povm.get_classical_correlation_coefficient(mode)
             print(i,c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+        print("AC")
+        for i in range(7):
+            mode = "AC"
+            noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
+            c_ac = noisy_povm.get_quantum_correlation_coefficient(mode)
+            classical_ac = noisy_povm.get_classical_correlation_coefficient(mode)
+            print(i,c_ac ,classical_ac)
+            self.assertTrue(np.all(c_ac>=classical_ac) or np.all(np.isclose(classical_ac-c_ac, np.array([0,0]))))
             
-        for _ in range(10): # Testing random noise
+        for _ in range(10): # Testing random noise in WC mode
+            mode = "WC"
             noisy_povm = POVM.generate_random_POVM(4,4)
-            c = noisy_povm.get_quantum_correlation_coefficient()
-            classical = noisy_povm.get_classical_correlation_coefficient()
+            c = noisy_povm.get_quantum_correlation_coefficient(mode)
+            classical = noisy_povm.get_classical_correlation_coefficient(mode)
             #print(c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+        
+        for _ in range(10): # Testing random noise in AC mode
+            mode = "AC"
+            noisy_povm = POVM.generate_random_POVM(4,4)
+            c = noisy_povm.get_quantum_correlation_coefficient(mode)
+            classical = noisy_povm.get_classical_correlation_coefficient(mode)
+            #print(c,classical)
+            self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+        
     # def test_noise_POVM(self):
     #     np.random.seed(0)
     #     POVMset=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)#np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)#
