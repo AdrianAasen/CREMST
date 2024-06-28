@@ -114,7 +114,7 @@ def measure_hashed_calibration_states(n_shots, povm_array, one_qubit_calibration
         one_qubit_calibration_angles = experimental_dictionary["one_qubit_calibration_angles"]
         comp_measurement_angles = experimental_dictionary["comp_measurement_angles"]
         hashed_state_angles = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, one_qubit_calibration_angles) for instruction in hashed_QDT_instructions])
-        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, state_angles, comp_measurement_angles, experimental_dictionary) for state_angles in hashed_state_angles])
+        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, comp_measurement_angles, state_angles, experimental_dictionary) for state_angles in hashed_state_angles])
     else:
         # Create hashed calibration states
         hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, one_qubit_calibration_states) for instruction in hashed_QDT_instructions])
@@ -147,7 +147,7 @@ def measure_hashed_POVM(n_shots, rho_array, single_qubit_pauli_6, hashed_QST_ins
         true_state_angles = experimental_dictionary["true_state_angles"]
         single_qubit_measurement_angles = experimental_dictionary["single_qubit_measurement_angles"]
         hashed_POVM_angles = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_measurement_angles) for instruction in hashed_QST_instructions])
-        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, true_state_angles, POVM_angles, experimental_dictionary) for POVM_angles in hashed_POVM_angles])
+        outcomes = np.array([experimental_dictionary["standard_measurement_function"](n_shots, POVM_angles, true_state_angles, experimental_dictionary) for POVM_angles in hashed_POVM_angles])
     else:
         hashed_POVM = np.array([ot.instruction_equivalence(instruction, possible_instruction_array, single_qubit_pauli_6) for instruction in hashed_QST_instructions])
         # Measure with the hashed POVMs
