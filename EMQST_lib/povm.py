@@ -10,7 +10,6 @@ from scipy.linalg import sqrtm
 from functools import reduce
 from itertools import repeat, chain, product
 from scipy.optimize import minimize
-
 from EMQST_lib import support_functions as sf
 
 
@@ -217,22 +216,32 @@ class POVM():
         return np.real(np.einsum('ijk,kj->i', self.POVM_list, rho))
     
     def get_POVM(self):
-            """
-            Returns a copy of the POVM list.
+        """
+        Returns a copy of the POVM list.
 
-            Returns:
-                numpy.ndarray: A copy of the POVM list.
-            """
-            return np.copy(self.POVM_list)
+        Returns:
+            numpy.ndarray: A copy of the POVM list.
+        """
+        return np.copy(self.POVM_list)
     
-    def get_angles(self):
-            """
-            Returns a copy of the angle representation of the POVM.
 
-            Returns:
-                numpy.ndarray: A copy of the angle representation of the POVM.
-            """
-            return np.copy(self.angle_representation)
+    def get_angles(self):
+        """
+        Returns a copy of the angle representation of the POVM.
+
+        Returns:
+            numpy.ndarray: A copy of the angle representation of the POVM.
+        """
+        return np.copy(self.angle_representation)
+    
+    def get_n_qubits(self):
+        """
+        Returns the number of qubits in the POVM.
+        """
+        if len(self.POVM_list) == 0: # Check if POVM is not empty
+            return 0
+        else:
+            return int(np.log2(len(self.POVM_list[0])))
 
     @classmethod
     def depolarized_POVM(cls, base_POVM, strength=0.1):
@@ -529,26 +538,26 @@ class POVM():
             return None
         states = np.array([[[1,0], [0,0]],[[0,0], [0,1]] ])
         if mode == 'AC': # Uses the average case measure	
-            POVM_A = self.partial_trace(states[0],0)    
-            POVM_B = self.partial_trace(states[1],0)
+            POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
+            POVM_B = self.reduce_POVM_two_to_one(states[1],0)
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
             c_0 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
             
-            POVM_A = self.partial_trace(states[0],1)    
-            POVM_B = self.partial_trace(states[1],1)
+            POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
+            POVM_B = self.reduce_POVM_two_to_one(states[1],1)
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
             # print(f'norm {np.linalg.norm(diff)}')
             #print(f"trace {np.real(np.trace(diff))}")
             c_1 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
         elif mode == 'WC': # Uses the wors case measure
-            POVM_A = self.partial_trace(states[0],0)    
-            POVM_B = self.partial_trace(states[1],0)
+            POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
+            POVM_B = self.reduce_POVM_two_to_one(states[1],0)
             c_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
 
-            POVM_A = self.partial_trace(states[0],1)    
-            POVM_B = self.partial_trace(states[1],1)
+            POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
+            POVM_B = self.reduce_POVM_two_to_one(states[1],1)
             c_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
         
         else:
@@ -560,7 +569,7 @@ class POVM():
              
         
     
-    def partial_trace(self, rho, qubit=0):
+    def reduce_POVM_two_to_one(self, rho, qubit=0):
         """
         Traces down a two qubit POVM to a single qubit POVM. By default it traces out the 0 qubit. Following the procedute explained in  http://arxiv.org/abs/2311.10661.
         Rho single qubit state of the environment.
@@ -584,3 +593,8 @@ class POVM():
             summed_povm = np.array([traced_down_povm[0] + traced_down_povm[2],traced_down_povm[1] + traced_down_povm[3]])
         
         return POVM(summed_povm)
+    
+
+            
+        
+        

@@ -5,8 +5,7 @@ import sys
 sys.path.append('../') # Adding path to library
 from EMQST_lib import support_functions as sf
 from EMQST_lib import overlapping_tomography as ot
-
-
+from EMQST_lib.povm import POVM
 
 
 class TestHash(unittest.TestCase):
@@ -32,6 +31,13 @@ class TestHash(unittest.TestCase):
         qubit_to_keep_labels = [2, 0]
         qubit_array = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
         expected_result = np.array([[[1, 3],[4,6]],[ [7, 9],[10, 12]]])
+        result = ot.trace_out(qubit_to_keep_labels, qubit_array)
+        self.assertTrue(np.allclose(result, expected_result))
+        
+        # Test case 4
+        qubit_to_keep_labels = [0]
+        qubit_array = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
+        expected_result = np.array([[[3],[6]],[ [9],[12]]])
         result = ot.trace_out(qubit_to_keep_labels, qubit_array)
         self.assertTrue(np.allclose(result, expected_result))
     
@@ -343,45 +349,154 @@ class TestHash(unittest.TestCase):
     
     
     def test_find_2PC_cluster(self):
-            # Test case 1
-            subsystem_labels = np.array([[0, 1], [1, 0], [2, 3], [3, 4], [0,2],[2,0],[0,4],[1,3],[2,4]])
-            quantum_correlation_array = np.array([0.8, 0.6, 0.4, 0.2, 0.9,1,0.2,0.3,1])
-            two_point_qubit_labels = np.array([[0, 1],[1,2]])
-            max_clusters = 3
-            expected1 = np.array([[0, 1, 2],[1,2,4]])
-            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
-            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected1))
+        # Test case 1
+        subsystem_labels = np.array([[0, 1], [1, 0], [2, 3], [3, 4], [0,2],[2,0],[0,4],[1,3],[2,4]])
+        quantum_correlation_array = np.array([0.8, 0.6, 0.4, 0.2, 0.9,1,0.2,0.3,1])
+        two_point_qubit_labels = np.array([[0, 1],[1,2]])
+        max_clusters = 3
+        expected1 = np.array([[0, 1, 2],[1,2,4]])
+        #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+        self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected1))
 
-                
+            
 
-             
-                
-            # Test case 2
-            subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
-            quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
-            two_point_qubit_labels = np.array([[0, 1]])
-            max_clusters = 4
-            expected2 = np.array([[0, 1, 2 ,4]])
-            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
-            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected2))
-
-            # Test case 3
-            subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
-            quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
-            two_point_qubit_labels = np.array([[0, 1]])
-            max_clusters = 2
-            expected3 = np.array([[0, 1]])
-            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected3))
             
             
-            # the the order of qubits in the subsystem labels should not matter
-            subsystem_labels = np.array([[0, 1], [1,2],[3,1],[1,4], [0,4]])
-            quantum_correlation_array = np.array([0.05, 0.1, 0.9, 0.3,0.1])
-            two_point_qubit_labels = np.array([[0, 1]])
-            max_clusters = 3
-            expected4 = np.array([[0, 1, 3]])
-            #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+        # Test case 2
+        subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
+        quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
+        two_point_qubit_labels = np.array([[0, 1]])
+        max_clusters = 4
+        expected2 = np.array([[0, 1, 2 ,4]])
+        #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+        self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected2))
+
+        # Test case 3
+        subsystem_labels = np.array([[0, 1], [1, 2], [0,2], [1, 3], [1, 4],[0,5], [5, 4],[0,3],[0,4]])
+        quantum_correlation_array = np.array([0.05, 0.9, 0.9, 0.1, 0.2, 0.4, 0.6, 0.8, 1])
+        two_point_qubit_labels = np.array([[0, 1]])
+        max_clusters = 2
+        expected3 = np.array([[0, 1]])
+        self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected3))
+        
+        
+        # the the order of qubits in the subsystem labels should not matter
+        subsystem_labels = np.array([[0, 1], [1,2],[3,1],[1,4], [0,4]])
+        quantum_correlation_array = np.array([0.05, 0.1, 0.9, 0.3,0.1])
+        two_point_qubit_labels = np.array([[0, 1]])
+        max_clusters = 3
+        expected4 = np.array([[0, 1, 3]])
+        #print(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters))
+        
+        self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected4)) 
+
+    def test_conditioned_trace_out_POVM(self):
+        # Test tracing down two qubit to one. 
+        povm = POVM.generate_computational_POVM(2)[0]
+        single_qubit_povm = POVM.generate_computational_POVM(1)[0].get_POVM()
+        trace_out = np.array([0])
+        new_povm = ot.conditioned_trace_out_POVM(povm,trace_out)
+        self.assertTrue(np.all(new_povm[0] == single_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[1] == single_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[2] == single_qubit_povm[1]))
+        self.assertTrue(np.all(new_povm[3] == single_qubit_povm[1]))
+        
+        trace_out = np.array([1])
+        new_povm = ot.conditioned_trace_out_POVM(povm,trace_out)
+        self.assertTrue(np.all(new_povm[0] == single_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[1] == single_qubit_povm[1]))
+        self.assertTrue(np.all(new_povm[2] == single_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[3] == single_qubit_povm[1]))
+        
+        
+        # Trace down 3 to 2
+        povm = POVM.generate_computational_POVM(3)[0]
+        two_qubit_povm = POVM.generate_computational_POVM(2)[0].get_POVM()
+        trace_out = np.array([0])
+        new_povm = ot.conditioned_trace_out_POVM(povm,trace_out)
+        self.assertTrue(np.all(new_povm[0] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[1] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[2] == two_qubit_povm[1]))
+        self.assertTrue(np.all(new_povm[3] == two_qubit_povm[1]))
+        
+        # Test tracing out more than one dimension
+        povm = POVM.generate_computational_POVM(4)[0]
+        two_qubit_povm = POVM.generate_computational_POVM(2)[0].get_POVM()
+        trace_out = np.array([0,1])
+        new_povm = ot.conditioned_trace_out_POVM(povm,trace_out)
+        self.assertTrue(np.all(new_povm[0] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[1] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[2] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[3] == two_qubit_povm[0]))
+        # Check deep 
+        self.assertTrue(np.all(new_povm[4] == two_qubit_povm[1]))
+        self.assertTrue(np.all(new_povm[8] == two_qubit_povm[2]))
+        self.assertTrue(np.all(new_povm[12] == two_qubit_povm[3]))
+        
+        # Chanee order 
+        trace_out = np.array([3,2])
+        new_povm = ot.conditioned_trace_out_POVM(povm,trace_out)
+        self.assertTrue(np.all(new_povm[0] == two_qubit_povm[0]))
+        self.assertTrue(np.all(new_povm[1] == two_qubit_povm[1]))
+        self.assertTrue(np.all(new_povm[2] == two_qubit_povm[2]))
+        self.assertTrue(np.all(new_povm[3] == two_qubit_povm[3]))
+        
+
+    def test_get_cluster_index_from_correlator_labels(self):
+        two_point_corr = [[11,7],[3,11],[7,0],[0,11],[3,4]]  
+        cluster_labels = [[11, 10, 9], [8, 7, 6, 5], [4, 3], [2, 1, 0]]
+        expected_results = [[0,1], [2,0],[1,3], [3,0], [2,2]]
+        cluster_index = [ot.get_cluster_index_from_correlator_labels(cluster_labels,two_point) for two_point in two_point_corr]
+        self.assertTrue(expected_results == cluster_index)
+        
+        # Check that it is false
+        two_point_corr = [6,7]
+        expected_results = [0,1]
+        cluster_index = ot.get_cluster_index_from_correlator_labels(cluster_labels,two_point_corr)
+        self.assertFalse(expected_results == cluster_index)
+    
+    
+    
+    def test_reduce_cluster_POVMs(self):
+        
+        
+        povm_A = POVM.generate_computational_POVM(3)[0]
+        povm_B = POVM.generate_computational_POVM(2)[0]
+        povm_list = [povm_A,povm_B]
+        subsystem_label_list = [[3,1,0], [4,2]]
+        correlator = [0,4]
+
+        a = ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)
+        povm_A_reduced = a[0]
+        povm_B_reduced = a[1]
+        expected_results = POVM.generate_computational_POVM(1)[0].get_POVM()
+        for i in range(4): # We expect 0 to oscillate between 0 and 1
+            self.assertTrue(np.all(povm_A_reduced[2*i] == expected_results[0]))
+            self.assertTrue(np.all(povm_A_reduced[2*i+1] == expected_results[1]))
+        # We expect it to stay constant for 2
+        self.assertTrue(np.all(povm_B_reduced[0] == expected_results[0]))
+        self.assertTrue(np.all(povm_B_reduced[1] == expected_results[0]))
+        self.assertTrue(np.all(povm_B_reduced[2] == expected_results[1]))
+        self.assertTrue(np.all(povm_B_reduced[3] == expected_results[1]))
+        
+        
+        # Check case where both correlators are in the same cluster, expect a 2 qubit POVM. 
+        subsystem_label_list = [[3,1,0]]
+        correlator = [3,0]
+        povm_list = [povm_A]
+        expected_results = POVM.generate_computational_POVM(2)[0].get_POVM()
+        expected_2_qubit_order=[0,1,0,1,2,3,2,3]
+        povm =ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)[0]
+        #print(povm)
+        for i in range(len(povm)):
+            self.assertTrue(np.all(povm[i] == expected_results[expected_2_qubit_order[i]]))
             
-            self.assertTrue(np.array_equal(ot.find_2PC_cluster(two_point_qubit_labels, quantum_correlation_array, subsystem_labels, max_clusters), expected4)) 
+        # Test failsafe
+        subsystem_label_list = [[3,0]]
+        correlator = [3,0]
+        povm_list = [povm_B]
+        povm = ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)
+        self.assertIsNone(povm)    
+
 if __name__ == '__main__':
     unittest.main()

@@ -106,18 +106,18 @@ class testPOVM(unittest.TestCase):
         # Test case 1: Two qubit POVM
         povm = POVM.generate_computational_POVM(2)[0]
         rho = 1/2*np.array([[1,0],[0,1]]) # Thermals state
-        traced_down_povm = povm.partial_trace(rho)
+        traced_down_povm = povm.reduce_POVM_two_to_one(rho)
         expected1 = POVM.generate_computational_POVM(1)[0] # Single qubit POVM
         self.assertTrue(traced_down_povm == expected1)
 
         # Test case 2: Invalid POVM
         povm = POVM.generate_computational_POVM(4)[0]
-        traced_down_povm = povm.partial_trace(rho)
+        traced_down_povm = povm.reduce_POVM_two_to_one(rho)
         self.assertIsNone(traced_down_povm)
 
         # Test case 3: Test Pauli POVM
         povm_array = POVM.generate_Pauli_POVM(2)
-        traced_down_povm =  np.array([povm.partial_trace(rho) for povm in povm_array])
+        traced_down_povm =  np.array([povm.reduce_POVM_two_to_one(rho) for povm in povm_array])
         expected3 = POVM.generate_Pauli_POVM(1)  # Single qubit POVM
         self.assertTrue(all(expected3[0] == povm for povm in traced_down_povm[:3]))   
         self.assertTrue(all(expected3[1] == povm for povm in traced_down_povm[3:6]))     

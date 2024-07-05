@@ -13,6 +13,7 @@ from EMQST_lib import dt
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
+import copy
 
 
 
@@ -250,6 +251,11 @@ def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_sub
 
 
 def get_traced_out_index_counts(outcomes, subsystem_label):
+    """
+    Takes in outcomes and subsystem labels and returns the index counts for the subsystem.
+    The order of the input subsystem labels does not matter.
+    The index counts are returned in the decending order of the subsystem labels. E.g subsystem label 0 is always the last entry in the returned array.
+    """
     n_subsystem_qubits = len(subsystem_label)
     traced_out_outcomes = trace_out(subsystem_label,outcomes)
     decimal_outcomes = sf.binary_to_decimal_array(traced_out_outcomes)
@@ -542,3 +548,329 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
 #     # Sum over all cases where the subsystem indecies are the same, then reshape to be in the same shape as original list. 
 #     downconverted_frequencies = np.array([np.sum(measurement.reshape(reshape_tuple), axis = traced_indices).reshape(2**len(subsystem_index)) for measurement in outcome_frequencies])
 #     return downconverted_frequencies
+
+
+
+def is_pair_in_more_than_one_cluster(pair_label, clusters):
+    """
+    Check if a pair is in more than one cluster.
+    Takes in a pair of qubits, and check the list of clusters if the pair is present in more than one cluster.
+    """
+    counter = 0
+    for cluster in clusters:
+        if np.any(np.isin(pair_label,cluster)):
+            counter +=1
+    if counter > 1:
+        return True
+    else:    
+        return False
+    
+def find_clusters_from_correlator_labels(correlator_labels, clusters):
+    """
+    From the correlation labels finds the clusters that contain any of the labels.
+
+    Parameters:
+    - correlator_labels (list): A list of correlation labels.
+    - clusters (list): A list of clusters.
+
+    Returns:
+    - return_cluster (list): A list of clusters that contain any of the correlator labels.
+    """
+    return_cluster = []
+    for label in correlator_labels:
+        temp_cluster = []
+        for cluster in clusters:
+            if np.any(np.isin(cluster, label)): # label is in cluster
+                temp_cluster.append(cluster) # Adds cluster to label
+            
+        return_cluster.append(temp_cluster)
+    return return_cluster
+
+def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits,corr_limit):
+    """
+    Creates initial cluster by sorting for highest correlation coefficients, 
+    and grouping those qubit pairs together.
+    
+    Corr_limit: sets limit for how low clusters should be considered. 
+    """
+    partitions = []
+    it = 1
+    #correlator_limit_mask = np.abs(corr_array) > corr_limit
+    #cluster_correlators = corr_array[correlator_limit_mask]
+    #masked_labels = corr_labels[correlator_limit_mask]
+    while len(partitions) < n_qubits/2:
+        index = np.argpartition(cluster_correlator_array, -(it))[-(it):][0]
+        if not np.any(np.isin(corr_labels[index],partitions )):
+            partitions.append(corr_labels[index].tolist())
+            print(cluster_correlator_array[index])
+            print(partitions)
+        it+=1
+    return partitions
+
+
+def obj_func(partitions,corr_array,corr_labels, max_cluster_size,corr_limit=0, alpha=0.1,):
+    """
+    Objective for the cluster opitmization problem.
+    """
+    #print(partitions,corr_array)
+    cost = 0
+    # Calculate the current cluster strenght
+    S = np.zeros(len(partitions))
+    for i in range(len(partitions)):
+        mask = np.all(np.isin(corr_labels,partitions[i]),axis=1)
+        #print(mask,partitions[i])
+        S[i] = np.sum(corr_array[mask])
+    S_sum = np.sum(S)
+    
+    partition_size = np.array([len(partition) for partition in partitions])
+    
+    # Finding c_avg
+    correlator_limit_mask = np.abs(corr_array) > corr_limit
+    masked_correlators = corr_array[correlator_limit_mask]
+    c_avg = np.sum(masked_correlators)/len(masked_correlators)
+    
+    for i in range(len(partitions)):
+        if partition_size[i] > max_cluster_size:
+            cost -= 1e10
+        else:
+            cost -=c_avg*alpha*partition_size[i]**2
+    return cost + S_sum
+
+def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, corr_limit, alpha = 0 ):
+    """
+    Cluster optimization loop.
+    """
+    rng = np.random.default_rng()
+    partition = copy.deepcopy(init_partition)
+    for i in range(n_runs):
+        print('Run:',i)
+        S_pairs = copy.deepcopy(corr_labels)
+        S_pairs = rng.permutation(S_pairs)
+        cost_0 = obj_func(partition, corr_array, corr_labels,max_cluster_size, corr_limit, alpha)
+        for pair in S_pairs:
+            #print(pair,parition,np.isin(partitions,pair))
+            if is_pair_in_more_than_one_cluster(pair,partition): # If pairs exist in more than one cluster:
+                
+                masked_partition = []  # Retrieve the partitions that include the pair
+                new_partition_1 = copy.deepcopy(partition)
+                temp_count = 0
+                for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
+                    if np.any(np.isin(partition[i],pair)):
+                        masked_partition.append(partition[i])
+                        new_partition_1.pop(i-temp_count)
+                        temp_count+=1
+                #print(f'Partion removed:{new_partition_1}')
+                #print(f'Parition added {masked_partition}')
+                #partion_mask = np.any(np.isin(parition,pair),axis=1) # Create mask for where what clusters include any of element in the pair
+
+                if len(masked_partition)>2:
+                    print("Pair is assigned to more than 2 clusters.")
+                    print(masked_partition)
+                    return 0
+                # We now check 3 instances of these partitions:
+                # 1) Swap 1st qubit to second
+                # 2) Swat 2nd qubit to first
+                # 3) Exchange qubits between the two partitions
+                
+                new_partition_2 = copy.deepcopy(new_partition_1)
+                new_partition_3 = copy.deepcopy(new_partition_1)
+                #print(pair)
+                # 1) Swap 1st qubit to second
+                masked_partition_1 = copy.deepcopy(masked_partition)
+                #print(f'Original: {new_partition_1}, {masked_partition}, {pair}')
+                if pair[0] in masked_partition_1[0]:
+                    masked_partition_1[0].remove(pair[0])
+                    masked_partition_1[1].append(pair[0])
+                else:
+                    masked_partition_1[1].remove(pair[0])
+                    masked_partition_1[0].append(pair[0])
+                new_partition_1.append(masked_partition_1[0])
+                new_partition_1.append(masked_partition_1[1])
+
+                # 2) Swat 2nd qubit to first
+                masked_partition_2 = copy.deepcopy(masked_partition)
+                if pair[1] in masked_partition_2[0]:
+                    masked_partition_2[0].remove(pair[1])
+                    masked_partition_2[1].append(pair[1])
+                else:
+                    masked_partition_2[1].remove(pair[1])
+                    masked_partition_2[0].append(pair[1])
+                new_partition_2.append(masked_partition_2[0])
+                new_partition_2.append(masked_partition_2[1])
+            
+                # 3) Exchange qubits between the two partitions
+                masked_partition_3 = copy.deepcopy(masked_partition)
+                if pair[0] in masked_partition_3[0]:
+                    masked_partition_3[0].remove(pair[0])
+                    masked_partition_3[1].append(pair[0])
+                    masked_partition_3[1].remove(pair[1])
+                    masked_partition_3[0].append(pair[1])
+                else:
+                    masked_partition_3[1].remove(pair[0])
+                    masked_partition_3[0].append(pair[0])
+                    masked_partition_3[0].remove(pair[1])
+                    masked_partition_3[1].append(pair[1])
+                new_partition_3.append(masked_partition_3[0])
+                new_partition_3.append(masked_partition_3[1])
+                #print(new_partition_1)
+                for new_partition in [new_partition_1,new_partition_2,new_partition_3]:
+                    cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
+                    #print(cost)
+                    if cost > cost_0:
+                        print(f'New partition {new_partition}')
+                        print('Cost:',cost)
+                        partition = copy.deepcopy(new_partition)
+                        cost_0 = cost
+    while [] in partition: # Remove empty paritions before sending back
+        partition.remove([])           
+    return partition
+
+
+
+def conditioned_trace_out_POVM(povm, qubit_label_to_trace_out):
+    """
+    Traces out given qubit indices from the POVM elements. The POVM elements are not summed over.
+    The new POVM elements are conditioned on the outcomes of the environment being traced out.  
+    
+    Inputs:
+    - povm: POVM object to be traced out
+    - qubit_label_to_trace_out: list of qubit indices to be traced out
+    
+    Returns:
+    - traced_down_POVM: the traced down POVM with the specified qubit indices traced out
+    """
+    
+    povm_list = povm.get_POVM()
+    n_qubits = int(np.log2(len(povm_list[0])))
+    # Convert qubit label to index to trace down. Sort to trace down the smallest list index first. 
+    index_to_trace_out = np.sort(qubit_label_to_list_index(np.sort(qubit_label_to_trace_out),n_qubits))
+    #print(f"Index to trace out{index_to_trace_out}")
+    # Reshape povm elements to be easy to trace down. 
+    dim_tuple = tuple([2]*n_qubits*2)
+    
+    traced_down_POVM = povm_list.reshape(tuple([-1]) + dim_tuple)
+
+    for i in range(len(index_to_trace_out)): # trace out each dimension. The +1 comes from the povm list dimension. The -1 is to make sure to skip the correct amount of dimensions.
+        traced_down_POVM = np.trace(traced_down_POVM, axis1 = index_to_trace_out[i]+1-i, axis2 = index_to_trace_out[i] + n_qubits-2*i + 1)
+
+    # Reshape the povm to be in the correct shape. 
+    return traced_down_POVM.reshape((-1,2**(n_qubits - len(index_to_trace_out)),2**(n_qubits - len(index_to_trace_out))))
+     
+def get_cluster_index_from_correlator_labels(cluster_labels, correlator_labels):
+    """
+    Takes in cluster structure and correlator labels and returns the cluster index for the clusters that contains the correlated labels.
+
+    Parameters:
+    cluster_labels (list): A list of cluster labels.
+    correlator_labels (list): A list of correlator labels.
+
+    Returns:
+    list: A list of cluster indices.
+    """
+    cluster_index = []
+    for correlator_label in correlator_labels:
+        for j, cluster_label in enumerate(cluster_labels):
+            if np.any(np.isin(correlator_label, cluster_label)) and (j not in cluster_index):
+                cluster_index.append(j)
+                
+    return cluster_index
+     
+def reduce_cluster_POVMs(povm_list, cluster_label_list, correlator_labels):
+    """ 
+    Takes in a list of POVMs and their cluster labels, max lenght 2, and correlator labels lenght 2. 
+    Returns a list of redced POVM elements. The order of the elements follows the decending order of qubit labels of the first cluster, then the second cluster.
+    """
+    
+
+    def get_index_to_keep(cluster_label_list, correlator_labels):
+        """
+        Takes in a list of sorted cluster labels and a list of correlators, and returns the index of the qubit to keep from the correlator list. 
+
+        Parameters:
+        - cluster_label_list (list): A list of sorted cluster labels.
+        - correlator_labels (list): A list of correlators.
+
+        Returns:
+        - index_to_keep (int): The index of the qubit to keep from the correlator list.
+
+        Recursive solution for more qubits.
+        """
+        
+        index_to_keep_1 = np.nonzero(np.equal(cluster_label_list, correlator_labels[0]))[0]
+        index_to_keep_2 = np.nonzero(np.equal(cluster_label_list, correlator_labels[1]))[0]
+        return np.concatenate((index_to_keep_1,index_to_keep_2),axis=0)
+    
+    # Check if there are two or one povm_list
+    if len(povm_list)==1: # One POVM, either one or two correlator labels in same POVM. 
+        cluster_label_list = np.sort(cluster_label_list[0])[::-1]
+        povm = povm_list[0]
+        # Need to reduce cluster labels to 4 qubit labels, and remove the qubit label of the correlator. 
+        # Find the index of the entry that should be kept.
+        index_to_keep = get_index_to_keep(cluster_label_list,correlator_labels)
+        if len(index_to_keep)==povm.get_n_qubits():
+           return [povm.get_POVM()]
+        elif len(index_to_keep)>povm.get_n_qubits():
+            print("Number of qubits to trace out is larger than qubits to the POVM dimension.")
+            return None
+        index_to_remove = np.setdiff1d(np.arange(len(cluster_label_list)),index_to_keep)
+        label_to_remove = np.arange(len(cluster_label_list))[::-1][index_to_remove] 
+        # Trace out the qubits from the POVMs 
+        reduced_povm = conditioned_trace_out_POVM(povm, label_to_remove)
+        return [reduced_povm]
+        
+    elif len(povm_list)==2: # Two separate cluster case. Recursive call. 
+        reduced_povm_A = reduce_cluster_POVMs([povm_list[0]], [cluster_label_list[0]],correlator_labels)[0]
+        reduced_povm_B = reduce_cluster_POVMs([povm_list[1]], [cluster_label_list[1]],correlator_labels)[0]
+        return [reduced_povm_A,reduced_povm_B]
+        
+    else: # No case was met
+        print("Number of povms was not met for POVM reduction")
+        return None
+    
+    
+    
+# def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
+#     """
+#     Takes in outcomes and cluster labels and returns the reduced POVM elements.
+#     The reduced POVM elements are conditioned on the outcomes of the environment being traced out.
+
+#     Parameters:
+#     - outcomes (ndarray): The outcomes of the system.
+#     - cluster_labels (list): A list of cluster labels.
+#     - correlator_labels (list): A list of correlator labels.
+
+#     Returns:
+#     - reduced_POVM (ndarray): The reduced POVM elements.
+#     """
+    
+    
+#     # Find the relevant cluster of the correlators.
+#     relevant_cluste_index = get_cluster_index_from_correlator_labels(cluster_label_list, correlator_labels)
+#     relevant_clusters = cluster_label_list[relevant_cluste_index]
+#     # Trace down the outcomes to the relevant qubits in each cluster separatly.
+#     # Each row in the outcomes correspond the binary index of the POVM to use of the QST reconstruction. 
+#     traced_out_cluster_outcomes = [trace_out(cluster,outcomes) for cluster in relevant_clusters]
+#     traced_out_cluster_outcome_index = [sf.binary_to_decimal_array(traced_out_cluster_outcome) for traced_out_cluster_outcome in traced_out_cluster_outcomes]
+
+
+#     # Reduce the POVM elements
+#     reduced_POVM = reduce_cluster_POVMs(outcomes, cluster_labels, correlator_labels)
+#     return reduced_POVM, cluster_index
+
+# def _traced_down_outcome_to_reduced_POVM_index(traced_down_outcome, relevant_cluster):
+#     """
+#     Takes in a list of outcomes and the relevant cluster, and returns the reduced POVM index for that outcome in terms of the one/two reduced POVMs. . 
+#     The outcomes follow the qubit order 4, 3, 2 ,1, 0 etc. Cluster structurer is not the same {5,3,1}, {4,2,0} etc.
+#     The reduced POVMs will be tensored together from two labels. their internal counts are 00,01,10,11. 
+    
+#     Return the index of the reduced POVM element for the two differnet reduced POVM lists. 
+#     """
+#     # Sort reduced POVM from tensor structure. Outcome counts should go like 00,01,10,11 from the reduced POVM, first for the first qubit, then for the second qubit. 
+#     if len(relevant_cluster) == 1: # Both correlators are in the same cluster. 
+        
+#     elif len(relevant_cluster) == 2: # Both correlators are in different clusters. 
+        
+#     else:
+#         print(" Relevant cluster structure not met.")
+#         return None
+    
