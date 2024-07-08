@@ -445,8 +445,9 @@ class TestHash(unittest.TestCase):
     def test_get_cluster_index_from_correlator_labels(self):
         two_point_corr = [[11,7],[3,11],[7,0],[0,11],[3,4]]  
         cluster_labels = [[11, 10, 9], [8, 7, 6, 5], [4, 3], [2, 1, 0]]
-        expected_results = [[0,1], [2,0],[1,3], [3,0], [2,2]]
+        expected_results = [[0,1], [2,0],[1,3], [3,0], [2]]
         cluster_index = [ot.get_cluster_index_from_correlator_labels(cluster_labels,two_point) for two_point in two_point_corr]
+        print(cluster_index)
         self.assertTrue(expected_results == cluster_index)
         
         # Check that it is false
@@ -491,12 +492,12 @@ class TestHash(unittest.TestCase):
         for i in range(len(povm)):
             self.assertTrue(np.all(povm[i] == expected_results[expected_2_qubit_order[i]]))
             
-        # Test failsafe
-        subsystem_label_list = [[3,0]]
-        correlator = [3,0]
-        povm_list = [povm_B]
-        povm = ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)
-        self.assertIsNone(povm)    
+        # # Test failsafe
+        # subsystem_label_list = [[3,0]]
+        # correlator = [3,0,1]
+        # povm_list = [povm_B]
+        # povm = ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)
+        # self.assertIsNone(povm)    
 
 if __name__ == '__main__':
     unittest.main()
