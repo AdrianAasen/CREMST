@@ -43,4 +43,66 @@ class TestCluster(unittest.TestCase):
         self.assertTrue(expected_result==result)
         
         
+    def test_trace_down_qubit_state(self):
+        n_qubits = 4
+        np.random.seed(1)
+        qubit_states  = [sf.generate_random_pure_state(1) for _ in range(n_qubits)]
+        full_state = reduce(np.kron, qubit_states)
+        state_labels = [0,1,2,3]
+        trace_out_labels = [0,1]
+        expected_state = np.kron(qubit_states[0], qubit_states[1])
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Change order to check if it works
+        trace_out_labels = [1,0]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        # Check state order matters
+        state_labels = [1,3,0,2]
+        #trace_out_labels = [0,2]
+        #expected_state = np.kron(qubit_states[], qubit_states[3])
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        
+        # Check mixed state labels
+        state_labels = [0,1,10,3]
+        trace_out_labels = [0,1]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = np.kron(qubit_states[0], qubit_states[1])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Check multiple labels to trace out
+        state_labels = [0,1,10,3]
+        trace_out_labels = [0,1,3]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = qubit_states[0]
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [10]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[1], qubit_states[2], qubit_states[3]])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Check empty trace
+        
+        trace_out_labels = []
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(full_state, traced_down_state))
+        
+        # Test tracing out non-existing labels
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [11]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[1], qubit_states[2], qubit_states[3]])
+        self.assertTrue(np.allclose(full_state, traced_down_state))
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [11,1]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[0], qubit_states[1], qubit_states[3]])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
 

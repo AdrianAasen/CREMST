@@ -826,7 +826,35 @@ def reduce_cluster_POVMs(povm_list, cluster_label_list, correlator_labels):
     else: # No case was met
         print("Number of povms was not met for POVM reduction")
         return None
+
+
+def trace_down_qubit_state(state, state_labels, labels_to_trace_out):
+    """
+    Function takes in a state list with associated state labels, then a list of labels to trace out. Returns the traced_down state
+    """
+    # Check if trace_out_label exist in state_labels:
+    trace_out_mask = np.isin(labels_to_trace_out,state_labels)
+    labels_to_trace_out = np.array(labels_to_trace_out)[trace_out_mask]
+    n_state_qubits = len(state_labels)
+    n_trace_out_qubits = len(labels_to_trace_out)
+    state_labels = np.sort(state_labels)[::-1]
+    labels_to_trace_out = np.sort(labels_to_trace_out)[::-1]
+    if n_state_qubits == n_trace_out_qubits:
+        print("No qubits to trace out. Returning original state.")
+        return state
+    n_return_qubits = n_state_qubits - n_trace_out_qubits
+
+    # Get the qubit index to trace out 
+    trace_out_qubit_index = np.sort(np.array([np.where(state_labels == label)[0][0] for label in labels_to_trace_out]))[::-1]
     
+    # Reshape the state
+    size = (2,)*(2*n_state_qubits)
+    state=state.reshape((size))
+    # Trace out each 2 dimnsion
+    for i in range(len(trace_out_qubit_index)):
+        state = np.trace(state, axis1 = trace_out_qubit_index[i], axis2 = trace_out_qubit_index[i] + n_state_qubits-i) 
+    #print(f'final_cluster_state_shape: {cluster_state.shape}')
+    return state.reshape((2**n_return_qubits,2**n_return_qubits))
     
     
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
