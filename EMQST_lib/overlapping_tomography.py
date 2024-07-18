@@ -595,15 +595,12 @@ def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits,corr_limit
     """
     partitions = []
     it = 1
-    #correlator_limit_mask = np.abs(corr_array) > corr_limit
-    #cluster_correlators = corr_array[correlator_limit_mask]
-    #masked_labels = corr_labels[correlator_limit_mask]
     while len(partitions) < n_qubits/2:
         index = np.argpartition(cluster_correlator_array, -(it))[-(it):][0]
         if not np.any(np.isin(corr_labels[index],partitions )):
             partitions.append(corr_labels[index].tolist())
-            print(cluster_correlator_array[index])
-            print(partitions)
+            # print(f'Correlation strenght: {cluster_correlator_array[index]}')
+            # print(f'Current partition: {partitions}')
         it+=1
     return partitions
 
@@ -640,6 +637,7 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
     """
     Cluster optimization loop.
     """
+    print('Starting optimization of premade cluster structure.')
     rng = np.random.default_rng()
     partition = copy.deepcopy(init_partition)
     for i in range(n_runs):
@@ -855,7 +853,111 @@ def trace_down_qubit_state(state, state_labels, labels_to_trace_out):
         state = np.trace(state, axis1 = trace_out_qubit_index[i], axis2 = trace_out_qubit_index[i] + n_state_qubits-i) 
     #print(f'final_cluster_state_shape: {cluster_state.shape}')
     return state.reshape((2**n_return_qubits,2**n_return_qubits))
+
+
+def POVM_reduction_premade_cluster_QST(two_point, noise_cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits):
+    '''
+    Takes in the qubit label of two qubits, labels of the found noise clusters,
+    the outcomes of the hashed QST measurements, and the reconstructed POVMs for those outcomes. 
     
+    Returns the traced down reconstructed state for the two-point correlator.
+    
+    NOTE: This method is outclassed by newer cluster QST method, but is kept for reference and comparison.
+    NOTE: Use method state_reduction_premade_cluster_QST instead.
+    
+    This method performs the following steps:
+    - Finds the relevant clusters based on the two-point correlator.
+    - Does a partial trace of the POVM, where we keep the knowledge of the environment state for each POVM element. 
+    - The POVM elements used for QST are dictated by the full outcomes on all the clusters, 
+      while the dimension of the elements is dictated by the two-point correlators 
+      (generally these elements will be for two qubits or a tensor-product of single POVM elements).
+    
+    Parameters:
+        two_point (list): The qubit label of two qubits.
+        noise_cluster_labels (list): The labels of the found noise clusters.
+        QST_outcomes (ndarray): The outcomes of the hashed QST measurements.
+        clustered_QDOT (list): The reconstructed POVMs for those outcomes.
+        hash_family (str): The hash family used for QST.
+        n_hash_symbols (int): The number of hash symbols.
+        n_qubits (int): The number of qubits.
+    
+    Returns:
+        ndarray: The traced down reconstructed state for the two-point correlator.
+    '''
+    two_point = np.sort(two_point)[::-1]
+    # Finds relevant clusters based on the two-point correlator. 
+    relevant_cluste_index = get_cluster_index_from_correlator_labels(noise_cluster_labels, two_point)
+    relevant_cluster_labels = [np.sort(noise_cluster_labels[index])[::-1] for index in relevant_cluste_index]
+    relevant_cluster_POVMs = [clustered_QDOT[index] for index in relevant_cluste_index]
+    # Trace down to the relevant cluster qubits.
+    traced_out_cluster_outcomes = [trace_out(cluster,QST_outcomes) for cluster in relevant_cluster_labels]
+    
+    # Join the outcomes if there are two clusters.
+    if len(relevant_cluster_labels) == 1:
+        joined_outcomes = traced_out_cluster_outcomes[0]
+    else:
+        joined_outcomes = np.array([np.concatenate(tuple(traced_out_cluster_outcomes),axis = 2)])[0]
+
+    # Find the total number of qubits.
+    n_cluster_qubits = sum([len(cluster) for cluster in relevant_cluster_labels])
+    # Reduce down the POVMs to the relevant correlator qubits while keeping full cluster outcome structure. 
+    reduced_POVM = reduce_cluster_POVMs(relevant_cluster_POVMs,relevant_cluster_labels,two_point)
+
+    if len(relevant_cluster_labels) == 1:
+        tensored_reduced_POVM = POVM(reduced_POVM[0])
+    else:
+        tensored_reduced_POVM = POVM(np.array([np.kron(reduced_POVM_A,reduced_POVM_B) for reduced_POVM_A in reduced_POVM[0]  for reduced_POVM_B in reduced_POVM[1]]))
+    # Collect outcomes to index-counts for the new tensor-product POVM structure. 
+    decimal_outcomes = sf.binary_to_decimal_array(joined_outcomes)
+    index_counts = np.array([np.bincount(outcomes,minlength =2**n_cluster_qubits) for outcomes in decimal_outcomes])
+    # Reconstruct the RDM for the two-point correlator.
+    rho_recon = QST(two_point, index_counts, hash_family, n_hash_symbols, n_qubits,  tensored_reduced_POVM)
+    return rho_recon
+
+
+def state_reduction_premade_cluster_QST(two_point_correlator_list, cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits):
+    """
+    Prefered method for creating correlator states from a premade cluster. 
+    It is a memory inefficient wrapper for the cluster_QST + create_2RDMs_from_cluster_states methods. 
+    
+    """
+    cluster_rho_recon = cluster_QST(QST_outcomes, cluster_labels, clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
+    correlator_rho_recon_list = create_2RDMs_from_cluster_states(cluster_rho_recon, cluster_labels, two_point_correlator_list)
+    return correlator_rho_recon_list
+
+def cluster_QST(QST_outcomes, cluster_labels, clustered_QDOT, hash_family, n_hash_symbols, n_qubits):
+    """
+    Perform QST on the cluster outcomes
+    """
+    cluster_QST_index_counts = [get_traced_out_index_counts(QST_outcomes, cluster_label) for cluster_label in cluster_labels]
+    cluster_rho_recon = [QST(cluster_labels[i], cluster_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, clustered_QDOT[i]) for i in range(len(cluster_labels))]
+    return cluster_rho_recon
+
+def create_2RDMs_from_cluster_states(cluster_state_list, cluster_labels, correlator_labels_list):
+    """
+    Takes in a list of cluster states, cluster labels, and a list of correlators and returns a list of the two-qubit states for the correlators.
+    
+    Args:
+        cluster_state_list (list): A list of cluster states.
+        cluster_labels (list): A list of cluster labels.
+        correlator_labels_list (list): A list of correlator labels.
+        
+    Returns:
+        list: A list of 2RDMs (two-qubit reduced density matrices) for each correlator.
+    """
+    # Sort the cluster state labels such that the order is the same as the correlator labels.
+    two_point_list = [np.sort(correlator_labels)[::-1] for correlator_labels in correlator_labels_list]
+    
+    # Find the relevant clusters for each correlator.
+    relevant_cluster_index_list = [get_cluster_index_from_correlator_labels(cluster_labels, two_point) for two_point in two_point_list]
+    relevant_cluster_labels_list = [[np.sort(cluster_labels[index])[::-1] for index in relevant_cluster_index] for relevant_cluster_index in relevant_cluster_index_list]
+    relevant_cluster_states_list = [[cluster_state_list[index] for index in relevant_cluster_index] for relevant_cluster_index in relevant_cluster_index_list]
+    label_to_trace_out = [[np.setdiff1d(relevant_cluster_labels_list[j][i], two_point_list[j]) for i in range(len(relevant_cluster_labels_list[j]))] for j in range(len(two_point_list))]
+
+    # The traced down states have the form [[cluster1, cluster2], [cluster1, cluster2], ...] where the first index indicates the correlator label.
+    traced_down_cluster_states_list = [[trace_down_qubit_state(relevant_cluster_states_list[j][i], relevant_cluster_labels_list[j][i], label_to_trace_out[j][i]) for i in range(len(relevant_cluster_labels_list[j]))] for j in range(len(two_point_list))]
+    tensored_together_cluster = [reduce(np.kron, states) for states in traced_down_cluster_states_list]
+    return tensored_together_cluster
     
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """
