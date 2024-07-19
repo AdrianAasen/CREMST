@@ -34,6 +34,9 @@ class POVM():
             return False
         return np.all(self.POVM_list==other.get_POVM())
     
+    def __str__(self):
+        return f"{self.POVM_list}"
+    
     @classmethod
     def POVM_from_angles(cls, angles):
         """
@@ -594,7 +597,17 @@ class POVM():
         
         return POVM(summed_povm)
     
-
+    
+    def get_classical_POVM(self):
+        """
+        Turns the POVM into a classical POVM by removing all off-diagonal elements in in the POVM elements. 
+        Returns POVM object.
+        NOTE: This function only works for computational basis POVMs. Other errors needs to be rotated into their diagonal ideal basis. 
+        
+        """
+        old_povm = self.get_POVM()
+        new_povm = np.array([np.diag(np.diag(povm)) for povm in old_povm])
+        return POVM(new_povm)
             
         
         
