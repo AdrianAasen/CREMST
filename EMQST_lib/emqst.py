@@ -188,6 +188,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
         "corrected_infidelity" : corrected_infidelity,
         "uncorrected_infidelity": uncorrected_infidelity,
         "corrected_rho_estm" : corrected_rho_estm,
+        "uncorrected_rho_estm" : uncorrected_rho_estm,
         "reconstructed_POVM" : np.array([povm.get_POVM() for povm in reconstructed_POVM_list]),
         "synthetic_POVM": np.array([povm.get_POVM() for povm in noisy_POVM_list])
     }
