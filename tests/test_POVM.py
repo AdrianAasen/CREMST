@@ -211,6 +211,25 @@ class testPOVM(unittest.TestCase):
             classical = noisy_povm.get_classical_correlation_coefficient(mode)
             #print(c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+            
+    def test_get_classical_POVM(self):
+        # Create a POVM with off-diagonal elements
+        povm = POVM(np.array([[[0.5, 0.5], [0.5, 0.5]], [[0.5, -0.5], [-0.5, 0.5]]]))
+        
+        # Turn the POVM into a classical POVM
+        classical_povm = povm.get_classical_POVM()
+        
+        # Check that the off-diagonal elements are removed
+        expected_povm = POVM(np.array([[[0.5, 0], [0, 0.5]], [[0.5, 0], [0, 0.5]]]))
+        self.assertTrue(np.array_equal(classical_povm.get_POVM(), expected_povm.get_POVM()))
+        # Check that pauli off-diagonal elements are removed. 
+        povm_list = POVM.generate_Pauli_POVM(1)
+        expected_results = np.array([[[[0.5, 0], [0, 0.5]],[[0.5, 0], [0, 0.5]]],
+                                     [[[0.5, 0], [0, 0.5]],[[0.5, 0], [0, 0.5]]],
+                                     [[[1,0],[0,0]],[[0,0],[0,1]]]])
+        for povm, true_povm in zip(povm_list,expected_results):
+            classical_povm = povm.get_classical_POVM()
+            self.assertTrue(np.array_equal(np.real(classical_povm.get_POVM()),true_povm))
         
     # def test_noise_POVM(self):
     #     np.random.seed(0)

@@ -161,7 +161,7 @@ def POVM_distance(M,N):
     """
     Computes the operational distance for two POVM sets.
     It is based on maximizing over all possible quantum states the "Total-Variation" distance.
-    Currently only works for single qubit
+    Inputs must be numpy arrays and not POVM objects.
     """
     # Check if the instance i POVM. If not, convert it to POVM.
     #if isinstance(M, POVM):
