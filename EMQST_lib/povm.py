@@ -608,6 +608,22 @@ class POVM():
         old_povm = self.get_POVM()
         new_povm = np.array([np.diag(np.diag(povm)) for povm in old_povm])
         return POVM(new_povm)
-            
+
+    def get_coherent_error(self):
+        """
+        Finds the coherent error of the POVM. Computes the distance from the POVM to the closest diagoanl POVM. 
+        Follows prescription in http://arxiv.org/abs/2311.10661.
+        """
+    
+        classical_POVM = self.get_classical_POVM()
+        # Compute average case distance
         
+        return self.ac_distance(classical_POVM)
+    
+    def ac_distance(self, M):
+        """
+        Computes the average case distance between the POVM and the closest diagonal POVM. 
+        """
+        
+        return sf.ac_POVM_distance(self.get_POVM(), M.get_POVM())    
         

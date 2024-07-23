@@ -230,6 +230,30 @@ class testPOVM(unittest.TestCase):
         for povm, true_povm in zip(povm_list,expected_results):
             classical_povm = povm.get_classical_POVM()
             self.assertTrue(np.array_equal(np.real(classical_povm.get_POVM()),true_povm))
+            
+    def test_get_coherent_error(self):
+        povm = POVM.generate_computational_POVM(2)[0]
+        coherent_error = povm.get_coherent_error()
+        self.assertEqual(coherent_error, 0)
+        
+        noisy_povm = POVM.generate_noisy_POVM(povm, 1)
+        coherent_error = noisy_povm.get_coherent_error()
+        self.assertEqual(coherent_error, 0)
+        
+        noisy_povm = POVM.generate_noisy_POVM(povm, 2)
+        coherent_error = noisy_povm.get_coherent_error()
+        self.assertEqual(coherent_error, 0)
+        
+        noisy_povm = POVM.generate_noisy_POVM(povm, 3)
+        coherent_error = noisy_povm.get_coherent_error()
+        self.assertGreater(coherent_error, 0)
+        
+        # Check single qubit. 
+        povm = POVM.generate_computational_POVM(1)[0]
+        noisy_povm = POVM.generate_noisy_POVM(povm, 4)
+        coherent_error = noisy_povm.get_coherent_error()
+        self.assertGreater(coherent_error, 0)
+
         
     # def test_noise_POVM(self):
     #     np.random.seed(0)

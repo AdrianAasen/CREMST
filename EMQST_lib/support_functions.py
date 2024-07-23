@@ -348,7 +348,10 @@ def partial_trace(rho, qubit = 0):
 
     return traced_down_rho
 
-
+def ac_POVM_distance(M,N):
+    dim = len(M[0])
+    op = M-N
+    return 1/(2 * dim) * np.sum(np.array([np.sqrt(np.linalg.norm(element)**2 + np.abs(np.trace(element))**2) for element in op] ))
 
 if __name__=="__main__":
     main()
