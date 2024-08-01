@@ -104,7 +104,8 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
         "reconstructed_POVM_list": reconstructed_POVM_list,
         "bool_exp_meaurements": bool_exp_measurements,
         "noise_mode": noise_mode,
-        "noisy_POVM_list" : noisy_POVM_list
+        "noisy_POVM_list" : noisy_POVM_list,
+        "reconstructed_POVM_matrix":  np.array([povm.get_POVM() for povm in reconstructed_POVM_list])
     }
 
     with open(f'{data_path}/DT_settings.npy','wb') as f:
