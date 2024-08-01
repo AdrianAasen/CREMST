@@ -502,7 +502,18 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
     
     return hash_list
     
-
+def generate_random_pairs_of_qubits(n_qubits,n_pairs):
+    """
+    Function generates n_pairs of random qubit pairs.
+    """
+    pairs = []
+    for _ in range(n_pairs):
+        q1 = np.random.randint(0,n_qubits)
+        q2 = np.random.randint(0,n_qubits)
+        while q1 == q2:
+            q2 = np.random.randint(0,n_qubits)
+        pairs.append([q1,q2])
+    return np.array(pairs)
 # def trace_out_outcomes(qubit_to_keep_labels, outcomes):
 #     """
 #     Trace out qubits from a measurement outcome.

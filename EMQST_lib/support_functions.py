@@ -349,6 +349,9 @@ def partial_trace(rho, qubit = 0):
     return traced_down_rho
 
 def ac_POVM_distance(M,N):
+    """
+    Computes the average case distance for two POVM sets. Follows the definition in https://doi.org/10.22331/q-2023-09-11-1106
+    """
     dim = len(M[0])
     op = M-N
     return 1/(2 * dim) * np.sum(np.array([np.sqrt(np.linalg.norm(element)**2 + np.abs(np.trace(element))**2) for element in op] ))
