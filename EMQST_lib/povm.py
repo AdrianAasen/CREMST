@@ -627,3 +627,15 @@ class POVM():
         
         return sf.ac_POVM_distance(self.get_POVM(), M.get_POVM())    
         
+def get_classical_correlation_coefficient(povm_array,  mode = 'WC'):
+    """
+    Takes in numpy array of POVMs and computes the classical correlation coefficient.
+    """
+    return np.array(POVM(povm_array).get_classical_correlation_coefficient(mode = mode))
+
+def get_quantum_correlation_coefficient(povm_array, mode = 'WC'):
+    """
+    Takes in numpy array of POVMs and computes the quantum correlation coefficient.
+    """
+    return np.array(POVM(povm_array).get_quantum_correlation_coefficient(mode = mode))
+    

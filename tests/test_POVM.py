@@ -4,6 +4,7 @@ from functools import reduce
 import sys
 sys.path.append('../') # Adding path to library
 from EMQST_lib.povm import POVM
+import EMQST_lib.povm as pv
 
 class testPOVM(unittest.TestCase):
     
@@ -148,26 +149,6 @@ class testPOVM(unittest.TestCase):
 
         
         
-        
-        #noisy_povm = noisy_povm = POVM.generate_noisy_POVM(povm, 3)
-        #c = noisy_povm.get_classical_correlation_coefficient()
-        #print(c)
-        
-        #self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
-        # # Test case 2: Non-two qubit POVM
-        # POVM_list = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        # p = povm.POVM(POVM_list)
-        # c = p.get_classical_correlation_coefficient()
-        # self.assertIsNone(c)
-
-        # # Test case 3: Custom two qubit POVM
-        # POVM_list = [[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]]
-        # p = povm.POVM(POVM_list)
-        # c = p.get_classical_correlation_coefficient()
-        # self.assertEqual(c, 1)
-        
-        
-        
     def test_get_quantum_correlation_coefficient(self):
         povm = POVM.generate_computational_POVM(2)[0]
         c = povm.get_quantum_correlation_coefficient()
@@ -180,28 +161,43 @@ class testPOVM(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(c, np.array([0,0]))))
         np.random.seed(1)
         # Check quantum noise larger than classical noise.
+        # Also checks that pv call is equivalent to class call. 
         for i in range(7):
             mode = "WC"
             noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
             c = noisy_povm.get_quantum_correlation_coefficient(mode)
             classical = noisy_povm.get_classical_correlation_coefficient(mode)
+            povm_array = noisy_povm.get_POVM()
+            classical_from_array = pv.get_classical_correlation_coefficient(povm_array, mode)
+            print(classical, classical_from_array)
+            self.assertTrue(np.all(classical == classical_from_array))
             print(i,c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+            
         print("AC")
         for i in range(7):
             mode = "AC"
             noisy_povm = POVM.generate_noisy_POVM(povm, i+1)
             c_ac = noisy_povm.get_quantum_correlation_coefficient(mode)
             classical_ac = noisy_povm.get_classical_correlation_coefficient(mode)
+            noisy_povm_array = noisy_povm.get_POVM()
+            classical_from_array = pv.get_classical_correlation_coefficient(noisy_povm_array, mode)
+            c_from_array = pv.get_quantum_correlation_coefficient(noisy_povm_array, mode)
+            self.assertTrue(np.all(c_ac == c_from_array))
+            self.assertTrue(np.all(classical_ac == classical_from_array))
             print(i,c_ac ,classical_ac)
             self.assertTrue(np.all(c_ac>=classical_ac) or np.all(np.isclose(classical_ac-c_ac, np.array([0,0]))))
             
         for _ in range(10): # Testing random noise in WC mode
             mode = "WC"
             noisy_povm = POVM.generate_random_POVM(4,4)
+            noisy_povm_array = noisy_povm.get_POVM()
             c = noisy_povm.get_quantum_correlation_coefficient(mode)
+            c_from_array = pv.get_quantum_correlation_coefficient(noisy_povm_array, mode)
             classical = noisy_povm.get_classical_correlation_coefficient(mode)
-            #print(c,classical)
+            classical_from_array = pv.get_classical_correlation_coefficient(noisy_povm_array, mode)
+            self.assertTrue(np.all(classical == classical_from_array))
+            self.assertTrue(np.all(c == c_from_array))
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
         
         for _ in range(10): # Testing random noise in AC mode
@@ -211,6 +207,7 @@ class testPOVM(unittest.TestCase):
             classical = noisy_povm.get_classical_correlation_coefficient(mode)
             #print(c,classical)
             self.assertTrue(np.all(c>=classical) or np.all(np.isclose(classical-c, np.array([0,0]))))
+            
             
     def test_get_classical_POVM(self):
         # Create a POVM with off-diagonal elements
@@ -254,36 +251,7 @@ class testPOVM(unittest.TestCase):
         coherent_error = noisy_povm.get_coherent_error()
         self.assertGreater(coherent_error, 0)
 
-        
-    # def test_noise_POVM(self):
-    #     np.random.seed(0)
-    #     POVMset=1/2*np.array([[[1,-1j],[1j,1]],[[1,1j],[-1j,1]]],dtype=complex)#np.array([[[1,0],[0,0]],[[0,0],[0,1]]],dtype=complex)#
-    #     iniPOVM=POVM(POVMset,np.array([[[0,0],[np.pi,0]]]))
-    #     bool_exp_meaurement=False
-    #     expDict={}
-    #     calibration_angles=np.array([[[np.pi/2,0]],[[np.pi/2,np.pi]],
-    #                         [[np.pi/2,np.pi/2]],[[np.pi/2,3*np.pi/2]],
-    #                         [[0,0]],[[np.pi,0]]])
-    #     calibration_states=np.array([sf.get_density_matrix_from_angles(angle) for angle in calibration_angles])
 
 
-
-    #     nShots=10**4
-    #     start = time.time()
-
-    #     for i in range(4):
-    #         noise_mode=i+1
-    #         noisy_POVM=POVM.generate_noisy_POVM(iniPOVM,noise_mode)
-    #         #print(noisy_POVM.get_POVM())
-    #         corrPOVM=dt.device_tomography(1, nShots, noisy_POVM,calibration_states,bool_exp_meaurement,expDict,iniPOVM)
-    #         #print(corrPOVM.get_POVM())
-    #         print(f'Distance between reconstructed and noisy POVM: {sf.POVM_distance(corrPOVM.get_POVM(),noisy_POVM.get_POVM())}')
-    #         #print(1/np.sqrt(nShots))
-    #         #print(np.allclose(corrPOVM.get_POVM(),noisy_POVM.get_POVM(),atol=1/np.sqrt(nShots)))
-    #         assert np.allclose(corrPOVM.get_POVM(),noisy_POVM.get_POVM(),atol=1/np.sqrt(nShots))
-        
-        
-        
-        
 if __name__ == '__main__':
     unittest.main()
