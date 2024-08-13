@@ -15,7 +15,6 @@ import time
 
 from EMQST_lib import support_functions as sf
 from EMQST_lib import measurement_functions as mf
-from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM
 
 

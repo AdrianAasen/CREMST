@@ -10,15 +10,10 @@ from itertools import product, chain, repeat
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
-# from EMQST_lib.povm import POVM
-
-
 
 
 def main():
-
     return 1
-
 
 
 def get_projector_from_angles(angles): # Overloading function name

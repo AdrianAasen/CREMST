@@ -16,7 +16,7 @@ from EMQST_lib.povm import POVM
 
 def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list, 
           calibration_mode=None,bool_exp_measurements=False,exp_dictionary={},
-          n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE"):
+          n_cores=1,noise_mode=0, true_state_angles_list=None,method="MLE", perform_unmitigated_QST=True):
     """
     Performs a complete cycle of noise corrected POVM with random sampling of states.
     Takes in experimental parameters. To be passed to both POVM calibration and QST. 
@@ -54,24 +54,29 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
     with open(f'{data_path}/experimental_settings.npy','wb') as f:
         np.save(f,exp_dictionary)
 
+
+    
+    
+    POVM_list=POVM.generate_Pauli_POVM(n_qubits)
+    
+    print('Starting EMQST.')
+    print(f'----------------------------')
+    print(f'Error corrected {method}.')
     if calibration_mode is None or calibration_mode == 'Pauli':
         print(f'POVM calibration states are Pauli eigenstates.')
         calibration_states,calibration_angles=sf.get_calibration_states(n_qubits)    
     elif calibration_mode == 'SIC':
         print(f'POVM calibration states are SIC.')
         calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
-
-    
-    
-    POVM_list=POVM.generate_Pauli_POVM(n_qubits)
-
-    print(f'----------------------------')
-    print(f'Error corrected {method}.')
     print(f'{n_qubits} qubit(s).')
-    print(f'{n_calibration_shots_each*len(calibration_states):,} POVM calibration shots.')
-    
-    print(f'{n_QST_shots_each*len(POVM_list):,} QST shots.')
-    print(f'{len(true_state_list):,} QST averages.')
+    print(f'Total shot count using spin measurements: ')
+    print(f'{n_calibration_shots_each*len(calibration_states)*len(POVM_list):,} POVM calibration shots.')
+    #print(f'(Using spin meaurements, : {n_calibration_shots_each*len(calibration_states)*len(POVM_list):,})')
+    if n_QST_shots_each == 0:
+        print(f'QST not performed.')
+    else: 
+        print(f'{n_QST_shots_each*len(POVM_list):,} QST shots.')
+        print(f'{len(true_state_list):,} QST averages.')
     print(f'----------------------------')
 
 
@@ -118,72 +123,85 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
 
     print("POVM calibration complete.\n----------------------------")
     
-    qst=QST(POVM_list,true_state_list,n_QST_shots_each,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores,noise_corrected_POVM_list=reconstructed_POVM_list,true_state_angles_list=true_state_angles_list)
-    qst.generate_data(override_POVM_list=noisy_POVM_list)
+    # Define placeholder variables in case QST is not run. 
+    uncorrected_infidelity=np.empty(0)
+    corrected_infidelity=np.empty(0)
+    corrected_rho_estm=np.empty(0)
+    uncorrected_rho_estm=np.empty(0)
     
-    # Save data settings
-    qst.save_QST_settings(data_path,noise_mode)
-    print("Generated data.")
-
-    print("Start corrected QST.")
-    if method=="MLE":
-        qst.perform_MLE(override_POVM_list=reconstructed_POVM_list)
-    elif method=="BME":
-        qst.perform_BME(override_POVM_list=reconstructed_POVM_list)
-    corrected_infidelity=qst.get_infidelity()
-    corrected_rho_estm=qst.get_rho_estm()
-
-    print("Corrected QST complete.\n----------------------------")
-    
-    
-    
-    # Run comparative BME with uncorrected POVMs
-    print("Start uncorrected QST.")
-    if method=="MLE":
-        qst.perform_MLE()
-    elif method=="BME":
-        qst.perform_BME()
-    uncorrected_infidelity=qst.get_infidelity()
-    uncorrected_rho_estm=qst.get_rho_estm()
-    print("Uncorrected QST complete.\n----------------------------") 
-
-    n_averages=len(true_state_list)
-    sample_step=np.arange(len(uncorrected_infidelity[0]))
-    corrected_average=np.sum(corrected_infidelity,axis=0)/n_averages
-    uncorrected_average=np.sum(uncorrected_infidelity,axis=0)/n_averages
-
-    with open(f'{data_path}/QST_results.npy','wb') as f:
-        np.save(f,corrected_infidelity )
-        np.save(f,uncorrected_infidelity)
-        np.save(f,corrected_rho_estm)
-        np.save(f,uncorrected_rho_estm)
-
-    
-    # Generate plots if not run on a cluster.
-    if n_cores<10 and method=="BME":
-        cutoff=10
-        popt_corr,pcov_corr=curve_fit(sf.power_law,sample_step[1000:],corrected_average[1000:],p0=np.array([1,-0.5]))
-        corr_fit=sf.power_law(sample_step[cutoff:],popt_corr[0],popt_corr[1])
-        popt_uncorr,pcov_uncorr=curve_fit(sf.power_law,sample_step[1000:],uncorrected_average[1000:],p0=np.array([1,-0.5]))
-        uncorr_fit=sf.power_law(sample_step[cutoff:],popt_uncorr[0],popt_uncorr[1])
-
-        plt.figure(figsize=(8,6))
-        plt.plot(sample_step[cutoff:],corrected_average[cutoff:],'r', label="Corrected")
-        plt.plot(sample_step[cutoff:],uncorrected_average[cutoff:],'b',label="Uncorrected")
-        plt.plot(sample_step[cutoff:],corr_fit,'r--',label=rf'Fit, $N^a, a={"%.2f" % popt_corr[1]}$')
-        plt.plot(sample_step[cutoff:],uncorr_fit,'b--',label=rf'Fit, $N^a, a={"%.2f" % popt_uncorr[1]}$')
-        plt.yscale('log')
-        plt.xscale('log')
-        plt.xlim(100,len(sample_step))
-        #plt.ylim(10**(-5),10**(-0))
-        plt.ylabel('Mean Infidelity')
-        plt.xlabel('Number of shots')
-        plt.legend(loc="lower left",prop={'size': 16})
-        plt.tight_layout
-
-        plt.savefig(f'{data_path}/Averaged_infidelities.png')
-        plt.savefig('latest_run.png')
+    if n_QST_shots_each == 0:
+        print("QST not performed.")
+    else:       
+        qst=QST(POVM_list,true_state_list,n_QST_shots_each,n_qubits,bool_exp_measurements,exp_dictionary,n_cores=n_cores,noise_corrected_POVM_list=reconstructed_POVM_list,true_state_angles_list=true_state_angles_list)
+        qst.generate_data(override_POVM_list=noisy_POVM_list)
         
+        # Save data settings
+        qst.save_QST_settings(data_path,noise_mode)
+        print("Generated data.")
+
+        print("Start corrected QST.")
+        if method=="MLE":
+            qst.perform_MLE(override_POVM_list=reconstructed_POVM_list)
+        elif method=="BME":
+            qst.perform_BME(override_POVM_list=reconstructed_POVM_list)
+        corrected_infidelity=qst.get_infidelity()
+        corrected_rho_estm=qst.get_rho_estm()
+
+        print("Corrected QST complete.\n----------------------------")
+        
+        
+        
+        # Run comparative BME with uncorrected POVMs
+        
+        if perform_unmitigated_QST:
+            print("Start uncorrected QST.")
+            if method=="MLE":
+                qst.perform_MLE()
+            elif method=="BME":
+                qst.perform_BME()
+            uncorrected_infidelity=qst.get_infidelity()
+            uncorrected_rho_estm=qst.get_rho_estm()
+            
+            
+            print("Uncorrected QST complete.\n----------------------------") 
+
+        n_averages=len(true_state_list)
+        sample_step=np.arange(len(corrected_infidelity[0]))
+        corrected_average=np.sum(corrected_infidelity,axis=0)/n_averages
+        uncorrected_average=np.sum(uncorrected_infidelity,axis=0)/n_averages
+
+        with open(f'{data_path}/QST_results.npy','wb') as f:
+            np.save(f,corrected_infidelity )
+            np.save(f,uncorrected_infidelity)
+            np.save(f,corrected_rho_estm)
+            np.save(f,uncorrected_rho_estm)
+
+        
+        # Generate plots if not run on a cluster.
+        if n_cores < 10 and method == "BME" and perform_unmitigated_QST and n_QST_shots_each > 999:
+            cutoff = 10
+            popt_corr,pcov_corr = curve_fit(sf.power_law,sample_step[1000:],corrected_average[1000:], p0 = np.array([1,-0.5]))
+            corr_fit = sf.power_law(sample_step[cutoff:],popt_corr[0],popt_corr[1])
+            popt_uncorr,pcov_uncorr = curve_fit(sf.power_law,sample_step[1000:],uncorrected_average[1000:], p0 = np.array([1,-0.5]))
+            uncorr_fit = sf.power_law(sample_step[cutoff:],popt_uncorr[0],popt_uncorr[1])
+
+            plt.figure(figsize=(8,6))
+            plt.plot(sample_step[cutoff:],corrected_average[cutoff:],'r', label="Corrected")
+            plt.plot(sample_step[cutoff:],uncorrected_average[cutoff:],'b',label="Uncorrected")
+            plt.plot(sample_step[cutoff:],corr_fit,'r--',label=rf'Fit, $N^a, a={"%.2f" % popt_corr[1]}$')
+            plt.plot(sample_step[cutoff:],uncorr_fit,'b--',label=rf'Fit, $N^a, a={"%.2f" % popt_uncorr[1]}$')
+            plt.yscale('log')
+            plt.xscale('log')
+            plt.xlim(100,len(sample_step))
+            #plt.ylim(10**(-5),10**(-0))
+            plt.ylabel('Mean Infidelity')
+            plt.xlabel('Number of shots')
+            plt.legend(loc="lower left",prop={'size': 16})
+            plt.tight_layout
+
+            plt.savefig(f'{data_path}/Averaged_infidelities.png')
+            plt.savefig('latest_run.png')
+
     # Pack everything you want to return into the results dictionary    
     result = {
         "corrected_infidelity" : corrected_infidelity,
@@ -193,6 +211,7 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
         "reconstructed_POVM" : np.array([povm.get_POVM() for povm in reconstructed_POVM_list]),
         "synthetic_POVM": np.array([povm.get_POVM() for povm in noisy_POVM_list])
     }
+    print("EMQST complete.")
     return result
 
 
