@@ -251,7 +251,19 @@ class testPOVM(unittest.TestCase):
         coherent_error = noisy_povm.get_coherent_error()
         self.assertGreater(coherent_error, 0)
 
-
+    def test_POVM_from_angles(self):
+        X = np.array([np.pi/2,0])
+        Y = np.array([np.pi/2,np.pi/2])
+        Z = np.array([0,0])
+        n_qubits = 2
+        povm_angles = np.array([[X,X], [X,Y], [X,Z],[Y,X], [Y,Y], [Y,Z], [Z,X], [Z,Y], [Z,Z]])
+        
+        pauli_povm = np.array([povm.get_POVM() for povm in POVM.generate_Pauli_POVM(n_qubits)])
+        # xx, xy, xz...
+        
+        POVM_list = [POVM.POVM_from_angles(angles) for angles in povm_angles]
+        for i in range(len(povm_angles)):
+            self.assertTrue(np.allclose(POVM_list[i].get_POVM(), pauli_povm[i]))
 
 if __name__ == '__main__':
     unittest.main()
