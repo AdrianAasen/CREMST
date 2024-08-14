@@ -13,7 +13,7 @@ defaults:
 jobs:
   tests:
     name: "Python ${{ matrix.python-version }} on ${{ matrix.os }}"
-    runs-on: "${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}-latest
 
     strategy:
       fail-fast: false
@@ -42,8 +42,7 @@ jobs:
           python -m pip install tox tox-gh-actions
 
       - name: "Run tox for ${{ matrix.python-version }}"
-        run: |
-          python -m tox
+        run: python -m tox
 
       - name: "Upload coverage data"
         uses: actions/upload-artifact@v3
