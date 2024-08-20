@@ -265,5 +265,28 @@ class testPOVM(unittest.TestCase):
         for i in range(len(povm_angles)):
             self.assertTrue(np.allclose(POVM_list[i].get_POVM(), pauli_povm[i]))
 
+
+    def test_rotate_POVM_to_computational_basis(self):
+        n_qubits = 2
+        pauli_povm = POVM.generate_Pauli_POVM(n_qubits)
+        correct_povm = POVM.generate_computational_POVM(n_qubits)[0].get_POVM()
+        pauli_xx = pauli_povm[0].get_POVM()
+        pauli_xy = pauli_povm[1].get_POVM()
+        pauli_yy = pauli_povm[4].get_POVM()
+        pauli_zz = pauli_povm[8].get_POVM()
+        self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_xx,"XX"), correct_povm))
+        self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_xy,"XY"), correct_povm))
+        self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_yy,"YY"), correct_povm))
+        self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_zz,"ZZ"), correct_povm))
+        
+        # Test 3 qubits
+        n_qubits = 3
+        pauli_povm = POVM.generate_Pauli_POVM(n_qubits)
+        pauli_xxx = pauli_povm[0].get_POVM()
+        correct_povm = POVM.generate_computational_POVM(n_qubits)[0].get_POVM()
+        self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_xxx,"XXX"), correct_povm))
+        
+        
+        
 if __name__ == '__main__':
     unittest.main()

@@ -639,3 +639,33 @@ def get_quantum_correlation_coefficient(povm_array, mode = 'WC'):
     """
     return np.array(POVM(povm_array).get_quantum_correlation_coefficient(mode = mode))
     
+def rotate_POVM_to_computational_basis(povm, inital_basis):
+    """
+    Takes in a povm and rotates it to the computational basis from the inital basis spesifiation. 
+    I.e. if you have a POVM in the XX basis and want it to be in it's eigenbasis, inital basis is 'XX'.
+    A rotation matrix from X -> Z is applied. 
+    Inital basis is a string of length n_qubits, accepted values are 'X', 'Y', 'Z'.
+    """
+    
+    
+    n_qubits = len(inital_basis)
+    X = np.array([[0,1],[1,0]],dtype = complex)
+    Y = np.array([[0,-1j],[1j,0]],dtype = complex)
+    Z = np.array([[1,0],[0,-1]],dtype = complex)
+    sigma = np.array([X,Y,Z],dtype=complex)
+        
+    def rot(axis,angle):
+        return sp.linalg.expm(-1/2j * angle * np.einsum('j,jkl->kl',axis,sigma))
+
+    rot_x_to_z = rot([0,1,0],np.pi/2)
+    rot_y_to_z = rot([-1,0,0],np.pi/2)
+
+    rot_dict = {
+            "X": rot_x_to_z,
+            "Y": rot_y_to_z,
+            "Z": np.eye(2)
+        }
+    
+    total_rot_matrix = reduce(np.kron, [rot_dict[inital_basis[i]] for i in range(n_qubits)])
+
+    return np.einsum('ij,njk,lk',total_rot_matrix, povm, total_rot_matrix.conj())
