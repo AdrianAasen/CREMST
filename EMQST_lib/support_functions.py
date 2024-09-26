@@ -232,16 +232,16 @@ def get_calibration_states(n_qubits, calib = None):
 
 def qubit_infidelity(rho_1: np.array, rho_2: np.array):
     '''
-    Calculates the infidelity of two one qubit states according to Wikipedia.
+    Calculates the infidelity of two qubit states according to Wikipedia.
     :param rho_1: dxd array of density matrix
     :param rho_2: dxd array of density matrix
     :return: infidelity
     '''
-    if np.any([is_pure(rho_1), is_pure(rho_2)]):
+    if np.any([is_pure(rho_1), is_pure(rho_2)]): # Pure states
         return 1-np.real(np.trace(rho_1@rho_2))
-    elif rho_1.shape[-1]==2:
+    elif rho_1.shape[-1]==2: # One qubit not pure
         return 1-np.real(np.trace(rho_1@rho_2) + 2*np.sqrt(np.linalg.det(rho_1)*np.linalg.det(rho_2)))
-    else:
+    else: # General infidelity
         return 1-np.real(np.trace(sqrtm(rho_1@rho_2))**2)
 
 def is_pure(rhos: np.array, prec=1e-15):

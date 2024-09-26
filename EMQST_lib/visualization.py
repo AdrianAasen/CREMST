@@ -93,7 +93,7 @@ def visualize_state(rho):
 
         # Plotting real or imaginary part
         ax = axes[i]
-        im = ax.imshow(data, cmap='RdYlBu',vmin=-max_abs, vmax=max_abs)
+        im = ax.imshow(data, cmap='bwr',vmin=-max_abs, vmax=max_abs)
         #ax.set_title(f'Outcome {outcome_list[j]} ({part} Part)')
         plt.colorbar(im, ax=ax)
     plt.tight_layout()
