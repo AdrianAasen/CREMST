@@ -149,8 +149,6 @@ def emqst(n_qubits,n_QST_shots_each,n_calibration_shots_each,true_state_list,
 
         print("Corrected QST complete.\n----------------------------")
         
-        
-        
         # Run comparative BME with uncorrected POVMs
         
         if perform_unmitigated_QST:
