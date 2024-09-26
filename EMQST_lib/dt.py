@@ -138,8 +138,6 @@ def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
     """
     optm='optimal'
     # Initialize POVM
-
-
     POVM_reconstruction=initial_guess_POVM.get_POVM()
     # Apply small depolarizing noise such that channel does not yield zero-values
     perturb_param=0.01
@@ -154,7 +152,6 @@ def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
         p=np.abs(np.real(np.einsum('qij,nji->nq',POVM_reconstruction,calibration_states,optimize=optm)))
         fp=index_counts/p # Whenever p=0 it will be cancelled by the elemetns in G also being zero
     
-       
         G=np.einsum('nq,mq,nij,qjk,mkl->il',fp,fp,calibration_states,POVM_reconstruction,calibration_states,optimize=optm)
         
         eigV,U=sp.linalg.eig(G)
