@@ -4,12 +4,13 @@
 results/
 profiler/
 EMQST_lib/__pycache__/
-latest_run.png
 test.py
+Photon_REM/
+QDOT_results/
 data/
 hash_list.npy
 test.ipynb
-.gitignore
+
 EMQST_lib/hash_family
 
 # Byte-compiled / optimized / DLL files
