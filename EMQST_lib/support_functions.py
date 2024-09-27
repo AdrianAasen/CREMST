@@ -239,9 +239,9 @@ def qubit_infidelity(rho_1: np.array, rho_2: np.array):
     '''
     if np.any([is_pure(rho_1), is_pure(rho_2)]): # Pure states
         return 1-np.real(np.trace(rho_1@rho_2))
-    elif rho_1.shape[-1]==2: # One qubit not pure
+    elif rho_1.shape[-1]==2: # One qubit states
         return 1-np.real(np.trace(rho_1@rho_2) + 2*np.sqrt(np.linalg.det(rho_1)*np.linalg.det(rho_2)))
-    else: # General infidelity
+    else: # General infidelity for higher dimensions and non-pure states
         return 1-np.real(np.trace(sqrtm(rho_1@rho_2))**2)
 
 def is_pure(rhos: np.array, prec=1e-15):
