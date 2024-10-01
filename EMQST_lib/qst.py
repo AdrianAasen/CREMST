@@ -232,17 +232,22 @@ class QST():
              full_operator_list[index] = POVM element
         :return: dxd array of iterative MLE estimator
         '''
-        dim = full_operator_list.shape[-1]
 
-        iter_max = 500
+
+        unique_index, index_counts=np.unique(outcome_index,return_counts=True)
+        OP_list=full_operator_list[unique_index]
+        return QST.iterative_MLE_index(index_counts, OP_list)
+
+    def iterative_MLE_index(index_counts, OP_list):
+        dim = OP_list.shape[-1]
+
+        
         dist     = float(1)
 
         rho_1 = np.eye(dim)/dim
         rho_2 = np.eye(dim)/dim
         j = 0
-
-        unique_index, index_counts=np.unique(outcome_index,return_counts=True)
-        OP_list=full_operator_list[unique_index]
+        iter_max = 500
         while j<iter_max and dist>1e-14:
             p      = np.einsum('ik,nki->n', rho_1, OP_list)
             R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
