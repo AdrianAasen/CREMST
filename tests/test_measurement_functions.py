@@ -149,6 +149,7 @@ class TestOutcomesToFrequencies(unittest.TestCase):
 
     def test_measure_hashed_chunk_QST(self):
         # Test different chunk and state configureations
+        # Does not checks, only checks that runs terminate without errors
         n_shots = 100
         chunk_size = 2
         # 6 qubit POVM 

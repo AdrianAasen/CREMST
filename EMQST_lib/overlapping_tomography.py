@@ -1001,6 +1001,17 @@ def create_chunk_index_array(size_array, chunk_size):
         old_index = index
         index += 1
     return index_array
+
+
+def generate_chunk_sizes(chunk_size, n_chunks, cluster_cap):
+    cluster_size = []
+    for i in range(n_chunks):
+        local_chunk = []
+        while sum(local_chunk) < chunk_size: # Make sure we apropriatly sized clusters.
+            integer = np.random.randint(1, np.minimum(cluster_cap + 1, chunk_size - sum(local_chunk) + 1))
+            local_chunk.append(integer)
+        cluster_size.extend(local_chunk)
+    return cluster_size
     
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """
