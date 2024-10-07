@@ -497,7 +497,34 @@ class TestHash(unittest.TestCase):
         # correlator = [3,0,1]
         # povm_list = [povm_B]
         # povm = ot.reduce_cluster_POVMs(povm_list,subsystem_label_list,correlator)
-        # self.assertIsNone(povm)    
+        # self.assertIsNone(povm)   
+        
+    def test_create_chunk_index_array(self):
+        size_array = np.array([2,2,2])
+        chunk_size = 2
+        index_array = ot.create_chunk_index_array(size_array, chunk_size)
+        true_array = np.array([0,1,2,3])
 
+        self.assertTrue(np.all(index_array == true_array))
+        
+        chunk_size = 3
+        size_array = np.array([1,2,2,1,3])
+        true_array = np.array([0,2,4,5])
+        index_array = ot.create_chunk_index_array(size_array, chunk_size)
+        self.assertTrue(np.all(index_array == true_array))
+        
+        chunk_size = 6
+        size_array = np.array([4,2,2,2,2,6,5,1])
+        true_array = np.array([0,2,5,6,8])
+        index_array = ot.create_chunk_index_array(size_array, chunk_size)
+        self.assertTrue(np.all(index_array == true_array))
+        
+        
+        chunk_size = 8 
+        size_array = np.array([4,3,1,8,7,1])
+        index_array = ot.create_chunk_index_array(size_array, chunk_size)
+        true_array = np.array([0,3,4,6])
+        self.assertTrue(np.all(index_array == true_array))
+        
 if __name__ == '__main__':
     unittest.main()

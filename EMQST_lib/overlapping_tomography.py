@@ -969,6 +969,38 @@ def create_2RDMs_from_cluster_states(cluster_state_list, cluster_labels, correla
     traced_down_cluster_states_list = [[trace_down_qubit_state(relevant_cluster_states_list[j][i], relevant_cluster_labels_list[j][i], label_to_trace_out[j][i]) for i in range(len(relevant_cluster_labels_list[j]))] for j in range(len(two_point_list))]
     tensored_together_cluster = [reduce(np.kron, states) for states in traced_down_cluster_states_list]
     return tensored_together_cluster
+
+
+
+def create_chunk_index_array(size_array, chunk_size):
+    """Creates a list of indices for chunking an array based on the provided chunk size.
+
+    This function assumes that the size array is distributed such that the chunks fit perfectly.
+    The first index is 0 so slices can be written simply as size_array[index_array[i]:index_array[i+1]].
+
+    Parameters:
+    size_array (list or array-like): An array of sizes to be chunked.
+    chunk_size (int): The desired size of each chunk.
+
+    Returns:
+    list: A list of indices indicating where each chunk ends.
+
+    Example:
+    >>> size_array = [2, 3, 4, 1, 5]
+    >>> chunk_size = 5
+    >>> create_chunk_index_array(size_array, chunk_size)
+    [0, 2, 4, 5]
+    """
+    old_index = 0
+    index = 1
+    index_array = [0] # Include the 0 so slices can be written simply as size_array[index_array[i]:index_array[i+1]].
+    while index<=len(size_array):
+        while np.sum(size_array[old_index:index]) < chunk_size:
+            index += 1
+        index_array.append(index)
+        old_index = index
+        index += 1
+    return index_array
     
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """

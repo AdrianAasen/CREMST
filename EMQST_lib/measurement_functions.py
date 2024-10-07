@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 from EMQST_lib import support_functions as sf
 from EMQST_lib import overlapping_tomography as ot
+from EMQST_lib.povm import POVM
 from functools import reduce
 
 
@@ -205,3 +206,68 @@ def measure_cluster_QST(n_QST_shots, povm_array, rho_true_array, hashed_QST_inst
     hashed_factorized_rhos = np.einsum('nmij,mjk,nmlk->nmil', hashed_unitaries, rho_true_array,hashed_unitaries.conj()) # Note that the second hashed_unitaries are swapped to perform a transpose. 
     outcomes = np.array([measure_clusters(n_QST_shots, povm_array, rho_array, cluster_size) for rho_array in hashed_factorized_rhos])
     return outcomes 
+
+
+
+def measure_hashed_chunk_QST(n_shots, chunk_size, povm_array, povm_size_array, state_array, state_size_array, hashed_QST_instructions):
+    """
+    Measures sets of qubits as genuine chunk-size states and POVMs.
+    Assumes that the states and POVMs are already split into chunks of spesificed size. This function is only for QST, as calibration states should always be factorized.
+    """
+    n_qubits = np.sum(state_size_array)
+    n_hashes = len(hashed_QST_instructions)
+    full_outcomes = np.zeros((n_hashes,n_shots, n_qubits) ,dtype = int)
+    # Each chunk constitutes chunck_size qubits. We assume that the states and POVMs are already split into chunks of spesificed size.
+    # The stratergy is to create chunks of size chunk_size, and then create a geneuine state and POVM on that chunk, and measure it. 
+    # Find index to partition the POVM array and state array
+    povm_index_array = ot.create_chunk_index_array(povm_size_array,chunk_size)
+    state_index_array = ot.create_chunk_index_array(state_size_array,chunk_size)
+    unitary_index_array = ot.create_chunk_index_array(np.ones((n_qubits)),chunk_size)
+ 
+    # Create hash instructions unitaries. The unitaries will be applied to the states. 
+    possible_instructions = np.array(["X", "Y", "Z"])
+    sigma_x = np.array([[0,1], [1,0]])
+    sigma_y = np.array([[0,-1j], [1j,0]])
+    # NOTE: measuring in the x-basis is eqivalent to rotate the x eigenstte to become a z state, which requires a rotation of -pi/2 around the y-axis.
+    # NOTE: that this is the inverse rotation as we used in for the rotations applied to the POVMs in def generate_Pauli_from_comp in the povm class.
+    rot_x_to_z = sp.linalg.expm(-1j * (-np.pi/4) * sigma_y)
+    rot_y_to_z = sp.linalg.expm(-1j * (np.pi/4) * sigma_x)
+    
+    # Create list of single qubit rotations from comp to Pauli
+    rotation_matrices = np.array([rot_x_to_z, rot_y_to_z, np.eye(2)]) 
+
+    #conjugate_rotation_matrices = np.array([rot_x_to_z.conj().T, rot_y_to_z.conj().T, np.eye(2)]) 
+    
+    hashed_unitaries = np.array([ot.instruction_equivalence(hashed_QST_instruction, possible_instructions , rotation_matrices) for hashed_QST_instruction in hashed_QST_instructions])
+    # These unitaries will have the shape: # (unique measurements x n_qubits)
+    # print(f'Hashed unitaries: {hashed_unitaries.shape}')
+    # print(f'State index array: {state_index_array}' )
+    for i in range(len(povm_index_array)-1): # Loop over chunks
+        # Tensor together objects for current chunk
+        tensored_unitaries = np.array([reduce(np.kron,hashed_unitaries[unitary_index_array[i]:unitary_index_array[i+1]]) for hashed_unitaries in hashed_unitaries])
+        # for unitary in tensored_unitaries:
+        #     print(unitary.shape)
+        if state_index_array[i+1]-state_index_array[i] == 1: # If only single entry in chunk no reduction call is needed.
+            tensored_chunk_rho = state_array[state_index_array[i]]
+        else:
+            tensored_chunk_rho = reduce(np.kron,state_array[state_index_array[i]:state_index_array[i+1]])
+        if povm_index_array[i+1]-povm_index_array[i] == 1: # If only single entry in chunk no reduction call is needed.
+            sub_povm = povm_array[povm_index_array[i]]
+        else:
+            sub_povm = reduce(POVM.tensor_POVM, povm_array[povm_index_array[i]:povm_index_array[i+1]])[0]
+        
+        # Einsum is split into two operations as it is too slow for larger chunk sizes. 
+        # Note that the second hashed_unitaries are swapped to perform a transpose.
+        rotated_rhos = np.einsum('nij,jk,nlk->nil', tensored_unitaries, tensored_chunk_rho,tensored_unitaries.conj(), optimize=True) 
+        
+
+        # Chunk measurements
+        outcomes = np.array([simulated_measurement(n_shots, sub_povm, rho) for rho in rotated_rhos])
+     
+        # print(f'Outcome shape: {outcomes.shape}')
+        # print(outcomes)
+        # Add outcomes to the full_outcomes array in binary form
+        full_outcomes[:,:,chunk_size*i:chunk_size*(i+1)] = np.array([sf.decimal_to_binary_array(hashed_outcome, chunk_size) for hashed_outcome in outcomes])
+        # print(full_outcomes)
+        #full_outcomes[chunk_size*i:chunk_size*(i+1)] = measure(n_shots, sub_povm, tensored_chunk_rho)
+    return full_outcomes
