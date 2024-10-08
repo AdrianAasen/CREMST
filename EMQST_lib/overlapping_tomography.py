@@ -839,7 +839,18 @@ def reduce_cluster_POVMs(povm_list, cluster_label_list, correlator_labels):
 
 def trace_down_qubit_state(state, state_labels, labels_to_trace_out):
     """
-    Function takes in a state list with associated state labels, then a list of labels to trace out. Returns the traced_down state
+    Reduces the dimensionality of a quantum state by tracing out specified qubits.
+    Parameters:
+    state (np.ndarray): The input quantum state represented as a density matrix.
+    state_labels (list): A list of labels corresponding to the qubits in the state.
+    labels_to_trace_out (list): A list of labels corresponding to the qubits to be traced out.
+    Returns:
+    np.ndarray: The reduced quantum state after tracing out the specified qubits.
+    Notes:
+    - The function first checks if the labels to be traced out exist in the state labels.
+    - If the number of qubits to trace out equals the number of qubits in the state, the original state is returned.
+    - The function reshapes the state and performs partial trace operations to reduce the state.
+    - The final reduced state is reshaped to the appropriate dimensions before being returned.
     """
     # Check if trace_out_label exist in state_labels:
     trace_out_mask = np.isin(labels_to_trace_out,state_labels)

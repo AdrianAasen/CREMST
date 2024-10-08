@@ -35,7 +35,7 @@ class POVM():
         return np.all(self.POVM_list==other.get_POVM())
     
     def __str__(self):
-        return f"{self.POVM_list}"
+        return f"Printing of POVM object:\n{self.POVM_list}"
     
     @classmethod
     def POVM_from_angles(cls, angles):
