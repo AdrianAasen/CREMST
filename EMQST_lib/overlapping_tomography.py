@@ -1027,7 +1027,7 @@ def generate_chunk_sizes(chunk_size, n_chunks, cluster_cap):
     
     
     
-def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cluster_labels, QST_outcomes, cluster_QDOT, hash_family, n_hash_symbols, n_qubits, n_qubits):
+def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cluster_labels, QST_outcomes, cluster_QDOT, hash_family, n_hash_symbols, n_qubits):
     #two_point_correlator_list, cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits):
     """
     The main difference between this function and the state_reduction_premade_cluster_QST is 
@@ -1044,6 +1044,9 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     
     states = [QST(relevant_qubit_label, traced_down_outcomes, hash_family, n_hash_symbols, n_qubits,
                  tensored_cluster_POVM) for relevant_qubit_label in zip(relevant_qubit_labels,)]
+
+
+
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """
 #     Takes in outcomes and cluster labels and returns the reduced POVM elements.

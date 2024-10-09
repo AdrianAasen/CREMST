@@ -351,5 +351,33 @@ def ac_POVM_distance(M,N):
     op = M-N
     return 1/(2 * dim) * np.sum(np.array([np.sqrt(np.linalg.norm(element)**2 + np.abs(np.trace(element))**2) for element in op] ))
 
+
+def swap_qubits(rho, qubit_labels, labels_to_swap):
+    """
+    Swaps the dimensions of a density matrix based on the provided qubit labels.
+    
+    rho: single density matrix 
+    qubit_label: the labels of qubits in the order they appear in rho
+    labels_to_swap: list of two labels to be swapped. Order for these labels does not matter.
+    """
+
+    # Find the index of the dimensions to be swapped. 
+    #print(labels_to_swap)
+    index_to_swap = np.array([np.where(qubit_labels == label)[0][0] for label in labels_to_swap])
+    index_to_swap = np.sort(index_to_swap)
+    # Defien the size of the qubit state
+    n_state_qubits = len(qubit_labels)
+    size = (2,)*(2*n_state_qubits)
+    #print(size)
+    rho = rho.reshape((size))
+    # Swap the requiested axis
+    rho  = np.swapaxes(rho,index_to_swap[0], index_to_swap[1])
+    rho = np.swapaxes(rho,n_state_qubits + index_to_swap[0], n_state_qubits + index_to_swap[1])
+    return rho.reshape((2**n_state_qubits,2**n_state_qubits))
+    
+
+
 if __name__=="__main__":
     main()
+
+
