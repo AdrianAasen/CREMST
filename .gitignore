@@ -10,6 +10,7 @@ QDOT_results/
 data/
 hash_list.npy
 test.ipynb
+euler_project.ipynb
 
 EMQST_lib/hash_family
 

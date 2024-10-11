@@ -1033,19 +1033,40 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     The main difference between this function and the state_reduction_premade_cluster_QST is 
     that this function assumes that the sampled states can be entangled, which requires the full
     density matrix across both clusters to be reconstructed, instead of the density matrices for each cluster.
+    # IMPORTANT: In tensoring together POVMs the order of the qubits matter, as the tensored together POVM will have the order:
+    [[Cluster 1], [Cluster 2]], where they are likely ordered within each cluster. e.g. [[0,1,8], [5,6]]-> [0,1,8,5,6]
+    The stratergy is to reconstruct the state with this order, then swap the qubits a the end to have a decening qubit ordering
+    like the rest of the functions.
     """
     # Get relevant clusters for each two_point_correlator
     relevant_cluster_index_list = [get_cluster_index_from_correlator_labels(cluster_labels, two_point) for two_point in two_point_correlator_list]
-    relevant_qubit_labels = [np.sort(np.concatenate((relevant_cluster_index), axis = 0))[::-1] for relevant_cluster_index in relevant_cluster_index_list]
-    traced_down_outcomes = [get_traced_out_index_counts(QST_outcomes, relevant_qubit_label) for relevant_qubit_label in relevant_qubit_labels]
+
+    relevant_qubit_labels_sorted = [np.sort(np.concatenate((relevant_cluster_index), axis = 0))[::-1] for relevant_cluster_index in relevant_cluster_index_list]
+    # This will be the qubit order the state is reconstructed in. 
+    relevant_qubit_labels_unsorted = [np.concatenate((relevant_cluster_index), axis = 0) for relevant_cluster_index in relevant_cluster_index_list]
+    # We need the sorted order to get raced down outcomes. 
+    traced_down_outcomes = [get_traced_out_index_counts(QST_outcomes, relevant_qubit_label) for relevant_qubit_label in relevant_qubit_labels_sorted]
     # We assume at most two clusters are present for now. 
     # The tensored together POVM will have the strict order of the qubits in the
-    tensored_cluster_POVMs = reduce(POVM.tensor_POVM)[0]
+    tensored_cluster_POVM = POVM.tensor_POVM(cluster_QDOT[relevant_cluster_index_list[0]], cluster_QDOT[relevant_cluster_index_list[1]])[0]
     
+    # Reconstruct the state with the particular order. 
     states = [QST(relevant_qubit_label, traced_down_outcomes, hash_family, n_hash_symbols, n_qubits,
                  tensored_cluster_POVM) for relevant_qubit_label in zip(relevant_qubit_labels,)]
 
-
+    # swap order of the qubits such that they are in decending label oreder. 
+    relevant_qubit_labels_sorted
+    qubit_labels = np.copy(relevant_qubit_labels_unsorted)
+    for state in states:
+        for i, expected_label in enumerate(relevant_qubit_labels_sorted):
+            if qubit_labels[i]!= expected_label:
+                swap_index = np.where(relevant_qubit_labels_unsorted, expected_label)[0]
+                print(f'Swap index {swap_index}')
+                state = sf.swap_qubits(state,qubit_labels,np.array([swap_index,i]))
+                # Swap label in qubit label order
+                qubit_labels[[swap_index,i]] = qubit_labels[[i, swap_index]]
+            
+    return state     
 
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """
