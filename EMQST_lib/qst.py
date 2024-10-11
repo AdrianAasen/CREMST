@@ -329,7 +329,7 @@ class QST():
         Computes the Bayesian uncertatiny of the likelihood function in terms for the average infidelity between the Bayesian mean state and the weighted bank particles.
         """
         rho_mean = np.einsum('ijk,i->jk',rho_bank,weights)
-        bank_infidelity = np.array([sf.qubit_infidelity(rho_mean,particle_rho) for particle_rho in rho_bank])
+        bank_infidelity = np.array([sf.qubit_infidelity(rho_mean,particle_rho) for particle_rho in rho_bank])**2 # The square is to make it equivalent to the variance. 
         infidelity_uncertainty = np.einsum('i,i->',bank_infidelity,weights)
         return infidelity_uncertainty
     
