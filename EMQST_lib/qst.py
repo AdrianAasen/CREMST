@@ -172,6 +172,9 @@ class QST():
     
     def set_outcomes(self,outcome_index):
         self.outcome_index = np.copy(outcome_index)
+        
+    def get_uncertainty(self):
+        return np.copy(self.uncertainty)
 
     def generate_data(self, override_POVM_list = None, custom_measurement_function = None):
         """
@@ -263,7 +266,7 @@ class QST():
         return rho_1
         
 
-    def perform_BME(self,override_POVM_list=None):
+    def perform_BME(self,override_POVM_list=None, compute_infidelity_uncertainty=False):
         """
         Runs the core loop of BME.
         """
@@ -308,11 +311,27 @@ class QST():
                 if (S_effective<S_treshold):
                    rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:k],full_operator_list,self.n_cores,self.__MH_steps)
                 self.infidelity[j,k]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
+                
+                
+                
                 # Compute averag bures distance of distribution
                 #if k%1000==0:
                 #    self.uncertainty[j,k]=average_Bures(rho_bank,weights,self.n_qubits)
+            # Compute the final uncertainty
+            if compute_infidelity_uncertainty:
+                self.uncertainty[j,-1] = QST.infidelity_uncertainty(rho_bank,weights)
             self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
             print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
+    
+    
+    def infidelity_uncertainty(rho_bank,weights):
+        """
+        Computes the Bayesian uncertatiny of the likelihood function in terms for the average infidelity between the Bayesian mean state and the weighted bank particles.
+        """
+        rho_mean = np.einsum('ijk,i->jk',rho_bank,weights)
+        bank_infidelity = np.array([sf.qubit_infidelity(rho_mean,particle_rho) for particle_rho in rho_bank])**2 # The square is to make it equivalent to the variance. 
+        infidelity_uncertainty = np.einsum('i,i->',bank_infidelity,weights)
+        return infidelity_uncertainty
     
     def weight_update(weights,rho_bank,measurement_operator):
         conditional_probability=np.einsum('kj,ijk->i',measurement_operator,rho_bank,optimize=False) # Optimizing this einsum is not worth it!
