@@ -266,9 +266,10 @@ class QST():
         return rho_1
         
 
-    def perform_BME(self,override_POVM_list=None, compute_infidelity_uncertainty=False):
+    def perform_BME(self,override_POVM_list = None, compute_uncertainty = None):
         """
         Runs the core loop of BME.
+        compute_uncertainy: np.array that contains the sample numbers for which the uncertainty should be computed.
         """
         
         # Checks if BME is performed for more than 2 qubits
@@ -277,8 +278,11 @@ class QST():
             print(f'Returning the thermal state.')
             return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
         
+        if compute_uncertainty is None:
+            compute_uncertainty = np.array([])
+        
         # Select POVM to use for state reconstruction 
-        if override_POVM_list == None:
+        if override_POVM_list is None:
             full_operator_list=self.full_operator_list
         else:
             full_operator_list=np.array([a.get_POVM() for a in override_POVM_list])
@@ -315,10 +319,10 @@ class QST():
                 
                 
                 # Compute averag bures distance of distribution
-                #if k%1000==0:
-                #    self.uncertainty[j,k]=average_Bures(rho_bank,weights,self.n_qubits)
+                if k in compute_uncertainty:
+                    self.uncertainty[j,k] = QST.infidelity_uncertainty(rho_bank,weights)
             # Compute the final uncertainty
-            if compute_infidelity_uncertainty:
+            if -1 in compute_uncertainty:
                 self.uncertainty[j,-1] = QST.infidelity_uncertainty(rho_bank,weights)
             self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
             print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
