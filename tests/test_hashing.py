@@ -525,6 +525,107 @@ class TestHash(unittest.TestCase):
         index_array = ot.create_chunk_index_array(size_array, chunk_size)
         true_array = np.array([0,3,4,6])
         self.assertTrue(np.all(index_array == true_array))
+
+
+    def test_swap_qubits(self):
+        # check basic swap
+        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(2)])
+        qubit_labels = np.array([0,1])
+        swap_labels = np.array([1,0])
+        rho = reduce(np.kron, base_rho)
+        swapped_rho = reduce(np.kron,base_rho[::-1])
+        test_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        self.assertTrue(np.allclose(swapped_rho, test_rho))
+        
+        # Check larger qubit size
+        n_qubits = 5
+        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(n_qubits)])
+        qubit_labels = np.array([5,1,2,4,8])
+        swap_labels = np.array([5,8])
+        rho = reduce(np.kron, base_rho)
+        swapped_rho = reduce(np.kron,base_rho[[4,1,2,3,0]])
+        test_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        self.assertTrue(np.allclose(swapped_rho, test_rho))
+        
+        # Test non-edge states:
+        n_qubits = 5
+        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(n_qubits)])
+        qubit_labels = np.array([5,1,2,4,8])
+        swap_labels = np.array([1,2])
+        rho = reduce(np.kron, base_rho)
+        swapped_rho = reduce(np.kron,base_rho[[0,2,1,3,4]])
+        test_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        self.assertTrue(np.allclose(swapped_rho, test_rho))
+        
+        # Swap swap order
+        swap_labels = np.array([8,5])
+        swapped_rho = reduce(np.kron,base_rho[[4,1,2,3,0]])
+        test_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        self.assertTrue(np.allclose(swapped_rho, test_rho))
+        
+        # Test double swap
+        n_qubits = 5
+        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(n_qubits)])
+        qubit_labels = np.array([5,1,2,4,8])
+        swap_labels = np.array([5,8])
+        rho = reduce(np.kron, base_rho)
+        test_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        test_rho = ot.swap_qubits(test_rho, qubit_labels, swap_labels)
+        self.assertTrue(np.allclose(rho, test_rho))
+        
+        # Test with entangled states
+        rho = np.kron(sf.generate_random_pure_state(1), sf.generate_random_pure_state(2))
+        qubit_labels = np.array([2,1,0])
+        swap_labels = np.array([0,2])
+        swapped_rho = ot.swap_qubits(rho, qubit_labels, swap_labels)
+        traced_down_swapped_rho = ot.trace_down_qubit_state(swapped_rho,qubit_labels,np.array([1,0]))
+        true_traced_down_rho = ot.trace_down_qubit_state(rho,qubit_labels, np.array([2,1]))
+        self.assertTrue(np.allclose(traced_down_swapped_rho, true_traced_down_rho))
+        
+        
+    def test_POVM_sort(self):
+        povm = POVM.generate_computational_POVM(2)[0]
+        swap_order = np.array([1,0])
+        swapped_POVM = ot.POVM_sort(povm,swap_order)[0]
+        povm_array = povm.get_POVM()
+        swapped_array = swapped_POVM.get_POVM()
+        self.assertTrue(np.all(povm_array == swapped_array))
+        # Modify some entries
+        povm_array[1,0,0] = 100
+        povm_array[1,1,1] = 1000
+        swapped_POVM = ot.POVM_sort(POVM(povm_array),swap_order)[0]
+        swapped_array = swapped_POVM.get_POVM()
+        self.assertTrue(np.real(swapped_array[2,0,0]) == 100 )
+        self.assertTrue(np.real(swapped_array[2,2,2]) == 1000)
+        
+        povm_a = POVM.generate_random_POVM(2,2)
+        povm_b = POVM.generate_random_POVM(2,2)
+        povm_ab = POVM.tensor_POVM(povm_a,povm_b)[0]
+        povm_ba = POVM.tensor_POVM(povm_b,povm_a)[0]
+        sorting_order = np.array([1,0])
+        swapped_ba = ot.POVM_sort(povm_ab,sorting_order)[0]
+        self.assertTrue(np.all(povm_ba.get_POVM() == swapped_ba.get_POVM()))
+        # 3 Qubit
+        
+        povm_c = POVM.generate_random_POVM(2,2)
+        povm_cba = POVM.tensor_POVM(povm_c,povm_ba)[0]
+        povm_cab = POVM.tensor_POVM(povm_c,povm_ab)[0]
+        sorting_order = np.array([0,2,1])
+        print(f'3 qubit test')
+        swapped_POVM = ot.POVM_sort(povm_cab,sorting_order)[0]
+        print(swapped_POVM.get_POVM()- povm_cab.get_POVM())
+
+        self.assertTrue(np.all(povm_cba.get_POVM() == swapped_POVM.get_POVM))
+        
+        
+        povm_c = POVM.generate_random_POVM(2,2)
+        povm_abc = POVM.tensor_POVM(povm_ab,povm_c)[0]
+        povm_cab = POVM.tensor_POVM(povm_c,povm_ab)[0]
+        sorting_order = np.array([2,0,1])
+        print(f'3 qubit test')
+        swapped_POVM = ot.POVM_sort(povm_abc,sorting_order)[0]
+        #print(swapped_POVM.get_POVM()- povm_cab.get_POVM())
+        self.assertTrue(np.all(povm_cab.get_POVM() == swapped_POVM.get_POVM))
         
 if __name__ == '__main__':
     unittest.main()

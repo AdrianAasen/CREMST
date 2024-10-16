@@ -1034,25 +1034,40 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     that this function assumes that the sampled states can be entangled, which requires the full
     density matrix across both clusters to be reconstructed, instead of the density matrices for each cluster.
     # IMPORTANT: In tensoring together POVMs the order of the qubits matter, as the tensored together POVM will have the order:
-    [[Cluster 1], [Cluster 2]], where they are likely ordered within each cluster. e.g. [[0,1,8], [5,6]]-> [0,1,8,5,6]
-    The stratergy is to reconstruct the state with this order, then swap the qubits a the end to have a decening qubit ordering
-    like the rest of the functions.
+    [[Cluster 1], [Cluster 2]], where they are ordered within each cluster. e.g. [[8,1,0], [6,5]]-> [8,1,0,6,5] (these are qubit labels)
+    The stratergy is to swap the order of the qubits in the POVM to follow the normal qubit order, in the example [8,6,5,1,0].
     """
     # Get relevant clusters for each two_point_correlator
     relevant_cluster_index_list = [get_cluster_index_from_correlator_labels(cluster_labels, two_point) for two_point in two_point_correlator_list]
 
+    # Target qubit label order.
     relevant_qubit_labels_sorted = [np.sort(np.concatenate((relevant_cluster_index), axis = 0))[::-1] for relevant_cluster_index in relevant_cluster_index_list]
-    # This will be the qubit order the state is reconstructed in. 
-    relevant_qubit_labels_unsorted = [np.concatenate((relevant_cluster_index), axis = 0) for relevant_cluster_index in relevant_cluster_index_list]
-    # We need the sorted order to get raced down outcomes. 
+    
+    # Generate the POVM qubit labels, sorted internally, but not sorted between POVMs.
+    relevant_qubit_labels_unsorted = [np.concatenate((np.sort(relevant_cluster_index)[::-1]), axis = 0) for relevant_cluster_index in relevant_cluster_index_list]
+    # Get traced down outcomes of sorted qubit order (the function itself sorts the qubit order).
     traced_down_outcomes = [get_traced_out_index_counts(QST_outcomes, relevant_qubit_label) for relevant_qubit_label in relevant_qubit_labels_sorted]
-    # We assume at most two clusters are present for now. 
+    
+    
+    # Generate the the sorting order to sort the POVM qubits. 
+    # index list that generates the sorted qubit order from the unsorted order (decending order)
+    sorting_index = [np.argsort(label)[::-1] for label in relevant_qubit_labels_unsorted] 
+    
+    # # Generate inverting swap order by applying argsort twice
+    # unsorting_index = [np.argsort(label) for label in sorting_index]  
+
+    # unsorted_outcomes = [outcomes[unsorting_index] for outcomes, unsorting_index in zip(traced_down_outcomes, unsorting_index)]
+    
+    # At most two clusters are present.
     # The tensored together POVM will have the strict order of the qubits in the
     tensored_cluster_POVM = POVM.tensor_POVM(cluster_QDOT[relevant_cluster_index_list[0]], cluster_QDOT[relevant_cluster_index_list[1]])[0]
+    # We will sort the POVM
+    sorted_POVM = POVM_sort(tensored_cluster_POVM, sorting_index)
     
-    # Reconstruct the state with the particular order. 
-    states = [QST(relevant_qubit_label, traced_down_outcomes, hash_family, n_hash_symbols, n_qubits,
-                 tensored_cluster_POVM) for relevant_qubit_label in zip(relevant_qubit_labels,)]
+    
+    # Reconstruct the states 
+    states = [QST(relevant_qubit_label, traced_down_outcome, hash_family, n_hash_symbols, n_qubits,
+                 tensored_cluster_POVM) for relevant_qubit_label, traced_down_outcome in zip(relevant_qubit_labels_sorted,unsorted_outcomes)]
 
     # swap order of the qubits such that they are in decending label oreder. 
     relevant_qubit_labels_sorted
@@ -1060,13 +1075,87 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     for state in states:
         for i, expected_label in enumerate(relevant_qubit_labels_sorted):
             if qubit_labels[i]!= expected_label:
-                swap_index = np.where(relevant_qubit_labels_unsorted, expected_label)[0]
+                swap_index = np.where(relevant_qubit_labels_unsorted == expected_label)[0]
                 print(f'Swap index {swap_index}')
-                state = sf.swap_qubits(state,qubit_labels,np.array([swap_index,i]))
+                state = swap_qubits(state,qubit_labels,np.array([swap_index,i]))
                 # Swap label in qubit label order
                 qubit_labels[[swap_index,i]] = qubit_labels[[i, swap_index]]
             
     return state     
+
+def POVM_sort(povm, sorting_index):
+    """
+    
+    Sorts POVM accordng to sorting index order. Will swap the qubits and the outcome order. 
+    NOTE: Function takes in sorting index and not sorting label!!!
+    
+    povm: POVM object.
+    sorting_index: index array that if inserted as an argument for an array would sort it. Comes from np.argsort().
+    """
+    n_qubits = len(sorting_index)
+    wanted_order = np.arange(0,n_qubits,1,dtype=int)[::-1]
+    povm_array = povm.get_POVM()
+    current_order = wanted_order[sorting_index]
+    print(f'Sorting label: {sorting_label}')
+    # To swap a POVM qubit order we need to swap each individual matrix, and also their outcome order.
+    for i in range(n_qubits):
+        print(f'Check condition for {i}:  {sorting_label[i] != pseudo_qubit_labels[i]}')
+        if sorting_label[i] != pseudo_qubit_labels[i]:
+            # Swap all qubits on a matrix level
+            swap_label_index= np.where(pseudo_qubit_labels == sorting_label[i])[0][0]
+            print(f'Swap labels = {sorting_label[i]}, {swap_label_index}, {pseudo_qubit_labels[swap_label_index]}')
+            povm_array = np.array([swap_qubits(matrix, pseudo_qubit_labels,np.array([pseudo_qubit_labels[i],pseudo_qubit_labels[swap_label_index]])) for matrix in povm_array ])
+            
+            # Swap qubits in the qubit label array
+            swap_index = qubit_label_to_list_index(swap_label_index, n_qubits)
+            print(f'Old pseudo qubit labels: {pseudo_qubit_labels}')
+            pseudo_qubit_labels[[i,swap_label_index]] = pseudo_qubit_labels[[swap_label_index,i]]
+            print(f'New pseudo qubit labels: {pseudo_qubit_labels}')
+            # Swap order
+            # Outcomes are sorted in terms of 000, 001, 010. Rewrite index to binary array and swap array dimension, covert indecies back to decimal 
+            index_array = np.arange(2**n_qubits, dtype = int)
+            # Transcribe all otcomes to binary array
+            binary_label_array = sf.decimal_to_binary_array(index_array, max_length = n_qubits)
+            # Swap the binary entries
+            # Swap label need to be converted to swap index 
+            swap_index = qubit_label_to_list_index(np.array([pseudo_qubit_labels[i],pseudo_qubit_labels[swap_label_index]]), n_qubits)
+            binary_label_array[:,swap_index] = binary_label_array[:,swap_index[::-1]]
+            # Convert back to decimal
+            swapped_decimal = sf.binary_to_decimal_array(binary_label_array)
+            povm_array = povm_array[swapped_decimal]
+            
+    return np.array([POVM(povm_array)])        
+    
+def swap_qubits(rho, qubit_labels, labels_to_swap):
+    """
+    Swaps the dimensions of a density matrix based on the provided qubit labels.
+    The qubit labels are assumed to be in a spesific order.
+     
+    Example:
+    A qubit label of [5,1,2,4,8] and swap labels [1,4] will swap qubit 1 and qubit 3 of of the 
+    qubit labels following the convention [..., 3, 2, 1, 0]. 
+    
+    Parameters:
+    rho: single density matrix np.array
+    qubit_label: the labels of qubits in the order they appear in rho
+    labels_to_swap: list of two labels to be swapped. Order for these labels does not matter.
+    """
+
+    # Find the index of the label be swapped. 
+    index_to_swap = np.array([np.where(qubit_labels == label)[0][0] for label in labels_to_swap])
+    # Defien the size of the qubit state
+    n_state_qubits = len(qubit_labels)
+    size = (2,)*(2*n_state_qubits)
+    rho = rho.reshape((size))
+    # Swap the requiested axis
+    rho  = np.swapaxes(rho,index_to_swap[0], index_to_swap[1])
+    rho = np.swapaxes(rho,n_state_qubits + index_to_swap[0], n_state_qubits + index_to_swap[1])
+    return rho.reshape((2**n_state_qubits,2**n_state_qubits))
+    
+    
+    
+    
+    
 
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """

@@ -105,4 +105,3 @@ class TestCluster(unittest.TestCase):
         traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
         expected_state = reduce(np.kron, [qubit_states[0], qubit_states[1], qubit_states[3]])
         self.assertTrue(np.allclose(expected_state, traced_down_state))
-

@@ -146,50 +146,7 @@ class TestSupport(unittest.TestCase):
         expected5 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array5,3), expected5))
         
-    def test_swap_qubits(self):
-        # check basic swap
-        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(2)])
-        qubit_labels = np.array([0,1])
-        swap_labels = np.array([1,0])
-        rho = reduce(np.kron, base_rho)
-        swapped_rho = reduce(np.kron,base_rho[::-1])
-        test_rho = sf.swap_qubits(rho, qubit_labels, swap_labels)
-        self.assertTrue(np.allclose(swapped_rho, test_rho))
-        
-        # Check larger qubit size
-        n_qubits = 5
-        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(n_qubits)])
-        qubit_labels = np.array([5,1,2,4,8])
-        swap_labels = np.array([5,8])
-        rho = reduce(np.kron, base_rho)
-        swapped_rho = reduce(np.kron,base_rho[[4,1,2,3,0]])
-        test_rho = sf.swap_qubits(rho, qubit_labels, swap_labels)
-        self.assertTrue(np.allclose(swapped_rho, test_rho))
-        
-        # Swap swap order
-        swap_labels = np.array([8,5])
-        swapped_rho = reduce(np.kron,base_rho[[4,1,2,3,0]])
-        test_rho = sf.swap_qubits(rho, qubit_labels, swap_labels)
-        self.assertTrue(np.allclose(swapped_rho, test_rho))
-        
-        # Test double swap
-        n_qubits = 5
-        base_rho = np.array([sf.generate_random_pure_state(1) for _ in range(n_qubits)])
-        qubit_labels = np.array([5,1,2,4,8])
-        swap_labels = np.array([5,8])
-        rho = reduce(np.kron, base_rho)
-        test_rho = sf.swap_qubits(rho, qubit_labels, swap_labels)
-        test_rho = sf.swap_qubits(test_rho, qubit_labels, swap_labels)
-        self.assertTrue(np.allclose(rho, test_rho))
-        
-        # Test with entangled states
-        rho = np.kron(sf.generate_random_pure_state(1), sf.generate_random_pure_state(2))
-        qubit_labels = np.array([2,1,0])
-        swap_labels = np.array([0,2])
-        swapped_rho = sf.swap_qubits(rho, qubit_labels, swap_labels)
-        traced_down_swapped_rho = ot.trace_down_qubit_state(swapped_rho,qubit_labels,np.array([1,0]))
-        true_traced_down_rho = ot.trace_down_qubit_state(rho,qubit_labels, np.array([2,1]))
-        self.assertTrue(np.allclose(traced_down_swapped_rho, true_traced_down_rho))
+   
 
 
 if __name__ == '__main__':
