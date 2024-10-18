@@ -237,6 +237,15 @@ class POVM():
         """
         return np.copy(self.angle_representation)
     
+    def set_angles(self, new_angles):
+        """
+        Sets the angle representation of the POVM.
+
+        Args:
+            new_angles (ndarray): The new angle representation of the POVM.
+        """
+        self.angle_representation = new_angles
+    
     def get_n_qubits(self):
         """
         Returns the number of qubits in the POVM.

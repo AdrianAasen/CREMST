@@ -1094,35 +1094,31 @@ def POVM_sort(povm, sorting_index):
     """
     n_qubits = len(sorting_index)
     wanted_order = np.arange(0,n_qubits,1,dtype=int)[::-1]
-    povm_array = povm.get_POVM()
-    current_order = wanted_order[sorting_index]
-    print(f'Sorting label: {sorting_label}')
+    # MAKE DEEP COPT IMPORTANT
+    povm_array = np.copy(povm.get_POVM())
+    # Find scrambling order
+    scralbing_order = np.argsort(sorting_index)
+    current_order = wanted_order[scralbing_order]
     # To swap a POVM qubit order we need to swap each individual matrix, and also their outcome order.
     for i in range(n_qubits):
-        print(f'Check condition for {i}:  {sorting_label[i] != pseudo_qubit_labels[i]}')
-        if sorting_label[i] != pseudo_qubit_labels[i]:
-            # Swap all qubits on a matrix level
-            swap_label_index= np.where(pseudo_qubit_labels == sorting_label[i])[0][0]
-            print(f'Swap labels = {sorting_label[i]}, {swap_label_index}, {pseudo_qubit_labels[swap_label_index]}')
-            povm_array = np.array([swap_qubits(matrix, pseudo_qubit_labels,np.array([pseudo_qubit_labels[i],pseudo_qubit_labels[swap_label_index]])) for matrix in povm_array ])
-            
-            # Swap qubits in the qubit label array
-            swap_index = qubit_label_to_list_index(swap_label_index, n_qubits)
-            print(f'Old pseudo qubit labels: {pseudo_qubit_labels}')
-            pseudo_qubit_labels[[i,swap_label_index]] = pseudo_qubit_labels[[swap_label_index,i]]
-            print(f'New pseudo qubit labels: {pseudo_qubit_labels}')
-            # Swap order
+        if current_order[i] != wanted_order[i]:
+            # Find index in the current order to swap with i
+            swap_label_index= np.where(current_order == wanted_order[i])[0][0]
+            # Swap the qubit order in the effects
+            povm_array = np.array([swap_qubits(matrix, current_order,np.array([current_order[i],current_order[swap_label_index]])) for matrix in povm_array ])
+
+            # Swap outcome order
             # Outcomes are sorted in terms of 000, 001, 010. Rewrite index to binary array and swap array dimension, covert indecies back to decimal 
             index_array = np.arange(2**n_qubits, dtype = int)
             # Transcribe all otcomes to binary array
             binary_label_array = sf.decimal_to_binary_array(index_array, max_length = n_qubits)
             # Swap the binary entries
-            # Swap label need to be converted to swap index 
-            swap_index = qubit_label_to_list_index(np.array([pseudo_qubit_labels[i],pseudo_qubit_labels[swap_label_index]]), n_qubits)
-            binary_label_array[:,swap_index] = binary_label_array[:,swap_index[::-1]]
+            binary_label_array[:,[i,swap_label_index]] = binary_label_array[:,[swap_label_index,i]]
             # Convert back to decimal
             swapped_decimal = sf.binary_to_decimal_array(binary_label_array)
-            povm_array = povm_array[swapped_decimal]
+            povm_array = povm_array[swapped_decimal]   
+            # Swap qubits in the qubit label array
+            current_order[[i,swap_label_index]] = current_order[[swap_label_index,i]]
             
     return np.array([POVM(povm_array)])        
     

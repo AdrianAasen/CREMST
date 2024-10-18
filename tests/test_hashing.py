@@ -602,30 +602,63 @@ class TestHash(unittest.TestCase):
         povm_b = POVM.generate_random_POVM(2,2)
         povm_ab = POVM.tensor_POVM(povm_a,povm_b)[0]
         povm_ba = POVM.tensor_POVM(povm_b,povm_a)[0]
-        sorting_order = np.array([1,0])
-        swapped_ba = ot.POVM_sort(povm_ab,sorting_order)[0]
+        sortin_index = np.array([1,0])
+        swapped_ba = ot.POVM_sort(povm_ab,sortin_index)[0]
         self.assertTrue(np.all(povm_ba.get_POVM() == swapped_ba.get_POVM()))
-        # 3 Qubit
         
+        # Make sure swapped orderd does not work
+        sortin_index = np.array([0,1])
+        swapped_ba = ot.POVM_sort(povm_ab,sortin_index)[0]
+        self.assertFalse(np.all(povm_ba.get_POVM() == swapped_ba.get_POVM()))
+        
+        # check tensoring
         povm_c = POVM.generate_random_POVM(2,2)
+        povm_abc = POVM.tensor_POVM(povm_ab,povm_c)[0]      
+        povm_bc = POVM.tensor_POVM(povm_b,povm_c)[0]
+        povm_abc_2 = POVM.tensor_POVM(povm_a,povm_bc)[0]
+        self.assertTrue(np.allclose(povm_abc.get_POVM(), povm_abc_2.get_POVM()))
+        
+        # 3 Qubit
         povm_cba = POVM.tensor_POVM(povm_c,povm_ba)[0]
         povm_cab = POVM.tensor_POVM(povm_c,povm_ab)[0]
-        sorting_order = np.array([0,2,1])
-        print(f'3 qubit test')
-        swapped_POVM = ot.POVM_sort(povm_cab,sorting_order)[0]
-        print(swapped_POVM.get_POVM()- povm_cab.get_POVM())
+        sortin_index = np.array([0,2,1])
+        swapped_POVM = ot.POVM_sort(povm_cab,sortin_index)[0]
+        self.assertTrue(np.allclose(povm_cba.get_POVM(), swapped_POVM.get_POVM()))
+        
+        
+        sortin_index = np.array([2,0,1])
+        swapped_POVM = ot.POVM_sort(povm_cab,sortin_index)[0]
+        povm_bca = POVM.tensor_POVM(povm_bc,povm_a)[0]
+        self.assertTrue(np.allclose(povm_bca.get_POVM(), swapped_POVM.get_POVM()))
+        
+        # Double swap will generally not work, execpt for some instances where the swap is cyclic. 
+        # Here just the two first indecies are swapped. 
+        sortin_index = np.array([1,0,2])
+        swapped_POVM = ot.POVM_sort(povm_abc,sortin_index)[0]
+        swapped_POVM = ot.POVM_sort(swapped_POVM,sortin_index)[0]
+        self.assertTrue(np.allclose(povm_abc.get_POVM(), swapped_POVM.get_POVM()))
+        
+        # Make sure correct ordere does nothing
+        sortin_index = np.array([0,1,2])
+        swapped_POVM = ot.POVM_sort(povm_abc,sortin_index)[0]
+        self.assertTrue(np.allclose(povm_abc.get_POVM(), swapped_POVM.get_POVM()))
+        
+        # 4 qubit test
+        povm_d = POVM.generate_random_POVM(2,2)
+        povm_abcd = POVM.tensor_POVM(povm_abc,povm_d)[0]
+        sortin_index = np.array([3,2,0,1])
+        povm_dcab = POVM.tensor_POVM(povm_d,povm_cab)[0]
+        swapped_POVM = ot.POVM_sort(povm_abcd,sortin_index)[0]
+        self.assertTrue(np.allclose(povm_dcab.get_POVM(), swapped_POVM.get_POVM()))
+        #swap again
+        swapped_POVM = ot.POVM_sort(swapped_POVM,sortin_index)[0]
+        povm_bad = POVM.tensor_POVM(povm_ba,povm_d)[0]
+        povm_badc = POVM.tensor_POVM(povm_bad,povm_c)[0]
+        self.assertTrue(np.allclose(povm_badc.get_POVM(), swapped_POVM.get_POVM()))
 
-        self.assertTrue(np.all(povm_cba.get_POVM() == swapped_POVM.get_POVM))
         
         
-        povm_c = POVM.generate_random_POVM(2,2)
-        povm_abc = POVM.tensor_POVM(povm_ab,povm_c)[0]
-        povm_cab = POVM.tensor_POVM(povm_c,povm_ab)[0]
-        sorting_order = np.array([2,0,1])
-        print(f'3 qubit test')
-        swapped_POVM = ot.POVM_sort(povm_abc,sorting_order)[0]
-        #print(swapped_POVM.get_POVM()- povm_cab.get_POVM())
-        self.assertTrue(np.all(povm_cab.get_POVM() == swapped_POVM.get_POVM))
+
         
 if __name__ == '__main__':
     unittest.main()

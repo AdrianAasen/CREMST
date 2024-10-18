@@ -286,6 +286,20 @@ class testPOVM(unittest.TestCase):
         correct_povm = POVM.generate_computational_POVM(n_qubits)[0].get_POVM()
         self.assertTrue(np.allclose(pv.rotate_POVM_to_computational_basis(pauli_xxx,"XXX"), correct_povm))
         
+    def test_tensor_POVM(self):
+        # Check that order of operations does not matter. 
+        povm_a = POVM.generate_random_POVM(2,2)
+        angle = np.array([['0','1']])
+        povm_a.set_angles(angle)
+        povm_b = POVM.generate_random_POVM(2,2)
+        povm_b.set_angles(angle)
+        povm_c = POVM.generate_random_POVM(2,2)
+        povm_c.set_angles(angle)
+        povm_ab = POVM.tensor_POVM(povm_a,povm_b)[0]
+        povm_abc = POVM.tensor_POVM(povm_ab,povm_c)[0]
+        povm_bc = POVM.tensor_POVM(povm_b,povm_c)[0]
+        povm_abc2 = POVM.tensor_POVM(povm_a,povm_bc)[0]
+        self.assertTrue(np.allclose(povm_abc.get_POVM(), povm_abc2.get_POVM()))
         
         
 if __name__ == '__main__':
