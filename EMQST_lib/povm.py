@@ -1,10 +1,7 @@
 import numpy as np
 import scipy as sp
+import glob
 from scipy.stats import unitary_group
-import qutip as qt
-from joblib import Parallel, delayed
-from datetime import datetime
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
 from functools import reduce
@@ -678,3 +675,70 @@ def rotate_POVM_to_computational_basis(povm, inital_basis):
     total_rot_matrix = reduce(np.kron, [rot_dict[inital_basis[i]] for i in range(n_qubits)])
 
     return np.einsum('ij,njk,lk',total_rot_matrix, povm, total_rot_matrix.conj())
+
+def generate_pauli_6_rotation_matrice(n_qubits):
+    """
+    This function takes in a computational basis (could be reconstructed) and turns it a Pauli-6 basis
+    by applying all possible rotations. This function scales exponentially. 
+
+    Input:
+        - comp_POVM: number of qubits.
+
+    Returns:
+        - ndarray of rotation matrices that if applied gives the POVMs in the order XX, XY, XZ, YX ...
+    """
+    # Create the basic rotation components. 
+    sigma_x = np.array([[0,1], [1,0]])
+    sigma_y = np.array([[0,-1j], [1j,0]])
+    rot_to_x = sp.linalg.expm(-1j * np.pi/4 * sigma_y)
+    rot_to_y = sp.linalg.expm(-1j * (-np.pi/4) * sigma_x)
+    
+    # Create list of single qubit rotations from comp to Pauli
+    rot_list = np.array([rot_to_x, rot_to_y, np.eye(2)]) 
+    
+    # Creates all possible combinations of the single qubit list
+    comb_list = np.array(list(product(rot_list, repeat=n_qubits))) 
+    
+    # Tensors together all elements in the list (we assume that the )
+    tensored_rot = np.array([reduce(np.kron, comb) for comb in comb_list]) 
+    
+    return tensored_rot
+    
+def load_random_exp_povm(path, n_qubit):
+    """"
+    Loads a random POVM (Positive Operator-Valued Measure) from experimental data supplied in folder structure 1,2,3... with appropriate label file.
+    Args:
+        path (str): The base directory path where the experimental POVM data is stored.
+        n_qubit (int): The number of qubits for which the POVM data is relevant.
+    Returns:
+        tuple: A tuple containing:
+            - return_povm (POVM object): A randomly selected POVM object from the loaded data.
+            - path (list): A list containing:
+                - paths[rand_povm] (str): The path to the file from which the POVM was loaded.
+                - label_list[rand_label] (str): The specific label used within the file.
+    """
+    # Load paths. 
+    paths = glob.glob(path + f"/{n_qubit}/**/DT_settings.npy",recursive=True)
+    label_path = glob.glob(path + f"/{n_qubit}/**/label_order.txt",recursive=True)
+    # Load povm sublabels.
+    label_file = open(label_path[0], "r") 
+    data = label_file.read()  
+    label_list = data.split("\n") 
+    label_file.close()
+    n_labels = len(label_list)
+    
+    # Load povm arrays
+    povm_array = []
+    for path in paths:
+        #print(path)
+        dt_settings = np.load(path, allow_pickle=True).item()
+        povm_array.append(dt_settings["reconstructed_POVM_list"])
+        #print(dt_settings["reconstructed_POVM_list"])
+    n_povms = len(povm_array)
+    # Draw random povm and sublabel. 
+    rand_povm = np.random.randint(n_povms)
+    rand_label = np.random.randint(n_labels)
+    
+    return_povm = povm_array[rand_povm][rand_label]
+    path = [paths[rand_povm],label_list[rand_label]]
+    return return_povm, path

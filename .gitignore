@@ -12,6 +12,7 @@ hash_list.npy
 test.ipynb
 EMQST_lib/hash_family
 shot_variance_results/
+Exp_povms/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
