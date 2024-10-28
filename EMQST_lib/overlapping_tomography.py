@@ -358,15 +358,15 @@ def OT_MLE_efficient(comp_basis_POVM, hashed_subsystem_Pauli_6_rotators, index_c
     rho_2 = np.eye(dim)/dim
     j = 0
     hashed_subsystem_Pauli_6_rotators_conj = np.transpose(hashed_subsystem_Pauli_6_rotators, axes=[0,2,1]).conj()
-    # optimize_path_p = np.einsum_path('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
-    # optimize_path_R = np.einsum_path('nm,nm,nkl,mlo,noi->ki', index_counts, index_counts, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
+    optimize_path_p = np.einsum_path('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
+    optimize_path_R = np.einsum_path('nm,nm,nkl,mlo,noi->ki', index_counts, index_counts, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
     
     while j<iter_max and dist>1e-14:
         # new_mesh = np.einsum('nij, mjk, nkl->nmil', tensored_rot, comp_list, np.transpose(tensored_rot, axes=[0,2,1]).conj()) 
-        #p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_p)
-        #R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_R)
-        p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
-        R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_p)
+        R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_R)
+        # p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        # R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
         
         update = R@rho_1@R
         rho_1  = update/np.trace(update)
@@ -401,6 +401,7 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
         rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
     else: # Runs a memory efficient version if qubit number is larger than 6.
         # The efficiency comes from more efficient memory usage, as the full Pauli-6 is not reconstructed. Only rotation matrices are stored.
+        print(f'Running memory efficient version of QST.')
         rho_recon = QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM)
     return rho_recon
 
@@ -1303,7 +1304,11 @@ def tensor_chunk_states(rho_list, state_label_array, povm_label_array, correlato
 
     # Find which state_labels are relevant for the correlator.
     relevant_state_index_list = [np.sort(get_cluster_index_from_correlator_labels(state_label_array, povm_label))for povm_label in relevant_povm_qubit_labels_sorted]
-    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], [[state_label_array[index] for index in relevant_state_index] for relevant_state_index in relevant_state_index_list]
+    
+    # Find the relevant state labels
+    relevant_labels = [[state_label_array[index] for index in relevant_state_index] for relevant_state_index in relevant_state_index_list]
+    concatinated_labesl = [np.concatenate(label, axis = 0) for label in relevant_labels]
+    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labesl
 
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """

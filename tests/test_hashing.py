@@ -658,20 +658,19 @@ class TestHash(unittest.TestCase):
 
 
     def test_tensor_chunk_states(self):
-        n_qubits = 4
         rho_true_list = [sf.generate_random_pure_state(2) for _ in range(2)]
         rho_labels = [[0,1],[2,3]]
         povm_labels = [[0,1],[2,3]]
         two_point = [[0,2]]
         true_state = reduce(np.kron, rho_true_list)
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)[0]
-        self.assertTrue(np.allclose(true_state, rho))
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        self.assertTrue(np.allclose(true_state, rho[0]))
         
         
         two_point = [[0,1]]
         true_state = rho_true_list[0]
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)[0]
-        self.assertTrue(np.allclose(true_state, rho))
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        self.assertTrue(np.allclose(true_state, rho[0]))
         
         rho_true_list = [sf.generate_random_pure_state(3) for _ in range(3)]
         
@@ -679,28 +678,28 @@ class TestHash(unittest.TestCase):
         povm_labels = [[0,1,2,3,4,5,6,7,8]]
         two_point = [[0,1],[1,2],[0,2],[4,6]]
         true_state = reduce(np.kron, rho_true_list)
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
         for rho_sample in rho:
             self.assertTrue(np.allclose(true_state, rho_sample))
             
         povm_labels = [[0],[1],[2],[3],[4],[5],[6],[7],[8]]
         two_point = [[0,1]]
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
         self.assertTrue(np.allclose(rho_true_list[0], rho[0]))
         
         two_point = [[2,3]]
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        rho , _= ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
         expected_rho = np.kron(rho_true_list[0],rho_true_list[1])
         self.assertTrue(np.allclose(expected_rho, rho[0]))
         
         two_point = [[4,6]]
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
         expected_rho = np.kron(rho_true_list[1],rho_true_list[2])
         self.assertTrue(np.allclose(expected_rho, rho[0]))
         
         povm_labels = [[0,1,2,3,4],[5],[6],[7],[8]]
         two_point = [[0,1]]
-        rho = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
+        rho, _ = ot.tensor_chunk_states(rho_true_list, rho_labels, povm_labels, two_point)
         expected_rho = np.kron(rho_true_list[0],rho_true_list[1])
         self.assertTrue(np.allclose(expected_rho, rho[0]))
         
