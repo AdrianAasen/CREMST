@@ -8,7 +8,7 @@ import uuid
 from functools import reduce
 from itertools import product, chain, repeat, combinations
 from EMQST_lib import support_functions as sf
-from EMQST_lib.povm import POVM
+from EMQST_lib.povm import POVM, generate_pauli_6_rotation_matrice
 from EMQST_lib import dt
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -236,6 +236,26 @@ def create_traced_out_reconstructed_POVM(subsystem_labels, reconstructed_comp_PO
     return combined_povm_array
 
 
+def create_traced_out_POVM_rotation(subsystem_labels, hash_family, n_hash_symbols, n_qubits_total):
+    # Create a fully Pauli POVM from reconstructed computational basis POVM
+    subsystem_labels = np.sort(subsystem_labels)[::-1]
+    n_subsystem_qubits = len(subsystem_labels)
+    povm_rotators = generate_pauli_6_rotation_matrice(n_subsystem_qubits)
+
+    
+    # ii) Create the POVM list that assosicated to each row in the downconverted frequency list
+    # Get qubit index of the subsystem in the total qubit system
+    subsystem_qubit_index = qubit_label_to_list_index(subsystem_labels,n_qubits_total)
+    possible_instructions = np.array([0, 1, 2])
+    #options_check = np.array(["X","Y", "Z"])
+    # Create the instructions for the hashed subsystem (NOTE we slice out only the subsystem qubits from the hash family)
+    hashed_subsystem_instructions = np.array([hash_to_instruction(function, possible_instructions, n_hash_symbols) for function in hash_family[:,subsystem_qubit_index]]).reshape(-1, n_subsystem_qubits)
+    base_instructions = np.array([[0]*n_subsystem_qubits,[1]*n_subsystem_qubits,[2]*n_subsystem_qubits])
+    #print(hashed_subsystem_instructions.shape)
+    combined_hash_instructions = np.vstack((hashed_subsystem_instructions, base_instructions))
+    combined_rotation_array = subsystem_instructions_to_POVM(combined_hash_instructions, povm_rotators, n_subsystem_qubits)
+    return combined_rotation_array
+
 
 def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_subsystem_qubits ):
     """
@@ -287,10 +307,67 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
     rho_1 = np.eye(dim)/dim
     rho_2 = np.eye(dim)/dim
     j = 0
-
+    #optimize_path_p = np.einsum_path('ik,nki->n', rho_1, OP_list)[0]
+    #optimize_path_R = np.einsum_path('n,n,nij->ij', index_counts, index_counts, OP_list)[0]
+    
     while j<iter_max and dist>1e-14:
+        #p      = np.einsum('ik,nki->n', rho_1, OP_list, optimize=optimize_path_p)
+        #R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list, optimize=optimize_path_R)
         p      = np.einsum('ik,nki->n', rho_1, OP_list)
         R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
+        update = R@rho_1@R
+        rho_1  = update/np.trace(update)
+
+        if j>=40 and j%100==0:
+            dist  = sf.qubit_infidelity(rho_1, rho_2)
+        rho_2 = rho_1
+        j += 1
+        
+        
+    return rho_1
+
+
+def OT_MLE_efficient(comp_basis_POVM, hashed_subsystem_Pauli_6_rotators, index_counts):
+    """
+    Performs Overlapping Tomography Maximum Likelihood Estimation (OT-MLE) on a given set of hashed subsystems.
+
+    Parameters:
+    hashed_subsystem_reconstructed_Pauli_6 (ndarray): A list of measurementd from a traced down subsystem. 
+    index_counts (ndarray): An array containing the index counts.
+
+    Returns:
+    ndarray: The estimated density matrix of the system.
+
+    """
+
+    print(hashed_subsystem_Pauli_6_rotators.shape)
+    comp_basis_operator_list = comp_basis_POVM.get_POVM()
+    print(comp_basis_operator_list.shape)
+    print(index_counts.shape)
+
+    #full_operator_list = np.array([a.get_POVM() for a in hashed_subsystem_reconstructed_Pauli_6])
+    dim = comp_basis_operator_list.shape[-1]
+    #OP_list = full_operator_list.reshape(-1,dsim,dim)
+    # rotated operatros should be rotators comp rotators
+    #index_counts = index_counts.reshape(-1)
+
+    iter_max = 1000
+    dist     = float(1)
+
+    rho_1 = np.eye(dim)/dim
+    rho_2 = np.eye(dim)/dim
+    j = 0
+    hashed_subsystem_Pauli_6_rotators_conj = np.transpose(hashed_subsystem_Pauli_6_rotators, axes=[0,2,1]).conj()
+    # optimize_path_p = np.einsum_path('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
+    # optimize_path_R = np.einsum_path('nm,nm,nkl,mlo,noi->ki', index_counts, index_counts, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
+    
+    while j<iter_max and dist>1e-14:
+        # new_mesh = np.einsum('nij, mjk, nkl->nmil', tensored_rot, comp_list, np.transpose(tensored_rot, axes=[0,2,1]).conj()) 
+        #p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_p)
+        #R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_R)
+        p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        
         update = R@rho_1@R
         rho_1  = update/np.trace(update)
 
@@ -315,10 +392,41 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
     Returns:
         rho_recon (numpy.ndarray): The reconstructed density matrix of the subsystem.
     """
-    hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
-    rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
+    
+    
+    if n_qubits<6: # Run more efficient version if the number of qubits is less than 6. 
+        # Create a new system that does not require the the full Pauli-6 to be reconstructed, but rather we track only the hashed rotation matrices. 
+        #hashed_subsystem_pauli_6_rotators = create_traced_out_POVM_rotation(subsystem_label, hash_family, n_hash_symbols, n_qubits)
+        hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
+        rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
+    else: # Runs a memory efficient version if qubit number is larger than 6.
+        # The efficiency comes from more efficient memory usage, as the full Pauli-6 is not reconstructed. Only rotation matrices are stored.
+        rho_recon = QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM)
     return rho_recon
 
+def QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM):
+    """
+    Runs a memory efficient version of QST, suitable for qubit systems larger than 6, slightly slower for qubit numbers between 2 and 5.
+
+    Args:
+        subsystem_label (ndarray): The label of the subsystem.
+        QST_index_counts (ndarray): A array containing the counts of measurement outcomes for each measurement index.
+        hash_family (ndarray): The hash family used for creating the traced-out reconstructed POVM.
+        n_hash_symbols (int): The number of hash symbols used for creating the traced-out reconstructed POVM.
+        n_qubits (int): The number of qubits in the system.
+        reconstructed_comp_POVM (ndarray): A array of reconstructed computational basis POVMs.
+
+    Returns:
+        rho_recon (numpy.ndarray): The reconstructed density matrix of the subsystem.
+    """
+    
+    hashed_subsystem_pauli_6_rotators = create_traced_out_POVM_rotation(subsystem_label, hash_family, n_hash_symbols, n_qubits)
+
+    rho_recon = OT_MLE_efficient(reconstructed_comp_POVM,hashed_subsystem_pauli_6_rotators, QST_index_counts)
+    return rho_recon
+
+    
+    
 
 def QDT(subsystem_label, QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
     """
@@ -1048,6 +1156,8 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     # IMPORTANT: In tensoring together POVMs the order of the qubits matter, as the tensored together POVM will have the order:
     [[Cluster 1], [Cluster 2]], where they are ordered within each cluster. e.g. [[8,1,0], [6,5]]-> [8,1,0,6,5] (these are qubit labels)
     The stratergy is to swap the order of the qubits in the POVM to follow the normal qubit order, in the example [8,6,5,1,0].
+    
+    returns the reduced states and the qubit labels in decending order.
     """
     # Get relevant clusters for each two_point_correlator
     relevant_cluster_index_list = [get_cluster_index_from_correlator_labels(cluster_labels, two_point) for two_point in two_point_correlator_list]
@@ -1097,7 +1207,7 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     #             # Swap label in qubit label order
     #             qubit_labels[[swap_index,i]] = qubit_labels[[i, swap_index]]
             
-    return states     
+    return states, relevant_qubit_labels_sorted  
 
 def POVM_sort(povm, sorting_index):
     """
@@ -1193,7 +1303,7 @@ def tensor_chunk_states(rho_list, state_label_array, povm_label_array, correlato
 
     # Find which state_labels are relevant for the correlator.
     relevant_state_index_list = [np.sort(get_cluster_index_from_correlator_labels(state_label_array, povm_label))for povm_label in relevant_povm_qubit_labels_sorted]
-    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list]
+    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], [[state_label_array[index] for index in relevant_state_index] for relevant_state_index in relevant_state_index_list]
 
 # def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
 #     """
