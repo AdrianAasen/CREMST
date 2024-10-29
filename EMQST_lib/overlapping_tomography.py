@@ -804,7 +804,7 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
                 new_partition_1.append(masked_partition_1[0])
                 new_partition_1.append(masked_partition_1[1])
 
-                # 2) Swat 2nd qubit to first
+                # 2) Swap 2nd qubit to first
                 masked_partition_2 = copy.deepcopy(masked_partition)
                 if pair[1] in masked_partition_2[0]:
                     masked_partition_2[0].remove(pair[1])
@@ -838,6 +838,55 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
                         print('Cost:',cost)
                         partition = copy.deepcopy(new_partition)
                         cost_0 = cost
+                        
+                        
+            else: # If pair is in the same cluster, try to remove one from the cluster. 
+                masked_partition = []  # Retrieve the partitions that include the pair
+                new_partition_1 = copy.deepcopy(partition)
+                temp_count = 0
+                for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
+                    if np.any(np.isin(partition[i],pair)):
+                        masked_partition.append(partition[i])
+                        new_partition_1.pop(i-temp_count)
+                        temp_count+=1
+                # We remove one qubit into a new partition, then the other qubit into a new partition.
+                
+                new_partition_2 = copy.deepcopy(new_partition_1)
+                new_partition_3 = copy.deepcopy(new_partition_1)
+                masked_partition_1 = copy.deepcopy(masked_partition)
+                masked_partition_2 = copy.deepcopy(masked_partition)
+                masked_partition_3 = copy.deepcopy(masked_partition)
+                # Put first qubit into a new partition
+                masked_partition_1[0].remove(pair[0])
+                new_partition_1.append(masked_partition_1[0])
+                new_partition_1.append([pair[0]])
+                
+                # Put second qubit into new partition
+                masked_partition_2[0].remove(pair[1])
+                new_partition_2.append(masked_partition_2[0])
+                new_partition_2.append([pair[1]])
+                
+                # Remove both
+                masked_partition_3[0].remove(pair[1])
+                masked_partition_3[0].remove(pair[0])
+                new_partition_3.append(masked_partition_3[0])
+                new_partition_3.append([pair[1]])
+                new_partition_3.append([pair[0]])
+                
+                for new_partition in [new_partition_1,new_partition_2, new_partition_3]:
+                    cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
+                    #print(cost)
+                    if cost > cost_0:
+                        print(f'New partition {new_partition}')
+                        print('Cost:',cost)
+                        print('Created a new parition!')
+                        partition = copy.deepcopy(new_partition)
+                        cost_0 = cost
+                
+                
+
+                
+                
     while [] in partition: # Remove empty paritions before sending back
         partition.remove([])           
     return partition
@@ -1345,9 +1394,9 @@ def create_QST_instructions(n_total_qubits,target_qubit_labels):
 def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators, relevant_qubit_labels, cluster_QDOT, cluster_labels, n_qubits, temp = False):
     cluster_QST_index_counts = get_traced_out_index_counts(QST_outcomes, relevant_qubit_labels)
     # Trace down instructions to the relevant qubit labels
-    print(QST_instructions)
+    #print(QST_instructions)
     traced_down_instructions = trace_out(relevant_qubit_labels, QST_instructions)
-    print(traced_down_instructions)
+    #print(traced_down_instructions)
     
     
     # Sorting POVMs to the correct order
