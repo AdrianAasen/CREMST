@@ -271,3 +271,23 @@ def measure_hashed_chunk_QST(n_shots, chunk_size, povm_array, povm_size_array, s
         # print(full_outcomes)
         #full_outcomes[chunk_size*i:chunk_size*(i+1)] = measure(n_shots, sub_povm, tensored_chunk_rho)
     return full_outcomes
+
+
+# def labeld_qubit_QST_measurements(n_shots, povm_array, rho_array, qubit_labels_to_measure):
+#     """
+#     Measures only full QST on spesified qubit labels. 
+#     """
+    
+#     n_total_qubits = len(rho_array)
+#     n_qubits = len(qubit_labels_to_measure)
+#     single_hash = np.zeros((n_qubits),dtype = int)
+#     single_hash = single_hash[qubit_labels_to_measure] = 1
+#     print(single_hash)
+    
+#     # Create hash that does only do full QST on spesified qubits
+    
+    
+    
+
+    
+    

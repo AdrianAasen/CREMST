@@ -137,12 +137,12 @@ def instruction_equivalence(instruction, possible_instructions, instruction_equi
     Parameters:
     - instruction: The instruction to be translated.
     - instruction_equivalence (list): A list of instructions in the desired order.
-    - possible_instructions (list): A list of all possible accepted.
+    - possible_instructions (list): A list of all possible accepted instructions in desired order. .
 
     Returns:
     - list: The translated instruction.
     
-    NOTE: This function is not optimized for speed, if keys and value are the same, e.g. {1:2, 2:3}, you get a bug where both 1 and 2 is set
+    NOTE: This function is not optimized for speed, if keys and value are the same, e.g. {1:2, 2:3}, you get a bug where both 1 and 2 is set to 3. 
 
     """
     # Create instruction dictionary
@@ -365,8 +365,8 @@ def OT_MLE_efficient(comp_basis_POVM, hashed_subsystem_Pauli_6_rotators, index_c
         # new_mesh = np.einsum('nij, mjk, nkl->nmil', tensored_rot, comp_list, np.transpose(tensored_rot, axes=[0,2,1]).conj()) 
         p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_p)
         R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_R)
-        # p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
-        # R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        #p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
+        #R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=True)
         
         update = R@rho_1@R
         rho_1  = update/np.trace(update)
@@ -396,7 +396,6 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
     
     if n_qubits<6: # Run more efficient version if the number of qubits is less than 6. 
         # Create a new system that does not require the the full Pauli-6 to be reconstructed, but rather we track only the hashed rotation matrices. 
-        #hashed_subsystem_pauli_6_rotators = create_traced_out_POVM_rotation(subsystem_label, hash_family, n_hash_symbols, n_qubits)
         hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
         rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
     else: # Runs a memory efficient version if qubit number is larger than 6.
@@ -1064,6 +1063,8 @@ def cluster_QST(QST_outcomes, cluster_labels, clustered_QDOT, hash_family, n_has
     cluster_rho_recon = [QST(cluster_labels[i], cluster_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, clustered_QDOT[i]) for i in range(len(cluster_labels))]
     return cluster_rho_recon
 
+
+
 def create_2RDMs_from_cluster_states(cluster_state_list, cluster_labels, correlator_labels_list):
     """
     Takes in a list of cluster states, cluster labels, and a list of correlators and returns a list of the two-qubit states for the correlators.
@@ -1162,14 +1163,14 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     """
     # Get relevant clusters for each two_point_correlator
     relevant_cluster_index_list = [get_cluster_index_from_correlator_labels(cluster_labels, two_point) for two_point in two_point_correlator_list]
-    print(relevant_cluster_index_list)
+    #print(relevant_cluster_index_list)
     # Target qubit label order.
     relevant_cluster_labels = [[np.sort(cluster_labels[index])[::-1] for index in relevant_cluster_index] for relevant_cluster_index in relevant_cluster_index_list]
-    print(relevant_cluster_labels)
+    #print(relevant_cluster_labels)
     relevant_qubit_labels_unsorted = [list(chain.from_iterable(cluster)) for cluster in relevant_cluster_labels] 
     
     relevant_qubit_labels_sorted = [np.sort(cluster)[::-1] for cluster in relevant_qubit_labels_unsorted]
-    print(relevant_qubit_labels_sorted)
+    #print(relevant_qubit_labels_sorted)
     
     traced_down_outcomes = [get_traced_out_index_counts(QST_outcomes, relevant_qubit_label) for relevant_qubit_label in relevant_qubit_labels_sorted]
     
@@ -1310,48 +1311,72 @@ def tensor_chunk_states(rho_list, state_label_array, povm_label_array, correlato
     concatinated_labesl = [np.concatenate(label, axis = 0) for label in relevant_labels]
     return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labesl
 
-# def outcomes_to_reduced_POVM(outcomes, povm_list, cluster_label_list, correlator_labels):
-#     """
-#     Takes in outcomes and cluster labels and returns the reduced POVM elements.
-#     The reduced POVM elements are conditioned on the outcomes of the environment being traced out.
-
-#     Parameters:
-#     - outcomes (ndarray): The outcomes of the system.
-#     - cluster_labels (list): A list of cluster labels.
-#     - correlator_labels (list): A list of correlator labels.
-
-#     Returns:
-#     - reduced_POVM (ndarray): The reduced POVM elements.
-#     """
-    
-    
-#     # Find the relevant cluster of the correlators.
-#     relevant_cluste_index = get_cluster_index_from_correlator_labels(cluster_label_list, correlator_labels)
-#     relevant_clusters = cluster_label_list[relevant_cluste_index]
-#     # Trace down the outcomes to the relevant qubits in each cluster separatly.
-#     # Each row in the outcomes correspond the binary index of the POVM to use of the QST reconstruction. 
-#     traced_out_cluster_outcomes = [trace_out(cluster,outcomes) for cluster in relevant_clusters]
-#     traced_out_cluster_outcome_index = [sf.binary_to_decimal_array(traced_out_cluster_outcome) for traced_out_cluster_outcome in traced_out_cluster_outcomes]
 
 
-#     # Reduce the POVM elements
-#     reduced_POVM = reduce_cluster_POVMs(outcomes, cluster_labels, correlator_labels)
-#     return reduced_POVM, cluster_index
+def create_QST_instructions(n_total_qubits,target_qubit_labels):
+    """
+    Creates instructions for Quantum State Tomography (QST) where only the target qubits are measured in specific bases (X, Y, Z),
+    and all other qubits are measured in the computational basis (Z).
+    Parameters:
+    n_total_qubits (int): The total number of qubits in the system.
+    target_qubit_labels (list of int): The labels of the qubits that are to be measured in the X, Y, or Z basis.
+    Returns:
+    numpy.ndarray: A 2D array where each row represents a unique combination of measurement instructions for the qubits.
+    The target qubits will have instructions from the set {X, Y, Z}, and all other qubits will have 'Z'.              
+    """  
 
-# def _traced_down_outcome_to_reduced_POVM_index(traced_down_outcome, relevant_cluster):
-#     """
-#     Takes in a list of outcomes and the relevant cluster, and returns the reduced POVM index for that outcome in terms of the one/two reduced POVMs. . 
-#     The outcomes follow the qubit order 4, 3, 2 ,1, 0 etc. Cluster structurer is not the same {5,3,1}, {4,2,0} etc.
-#     The reduced POVMs will be tensored together from two labels. their internal counts are 00,01,10,11. 
-    
-#     Return the index of the reduced POVM element for the two differnet reduced POVM lists. 
-#     """
-#     # Sort reduced POVM from tensor structure. Outcome counts should go like 00,01,10,11 from the reduced POVM, first for the first qubit, then for the second qubit. 
-#     if len(relevant_cluster) == 1: # Both correlators are in the same cluster. 
+    # Check if al qubit labels are smaller than the total number of qubits
+    if np.max(target_qubit_labels) >= n_total_qubits:
+        print("The target qubit labels are larger than the total number of qubits.")
+        print("Ignoring qubit labels that falls outside range.")	
+    taget_qubit_index = qubit_label_to_list_index(np.sort(target_qubit_labels)[::-1],n_total_qubits) 
+    n_target_qubits = len(target_qubit_labels)
+    # Need to create all possible instructions for the qubits we are measureing. 
+    #The idea will be to create a full set QST instructions for each qubit
+    elements = ['X','Y','Z']
+    instructions = create_unique_combinations(elements, n_target_qubits, remove_duplicates=False)
+    base_array = np.array([["Z"]*n_total_qubits]*len(instructions))
+    for i in range(len(instructions)):
+        base_array[i,taget_qubit_index] = instructions[i]
         
-#     elif len(relevant_cluster) == 2: # Both correlators are in different clusters. 
-        
-#     else:
-#         print(" Relevant cluster structure not met.")
-#         return None
+    return base_array
+
+
+def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators, relevant_qubit_labels, cluster_QDOT, cluster_labels, n_qubits, temp = False):
+    cluster_QST_index_counts = get_traced_out_index_counts(QST_outcomes, relevant_qubit_labels)
+    # Trace down instructions to the relevant qubit labels
+    print(QST_instructions)
+    traced_down_instructions = trace_out(relevant_qubit_labels, QST_instructions)
+    print(traced_down_instructions)
     
+    
+    # Sorting POVMs to the correct order
+    relevant_cluster_index = get_cluster_index_from_correlator_labels(cluster_labels, two_point_correlators) 
+    #print(relevant_cluster_index_list)
+    # Target qubit label order.
+    relevant_cluster_label = [np.sort(cluster_labels[index])[::-1] for index in relevant_cluster_index]
+    #print(relevant_cluster_labels)
+    relevant_qubit_label_unsorted = list(chain.from_iterable(relevant_cluster_label))
+    
+    relevant_qubit_labels_sorted = np.sort(relevant_qubit_label_unsorted)[::-1]
+    sorting_index = np.argsort(relevant_qubit_label_unsorted)[::-1]
+    
+    tensored_cluster_POVM = cluster_QDOT[relevant_cluster_index[0]] if len(relevant_cluster_index) == 1 else  POVM.tensor_POVM(cluster_QDOT[relevant_cluster_index[0]], cluster_QDOT[relevant_cluster_index[1]])[0]  
+    # We will sort the POVM to occur in decending qubit order. 
+    sorted_POVM_list = POVM_sort(tensored_cluster_POVM, sorting_index)[0]
+    instruction_eq= np.array([0, 1, 2])
+    possible_instructions = np.array(['X', 'Y', 'Z'])
+    translated_instruction = [instruction_equivalence(instruction, possible_instructions, instruction_eq) for instruction in traced_down_instructions]
+        
+    n_local_qubits = len(relevant_qubit_labels_sorted)
+    if temp :#n_local_qubits < 6: # Run faster MLE
+        reconstructed_Pauli_POVM = POVM.generate_Pauli_from_comp(sorted_POVM_list)
+        combined_povm_array = subsystem_instructions_to_POVM(translated_instruction, reconstructed_Pauli_POVM, n_local_qubits) 
+        rho_recon = OT_MLE(combined_povm_array, cluster_QST_index_counts)
+    
+    else: # Runs memory efficient MLE
+        # Create rotation array
+        povm_rotators = generate_pauli_6_rotation_matrice(n_local_qubits)
+        #povm_rotators = subsystem_instructions_to_POVM(translated_instruction, povm_rotators, n_local_qubits) 
+        rho_recon = OT_MLE_efficient(sorted_POVM_list, povm_rotators, cluster_QST_index_counts)
+    return rho_recon

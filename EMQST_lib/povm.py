@@ -678,11 +678,9 @@ def rotate_POVM_to_computational_basis(povm, inital_basis):
 
 def generate_pauli_6_rotation_matrice(n_qubits):
     """
-    This function takes in a computational basis (could be reconstructed) and turns it a Pauli-6 basis
-    by applying all possible rotations. This function scales exponentially. 
-
+    Takes in the number of qubits and returns all possible Pauli-6 rotation matrices for n qubits. 
     Input:
-        - comp_POVM: number of qubits.
+        - n_qubits: number of qubits.
 
     Returns:
         - ndarray of rotation matrices that if applied gives the POVMs in the order XX, XY, XZ, YX ...
