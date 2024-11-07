@@ -352,7 +352,14 @@ def ac_POVM_distance(M,N):
     return 1/(2 * dim) * np.sum(np.array([np.sqrt(np.linalg.norm(element)**2 + np.abs(np.trace(element))**2) for element in op] ))
 
 
-
+def generate_GHZ(n_qubits):
+    """
+    Generates the GHZ state for n_qubits.
+    """
+    GHZ = np.zeros((2**n_qubits, 2**n_qubits))
+    GHZ[0,0] = 1/2
+    GHZ[-1,-1] = 1/2
+    return GHZ
     
 
 

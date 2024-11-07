@@ -307,14 +307,14 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
     rho_1 = np.eye(dim)/dim
     rho_2 = np.eye(dim)/dim
     j = 0
-    #optimize_path_p = np.einsum_path('ik,nki->n', rho_1, OP_list)[0]
-    #optimize_path_R = np.einsum_path('n,n,nij->ij', index_counts, index_counts, OP_list)[0]
+    optimize_path_p = np.einsum_path('ik,nki->n', rho_1, OP_list)[0]
+    optimize_path_R = np.einsum_path('n,n,nij->ij', index_counts, index_counts, OP_list)[0]
     
     while j<iter_max and dist>1e-14:
-        #p      = np.einsum('ik,nki->n', rho_1, OP_list, optimize=optimize_path_p)
-        #R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list, optimize=optimize_path_R)
-        p      = np.einsum('ik,nki->n', rho_1, OP_list)
-        R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
+        p      = np.einsum('ik,nki->n', rho_1, OP_list, optimize=optimize_path_p)
+        R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list, optimize=optimize_path_R)
+        # p      = np.einsum('ik,nki->n', rho_1, OP_list)
+        # R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list)
         update = R@rho_1@R
         rho_1  = update/np.trace(update)
 
@@ -377,7 +377,7 @@ def OT_MLE_efficient(comp_basis_POVM, hashed_subsystem_Pauli_6_rotators, index_c
         j += 1
     return rho_1
 
-def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM):
+def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits_total, reconstructed_comp_POVM):
     """
     Performs Quantum overlapping State Tomography (OT) on a subsystem.
 
@@ -392,16 +392,16 @@ def QST(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits
     Returns:
         rho_recon (numpy.ndarray): The reconstructed density matrix of the subsystem.
     """
+    n_local_qubits = len(subsystem_label)
     
-    
-    if n_qubits<6: # Run more efficient version if the number of qubits is less than 6. 
+    if n_local_qubits<6: # Run more efficient version if the number of qubits is less than 6. 
         # Create a new system that does not require the the full Pauli-6 to be reconstructed, but rather we track only the hashed rotation matrices. 
-        hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits)
+        hashed_subsystem_reconstructed_Pauli_6 = create_traced_out_reconstructed_POVM(subsystem_label, reconstructed_comp_POVM, hash_family, n_hash_symbols, n_qubits_total)
         rho_recon = OT_MLE(hashed_subsystem_reconstructed_Pauli_6, QST_index_counts)
     else: # Runs a memory efficient version if qubit number is larger than 6.
         # The efficiency comes from more efficient memory usage, as the full Pauli-6 is not reconstructed. Only rotation matrices are stored.
         print(f'Running memory efficient version of QST.')
-        rho_recon = QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM)
+        rho_recon = QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits_total, reconstructed_comp_POVM)
     return rho_recon
 
 def QST_memory_efficient(subsystem_label, QST_index_counts, hash_family, n_hash_symbols, n_qubits, reconstructed_comp_POVM):
@@ -883,10 +883,7 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
                         partition = copy.deepcopy(new_partition)
                         cost_0 = cost
                 
-                
-
-                
-                
+       
     while [] in partition: # Remove empty paritions before sending back
         partition.remove([])           
     return partition
@@ -1391,12 +1388,12 @@ def create_QST_instructions(n_total_qubits,target_qubit_labels):
     return base_array
 
 
-def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators, relevant_qubit_labels, cluster_QDOT, cluster_labels, n_qubits, temp = False):
+def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators, relevant_qubit_labels, cluster_QDOT, cluster_labels):
     cluster_QST_index_counts = get_traced_out_index_counts(QST_outcomes, relevant_qubit_labels)
     # Trace down instructions to the relevant qubit labels
     #print(QST_instructions)
     traced_down_instructions = trace_out(relevant_qubit_labels, QST_instructions)
-    #print(traced_down_instructions)
+
     
     
     # Sorting POVMs to the correct order
@@ -1418,7 +1415,7 @@ def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators,
     translated_instruction = [instruction_equivalence(instruction, possible_instructions, instruction_eq) for instruction in traced_down_instructions]
         
     n_local_qubits = len(relevant_qubit_labels_sorted)
-    if temp :#n_local_qubits < 6: # Run faster MLE
+    if n_local_qubits < 6: # Run faster MLE
         reconstructed_Pauli_POVM = POVM.generate_Pauli_from_comp(sorted_POVM_list)
         combined_povm_array = subsystem_instructions_to_POVM(translated_instruction, reconstructed_Pauli_POVM, n_local_qubits) 
         rho_recon = OT_MLE(combined_povm_array, cluster_QST_index_counts)
@@ -1429,3 +1426,14 @@ def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators,
         #povm_rotators = subsystem_instructions_to_POVM(translated_instruction, povm_rotators, n_local_qubits) 
         rho_recon = OT_MLE_efficient(sorted_POVM_list, povm_rotators, cluster_QST_index_counts)
     return rho_recon
+
+
+def get_true_cluster_labels(cluster_size):
+    "Takes in cluster size_size and returns the qubit labels for the true states clustered together."
+    true_cluster_labels = []
+    it = 0
+    rev_cluster_size = cluster_size[::-1]
+    for i in range(len(cluster_size)):
+        true_cluster_labels.append(np.arange(it, it + rev_cluster_size[i]))
+        it+=rev_cluster_size[i]
+    return true_cluster_labels[::-1]

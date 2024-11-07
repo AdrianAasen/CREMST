@@ -718,6 +718,7 @@ def load_random_exp_povm(path, n_qubit):
     # Load paths. 
     paths = glob.glob(path + f"/{n_qubit}/**/DT_settings.npy",recursive=True)
     label_path = glob.glob(path + f"/{n_qubit}/**/label_order.txt",recursive=True)
+    print(paths)
     # Load povm sublabels.
     label_file = open(label_path[0], "r") 
     data = label_file.read()  
@@ -740,3 +741,49 @@ def load_random_exp_povm(path, n_qubit):
     return_povm = povm_array[rand_povm][rand_label]
     path = [paths[rand_povm],label_list[rand_label]]
     return return_povm, path
+
+
+def rotate_and_save_POVMs(input_path):
+    """
+    Specialized function that takes in the experimental POVMs and rotate them such that they are all in the computational basis. 
+    """
+    # Load paths. 
+    for n_qubit in range(1,5):
+        paths = glob.glob(input_path + f"/{n_qubit}/**/DT_settings.npy",recursive=True)
+        label_path = glob.glob(input_path + f"/{n_qubit}/**/label_order.txt",recursive=True)
+        # Load povm sublabels.
+        label_file = open(label_path[0], "r") 
+        data = label_file.read()  
+        label_list = data.split("\n") 
+        label_file.close()
+        sigma_x = np.array([[0,1], [1,0]])
+        sigma_y = np.array([[0,-1j], [1j,0]])
+        rot_X_to_Z = sp.linalg.expm(-1j * (-np.pi/4) * sigma_y)
+        rot_Y_to_Z = sp.linalg.expm(-1j * (np.pi/4) * sigma_x)
+        
+        # Create list of single qubit rotations from comp to Pauli
+        #rot_list = np.array([rot_X_to_Z, rot_Y_to_Z, np.eye(2)]) 
+        rot_dict = {
+            "X": rot_X_to_Z,
+            "Y": rot_Y_to_Z,
+            "Z": np.eye(2)
+        }
+        for path in paths:
+            dt_settings = np.load(path, allow_pickle=True).item()
+            povm_list = dt_settings["reconstructed_POVM_list"]
+            for i, povm in enumerate(povm_list):
+                
+                povm_matrix = povm.get_POVM()
+                label = label_list[i]
+                rot_matrix = reduce(np.kron, [rot_dict[label[i]] for i in range(n_qubit)])
+                rotateded_povm = np.einsum('ij,njk,lk->nil',rot_matrix, povm_matrix, rot_matrix.conj())
+                # print(label)
+                # print(rotateded_povm)
+                # print(f'Sum of matrices {np.sum(rotateded_povm,axis=0)}')
+                povm_list[i] = POVM(rotateded_povm)
+                #print(rotateded_povm)
+            dt_settings["reconstructed_POVM_list"] = povm_list
+            np.save(path, dt_settings)
+        
+    return None
+                
