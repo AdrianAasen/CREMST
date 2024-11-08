@@ -264,30 +264,26 @@ def measure_hashed_chunk_QST(n_shots, chunk_size, povm_array, povm_size_array, s
         # Chunk measurements
         outcomes = np.array([simulated_measurement(n_shots, sub_povm, rho) for rho in rotated_rhos])
      
-        # print(f'Outcome shape: {outcomes.shape}')
-        # print(outcomes)
         # Add outcomes to the full_outcomes array in binary form
         full_outcomes[:,:,chunk_size*i:chunk_size*(i+1)] = np.array([sf.decimal_to_binary_array(hashed_outcome, chunk_size) for hashed_outcome in outcomes])
-        # print(full_outcomes)
-        #full_outcomes[chunk_size*i:chunk_size*(i+1)] = measure(n_shots, sub_povm, tensored_chunk_rho)
     return full_outcomes
 
 
-# def labeld_qubit_QST_measurements(n_shots, povm_array, rho_array, qubit_labels_to_measure):
-#     """
-#     Measures only full QST on spesified qubit labels. 
-#     """
-    
-#     n_total_qubits = len(rho_array)
-#     n_qubits = len(qubit_labels_to_measure)
-#     single_hash = np.zeros((n_qubits),dtype = int)
-#     single_hash = single_hash[qubit_labels_to_measure] = 1
-#     print(single_hash)
-    
-#     # Create hash that does only do full QST on spesified qubits
-    
-    
-    
+def measure_and_QST_target_qubit_only(two_point_array,noise_cluster_labels,n_QST_shots, n_qubits, chunk_size, povm_array, cluster_size, rho_true_array, state_size_array,clustered_QDOT):
+    """
+    QST method that both measures and reconstructs the state for the spesific correlators given in two_point_array.
+    This function does not check if it has previosly measured correlatros that span the same noise structure/qubits. 
+    """
+    selected_cluster_index =  ot.get_cluster_index_from_correlator_labels(noise_cluster_labels, two_point_array) 
+    target_qubits = []
+    for index in selected_cluster_index:
+        target_qubits = np.append(target_qubits, noise_cluster_labels[index])
+    target_qubits = np.array(target_qubits.astype(int), dtype=int)
+    target_qubits = np.sort(target_qubits)[::-1]
+    QST_only_instructions = ot.create_QST_instructions(n_qubits, target_qubits)
+    #print(QST_only_instructions)
+    QST_outcomes_reduced_instructions = measure_hashed_chunk_QST(n_QST_shots, chunk_size, povm_array, cluster_size, rho_true_array, state_size_array, QST_only_instructions)
 
-    
-    
+    print(f'Target Qubits: {target_qubits}')
+    rho_recon_1 = ot.QST_from_instructions(QST_outcomes_reduced_instructions, QST_only_instructions,two_point_array, target_qubits, clustered_QDOT, noise_cluster_labels)
+    return rho_recon_1, target_qubits

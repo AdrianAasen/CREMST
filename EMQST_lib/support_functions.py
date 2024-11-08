@@ -363,6 +363,26 @@ def generate_GHZ(n_qubits):
     
 
 
+def is_state_physical(rho):
+    """
+    Checks if the density matrix is physical.
+    """
+    if np.any(np.linalg.eigvals(rho) < 0):
+        print(f'State has negative egienvalues: {np.linalg.eigvals(rho)}')
+        return False
+    if not np.isclose(np.trace(rho), 1):
+        print(f'State is not normalized: {np.real(np.trace(rho))}')
+        return False
+    return True    
+    
+
+def check_positive_eigenvalues(rho):
+    """
+    Checks if the density matrix has positive eigenvalues.
+    """
+    return np.all(np.linalg.eigvals(rho) >= 0)
+
+
 if __name__=="__main__":
     main()
 
