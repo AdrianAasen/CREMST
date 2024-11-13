@@ -373,6 +373,7 @@ def is_state_physical(rho):
     if not np.isclose(np.trace(rho), 1):
         print(f'State is not normalized: {np.real(np.trace(rho))}')
         return False
+    
     return True    
     
 

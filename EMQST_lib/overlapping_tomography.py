@@ -727,6 +727,7 @@ def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits,corr_limit
 def obj_func(partitions,corr_array,corr_labels, max_cluster_size,corr_limit=0, alpha=0.1,):
     """
     Objective for the cluster opitmization problem.
+    Alpha: A tuning paramter, which tunes the penalty for large clusters. Large alpha discuourages large clusters.
     """
     #print(partitions,corr_array)
     cost = 0
@@ -886,7 +887,7 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
        
     while [] in partition: # Remove empty paritions before sending back
         partition.remove([])           
-    return partition
+    return partition, cost_0
 
 
 
@@ -1438,3 +1439,299 @@ def get_true_cluster_labels(cluster_size):
         it+=rev_cluster_size[i]
     return true_cluster_labels[::-1]
 
+
+
+def parallel_QDOT(QDT_subsystem_labels, QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
+    """
+    Function defined to be used in parallel for the POVM reconstruction.
+    """
+    # Reconstruct the POVMs in parallel
+    reconstructed_comp_POVM = QDT(QDT_subsystem_labels,QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states)
+    return reconstructed_comp_POVM
+
+
+
+def get_all_subsystem_labels(n_qubits):
+    """
+    Function creates all possible combinations of two qubit correlation labels, and corresponding qubit label they  labels.
+    """
+    QDT_subsystem_labels = np.array([[1,0]])
+    # Since the quantum correlation coefficients are not symmetric, we need to have all combinations with swapped orders too.
+    # The 0 index qubit is the one that we want to know the effects from the 1 index qubit on.
+    # The POVM is reconstructed with the largest qubit number first. The correlator traces out the 0 qubit first, so we have the ordere [1,0] then [0,1].
+    corr_subsystem_labels = np.array([[1,0]])
+    for i in range(n_qubits):
+        for j in range(i):
+            QDT_subsystem_labels = np.append(QDT_subsystem_labels, [[i,j]], axis = 0)
+            corr_subsystem_labels = np.append(corr_subsystem_labels, [[i,j],[j,i]], axis = 0)
+    QDT_subsystem_labels = QDT_subsystem_labels[1:]
+    corr_subsystem_labels = corr_subsystem_labels[1:]
+    return QDT_subsystem_labels, corr_subsystem_labels
+
+
+def reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
+    QDT_subsystem_labels, corr_subsystem_labels = get_all_subsystem_labels(n_qubits)
+    print(f'Number of 2 qubit POVMs to reconstruct: {len(QDT_subsystem_labels)}')
+    two_point_POVM = reconstruct_spesific_two_qubit_POVMs(QDT_outcomes, QDT_subsystem_labels , n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores)
+    return two_point_POVM, corr_subsystem_labels
+
+
+def reconstruct_spesific_two_qubit_POVMs(QDT_outcomes, QDT_subsystem_labels , n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
+    QDT_index_counts =  Parallel(n_jobs = n_cores, verbose = 5)(delayed(get_traced_out_index_counts)(QDT_outcomes, subsystem_label) for subsystem_label in QDT_subsystem_labels)
+    QDT_index_counts = np.asarray(QDT_index_counts)
+    two_point_POVM = Parallel(n_jobs = n_cores, verbose = 10)(delayed(parallel_QDOT)(QDT_subsystem_labels[i], QDT_index_counts[i], hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states) for i in range(len(QDT_subsystem_labels)))
+    two_point_POVM = np.asarray(two_point_POVM)
+    return two_point_POVM
+
+
+def reconstruct_all_one_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
+    # Create all 1 qubit POVMS for comparison
+    one_qubit_subsystem_labels = np.array([[i] for i in range(n_qubits)])
+    one_qubit_QDT_index_counts = [get_traced_out_index_counts(QDT_outcomes, subsystem_label) for subsystem_label in one_qubit_subsystem_labels]
+    one_qubit_POVMs = Parallel(n_jobs = n_cores,verbose = 10)(delayed(parallel_QDOT)(one_qubit_subsystem_labels[i], one_qubit_QDT_index_counts[i], hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states) for i in range(len(one_qubit_subsystem_labels)))
+    return one_qubit_POVMs
+
+
+def reconstruct_POVMs_from_noise_labels(QDT_outcomes,noise_cluster_labels, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores ):
+    # Create a all POVMS for the noise clusters
+    QDT_index_counts = [get_traced_out_index_counts(QDT_outcomes, subsystem_label) for subsystem_label in noise_cluster_labels]
+    clustered_QDOT = Parallel(n_jobs = n_cores,verbose = 10)(delayed(parallel_QDOT)(noise_cluster_labels[i], QDT_index_counts[i], hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states) for i in range(len(noise_cluster_labels)))
+    return clustered_QDOT
+
+
+
+def compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels, mode="WC"):	
+    # Compute the quantum and classical correlation coefficients with worst case distance
+    quantum_corr_array = [povm.get_quantum_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
+    classical_corr_array = [povm.get_classical_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
+    quantum_corr_array = np.asarray(quantum_corr_array)
+    classical_corr_array = np.asarray(classical_corr_array)
+    # print(f'Quantum corr array shape: {quantum_corr_array.shape}')
+    # print(f'List of two-point correlators shape: {corr_subsystem_labels.shape}')
+    quantum_corr_array = quantum_corr_array.flatten()
+    classical_corr_array = classical_corr_array.flatten()
+    unique_corr_labels = corr_subsystem_labels[::2] # Takes out every other label, since the neighbouring label is the swapped qubit labels. 
+    summed_quantum_corr_array = np.array([quantum_corr_array[2*i] + quantum_corr_array[2*i+1] for i in range(len(quantum_corr_array)//2)])
+    return summed_quantum_corr_array, unique_corr_labels
+
+
+
+def factorized_state_list_to_correlator_states(two_point_corr_labels, factorized_state_list, n_qubits):
+    """
+    Function converts a list of factorized states to a list of correlator states.
+    """
+    correlator_states = []
+    for j in range(len(factorized_state_list)):
+        correlator_states.append([])
+        for i in range(len(two_point_corr_labels)):
+            subsystem_index = ot.qubit_label_to_list_index(np.sort(two_point_corr_labels[i])[::-1], n_qubits) 
+            qubit_sublist = factorized_state_list[j][subsystem_index]
+            correlator_states[j].append(reduce(np.kron, qubit_sublist))
+    return correlator_states
+
+
+def generate_random_pauli_string(n_samples,n_qubits):
+    """
+    Function generates a random Pauli string of length n_elements.
+    """
+    pauli_1 = np.eye(2)
+    pauli_x = np.array([[0,1],[1,0]])
+    pauli_y = np.array([[0,-1j],[1j,0]])
+    pauli_z = np.array([[1,0],[0,-1]])
+    pauli_operators = np.array([pauli_1,pauli_x, pauli_y, pauli_z])
+    pauli_string = np.random.randint(0,4,n_samples*n_qubits).reshape(n_samples,n_qubits)
+    op_list = pauli_operators.take(pauli_string,axis = 0)  
+    return np.array([reduce(np.kron, op_list[i]) for i in range(n_samples)]) 
+
+
+
+def compute_exp_value(rho_average_array,pauli_string):
+    """
+    Function computes the expectation value of a Pauli string for a given state array.
+    """
+
+    return np.einsum('nijk,lkj->nil', rho_average_array, pauli_string).real
+
+def compute_MSE(true_exp_value, exp_value):
+    """
+    Function computes the mean squared error between two sets of density matrices.
+    """
+    return np.mean((true_exp_value - exp_value)**2,axis = (0,2))
+
+
+def compute_infidelities(rho_array,rho_true_array):
+    """
+    Computes the infidelities of the states that has the shape n_average, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits
+    """
+    return np.array([[np.real(sf.qubit_infidelity(rho,rho_ture)) for rho, rho_ture in zip(rho_array[n],rho_true_array[n])] for n in range(len(rho_array))])
+
+
+def average_infidelities(rho_array ,rho_true_array):
+    """
+    Averages the infidelities over the different correlators.
+    """
+    return np.mean(compute_infidelities(rho_array,rho_true_array),axis = 0)
+
+def is_state_array_physical(state_array):
+    '''
+    Checks the QST comparison arrays are physical.
+    '''
+    physical_array = [[[sf.is_state_physical(state) for state in corr] for corr in average] for average in state_array]
+    if np.all(physical_array):
+        print("All states are physical.")
+        return True, physical_array
+    else:
+        print("Not all states are physical.")
+        print("Returning is_physical array.")
+        return False, physical_array
+
+def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
+    print(f'Create all possible 2 qubit POVMs for correlation map.')
+    two_point_POVM, corr_subsystem_labels = reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores)
+
+
+    summed_quantum_corr_array, unique_corr_labels = compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels)
+
+# Find the full cluster size of the system
+
+    corr_limit = 1/np.sqrt(n_QDT_shots)
+
+    n_runs  = 5
+    alpha_array = np.array([ 0.5]) 
+
+# Create initialpartition
+    reward = -10**6
+    for alpha in alpha_array:
+        print(f'Alpha: {alpha}')
+        partitions_init = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits,corr_limit)
+        new_partition = [[i] for i in range(n_qubits)]
+        print(f'Inital partions: {partitions_init}')
+    # Optimize cluster structure according to heuristic cost function. 
+        noise_cluster_labels_temp, reward_temp = optimize_cluster(n_runs,partitions_init,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
+        if reward < reward_temp:
+            noise_cluster_labels = noise_cluster_labels_temp
+            reward = reward_temp
+            print(f'New reward: {reward}')
+    return noise_cluster_labels
+
+
+
+def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, data_path, hash_family, n_hash_symbols, n_qubits, n_cores):
+    state_reduction_rho_average_array = []
+    two_RDM_QREM_rho_average_array = []
+    no_QREM_rho_average_array = []
+    povm_reduction_rho_average_array = []
+    factorized_QREM_rho_average_array = []
+    classical_cluster_QREM_rho_average_array = []
+    entanglement_safe_QREM_rho_average_array = []
+    classical_entangelment_safe_QREM_rho_average_array = []
+
+
+    for k in range(n_averages):
+        QST_outcomes = QST_outcomes_array[k]      
+    # Simplifed methods
+        naive_QST_index_counts = [get_traced_out_index_counts(QST_outcomes, two_point) for two_point in two_point_corr_labels]
+    
+    # Reconstruction step 1)
+        no_QREM_two_RDM_recon = [QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, POVM.generate_computational_POVM(len(two_point_corr_labels[i]))[0]) for i in range(len(two_point_corr_labels))]
+        no_QREM_rho_average_array.append(no_QREM_two_RDM_recon)
+        
+    # Reconstruction step 2) 
+    # We have facorized POVMs, just need to tensor them together.
+        factorized_POVMs = np.empty(len(two_point_corr_labels),dtype = object)
+        for i,two_point in enumerate(two_point_corr_labels):
+            two_index = qubit_label_to_list_index(np.sort(two_point)[::-1], n_qubits)
+            factorized_POVMs[i] = POVM.tensor_POVM(one_qubit_POVMs[two_index[0]],one_qubit_POVMs[two_index[1]] )[0]
+    
+        factorized_rho_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, factorized_POVMs[i]) for i in range(len(two_point_corr_labels))])
+        factorized_QREM_rho_average_array.append(factorized_rho_recon)   
+        
+    
+    # Reconstruction step 3)
+        two_RDM_state_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, two_point_POVM[i]) for i in range(len(two_point_corr_labels))])
+        two_RDM_QREM_rho_average_array.append(two_RDM_state_recon)
+    
+    
+    # Reconstruction step 4)
+        povm_reduction_rho_list = Parallel(n_jobs = n_cores, verbose = 10)(delayed(POVM_reduction_premade_cluster_QST)(two_point,noise_cluster_labels, 
+                                                                                                                      QST_outcomes, clustered_QDOT, hash_family,
+                                                                                                                      n_hash_symbols, n_qubits) for two_point in two_point_corr_labels)
+        povm_reduction_rho_average_array.append(povm_reduction_rho_list)
+    
+    # Reconstruction step 5)
+        state_reduction_rho_list = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
+                                                                       clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
+        state_reduction_rho_average_array.append(state_reduction_rho_list)
+    # Reconstruction step 6)
+        classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
+        classical_rho_recon = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
+                                                                classical_povm, hash_family, n_hash_symbols, n_qubits)
+        classical_cluster_QREM_rho_average_array.append(classical_rho_recon)
+    
+    # Reconstruction step 7) Entanglement safe QREM
+        entangled_recon_states, entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
+                        noise_cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
+    
+     # Trace down the entangelment safe states to match the correlator only states. 
+        traced_down_entangled_recon = [trace_down_qubit_state(entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+      
+    
+        entanglement_safe_QREM_rho_average_array.append(traced_down_entangled_recon)
+    
+    
+    # Reconstruction step 8) Classical entanglement safe QREM
+        classical_entangled_recon_states, classical_entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
+                        noise_cluster_labels, QST_outcomes, classical_povm, hash_family, n_hash_symbols, n_qubits)
+        traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+        classical_entangelment_safe_QREM_rho_average_array.append(traced_down_classical_entangled_recon)
+
+    result_QST_dict = {
+    # The states has the shape (n_averages, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits)
+
+    "state_reduction_rho_average_array": state_reduction_rho_average_array,
+    "two_RDM_QREM_rho_average_array": two_RDM_QREM_rho_average_array,
+    "no_QREM_rho_average_array": no_QREM_rho_average_array,
+    "povm_reduction_rho_average_array": povm_reduction_rho_average_array,
+    "factorized_QREM_rho_average_array": factorized_QREM_rho_average_array,
+    "classical_cluster_QREM_rho_average_array": classical_cluster_QREM_rho_average_array,
+    "entanglement_safe_QREM_rho_average_array": entanglement_safe_QREM_rho_average_array,
+    "classical_entangelment_safe_QREM_rho_average_array": classical_entangelment_safe_QREM_rho_average_array,
+    "two_point_corr_labels": two_point_corr_labels,          
+    "n_average": n_averages
+}
+
+
+
+    
+    return result_QST_dict
+
+def load_state_array_from_result_dict(result_dict):
+    state_reduction_rho_average_array = result_dict['state_reduction_rho_average_array']
+    two_RDM_QREM_rho_average_array = result_dict['two_RDM_QREM_rho_average_array']
+    no_QREM_rho_average_array = result_dict['no_QREM_rho_average_array']
+    povm_reduction_rho_average_array = result_dict['povm_reduction_rho_average_array']
+    factorized_QREM_rho_average_array = result_dict['factorized_QREM_rho_average_array']
+    classical_cluster_QREM_rho_average_array = result_dict['classical_cluster_QREM_rho_average_array']
+    entanglement_safe_QREM_rho_average_array = result_dict['entanglement_safe_QREM_rho_average_array']
+    classical_entangelment_safe_QREM_rho_average_array = result_dict['classical_entangelment_safe_QREM_rho_average_array']
+
+    state_array = [no_QREM_rho_average_array,
+                    factorized_QREM_rho_average_array,
+                two_RDM_QREM_rho_average_array,
+                povm_reduction_rho_average_array,
+    #               classical_cluster_QREM_rho_average_array,
+    #               state_reduction_rho_average_array,
+                classical_entangelment_safe_QREM_rho_average_array,
+                entanglement_safe_QREM_rho_average_array
+    ]
+    label_array = ['No QREM',
+                'Factorized QREM',
+               'Two-point QREM',
+               'POVM reduction (shadow equivalent)',
+    #           'Classical factorized cluster QREM',
+    #           'Factorized cluster QREM',
+               'Classical entanglement safe QREM',
+               'Entanglement safe QREM',
+    ]
+
+    return state_array, label_array
