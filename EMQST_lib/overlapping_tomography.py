@@ -1724,7 +1724,7 @@ def load_state_array_from_result_dict(result_dict):
                 classical_entangelment_safe_QREM_rho_average_array,
                 entanglement_safe_QREM_rho_average_array
     ]
-    label_array = ['No QREM',
+    label_array = ['No QREM ',
                 'Factorized QREM',
                'Two-point QREM',
                'POVM reduction (shadow equivalent)',
