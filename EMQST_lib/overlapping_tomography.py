@@ -1727,7 +1727,7 @@ def load_state_array_from_result_dict(result_dict):
     label_array = ['No QREM ',
                 'Factorized QREM',
                'Two-point QREM',
-               'POVM reduction (shadow equivalent)',
+               'POVM reduction',
     #           'Classical factorized cluster QREM',
     #           'Factorized cluster QREM',
                'Classical entanglement safe QREM',
