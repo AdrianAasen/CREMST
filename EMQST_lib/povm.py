@@ -475,10 +475,13 @@ class POVM():
         
     def get_quantum_correlation_coefficient(self, mode = 'WC'):
         """ 
-        For two qubit POVMs one can compute how correlated the POVMs are. and extract a correlation coefficient. 
+        For two qubit POVMs one can compute how correlated the POVMs are and extract a correlation coefficient. 
         This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661
         
-        The procedure will return both variants of the correlation coefficient, tracing down first the first qubit and then the second qubit.
+        The procedure will return both variants of the correlation coefficient, tracing down first the first qubit and then the second qubit. (Counting from the right (2,1,0))
+        
+        Input labels: POVM_1 x POVM_0
+        Return coefficients [c_0->1, c_1->0]
         """
         
         # Check if the POVM is a two qubit POVM
@@ -539,6 +542,8 @@ class POVM():
         This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661.
         
         The procedure will return both variants of the correlation coefficient, tracing down first the first qubit and then the second qubit.
+        Input labels: POVM_1 x POVM_0
+        Return coefficients [c_0->1, c_1->0]
         """
         
         # Check if the POVM is a two qubit POVM
@@ -550,7 +555,7 @@ class POVM():
             POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],0)
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
-            c_0 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
+            c_0_to_1 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
             
             POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
@@ -558,22 +563,22 @@ class POVM():
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
             # print(f'norm {np.linalg.norm(diff)}')
             #print(f"trace {np.real(np.trace(diff))}")
-            c_1 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
+            c_1_to_0 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
         elif mode == 'WC': # Uses the wors case measure
             POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],0)
-            c_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+            c_0_to_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
 
             POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],1)
-            c_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+            c_1_to_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
         
         else:
             print("Invalid mode. Please select either 'AC' or 'WC' ")
             return None
   
-        return np.array([c_0,c_1])
+        return np.array([c_0_to_1,c_1_to_0])
         
              
         
@@ -702,7 +707,7 @@ def generate_pauli_6_rotation_matrice(n_qubits):
     
     return tensored_rot
     
-def load_random_exp_povm(path, n_qubit):
+def load_random_exp_povm(path, n_qubit, use_Z_basis_only = False):
     """"
     Loads a random POVM (Positive Operator-Valued Measure) from experimental data supplied in folder structure 1,2,3... with appropriate label file.
     Args:
@@ -736,10 +741,12 @@ def load_random_exp_povm(path, n_qubit):
     n_povms = len(povm_array)
     # Draw random povm and sublabel. 
     rand_povm = np.random.randint(n_povms)
-    rand_label = np.random.randint(n_labels)
-    
-    return_povm = povm_array[rand_povm][rand_label]
-    path = [paths[rand_povm],label_list[rand_label]]
+    if use_Z_basis_only:
+        label_index = label_list.index('Z'*n_qubit)
+    else:
+        label_index = np.random.randint(n_labels)
+    return_povm = povm_array[rand_povm][label_index]
+    path = [paths[rand_povm],label_list[label_index]]
     return return_povm, path
 
 
