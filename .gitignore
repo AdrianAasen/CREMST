@@ -10,6 +10,9 @@ QDOT_results/
 data/
 hash_list.npy
 test.ipynb
+Exp_povms/
+images/
+Shot_variance_results/
 
 EMQST_lib/hash_family
 

@@ -80,7 +80,7 @@ def plot_POVM_folder(path_to_folder = None):
     return 1
 
 
-def visualize_state(rho):
+def visualize_state(rho, title = None):
     max_abs = np.max(np.abs(np.imag(rho)))
     max_abs = np.max([max_abs,np.max(np.abs(np.real(rho)))])
                      
@@ -97,6 +97,8 @@ def visualize_state(rho):
         ax.set_title(f'{part} Part')
         #ax.set_title(f'Outcome {outcome_list[j]} ({part} Part)')
         plt.colorbar(im, ax=ax)
+    if title is not None:
+        fig.suptitle(title)
     plt.tight_layout()
     plt.show()
     return 1
