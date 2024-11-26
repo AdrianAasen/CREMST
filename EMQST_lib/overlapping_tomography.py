@@ -835,8 +835,8 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
                     cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
                     #print(cost)
                     if cost > cost_0:
-                        print(f'New partition {new_partition}')
-                        print('Cost:',cost)
+                        #print(f'New partition {new_partition}')
+                        #print('Cost:',cost)
                         partition = copy.deepcopy(new_partition)
                         cost_0 = cost
                         
@@ -878,9 +878,9 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
                     cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
                     #print(cost)
                     if cost > cost_0:
-                        print(f'New partition {new_partition}')
-                        print('Cost:',cost)
-                        print('Created a new parition!')
+                        #print(f'New partition {new_partition}')
+                        #print('Cost:',cost)
+                        #print('Created a new parition!')
                         partition = copy.deepcopy(new_partition)
                         cost_0 = cost
                 
@@ -1276,6 +1276,7 @@ def POVM_sort(povm, sorting_index):
     wanted_order = np.arange(0,n_qubits,1,dtype=int)[::-1]
     # MAKE DEEP COPT IMPORTANT
     povm_array = np.copy(povm.get_POVM())
+    print(f'POVM shape {povm_array.shape}')
     # Find scrambling order
     scralbing_order = np.argsort(sorting_index)
     current_order = wanted_order[scralbing_order]
@@ -1283,7 +1284,7 @@ def POVM_sort(povm, sorting_index):
     for i in range(n_qubits):
         if current_order[i] != wanted_order[i]:
             # Find index in the current order to swap with i
-            swap_label_index= np.where(current_order == wanted_order[i])[0][0]
+            swap_label_index = np.where(current_order == wanted_order[i])[0][0]
             # Swap the qubit order in the effects
             povm_array = np.array([swap_qubits(matrix, current_order,np.array([current_order[i],current_order[swap_label_index]])) for matrix in povm_array ])
 
@@ -1402,12 +1403,11 @@ def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators,
     #print(relevant_cluster_index_list)
     # Target qubit label order.
     relevant_cluster_label = [np.sort(cluster_labels[index])[::-1] for index in relevant_cluster_index]
-    #print(relevant_cluster_labels)
     relevant_qubit_label_unsorted = list(chain.from_iterable(relevant_cluster_label))
     
     relevant_qubit_labels_sorted = np.sort(relevant_qubit_label_unsorted)[::-1]
     sorting_index = np.argsort(relevant_qubit_label_unsorted)[::-1]
-    
+
     tensored_cluster_POVM = cluster_QDOT[relevant_cluster_index[0]] if len(relevant_cluster_index) == 1 else  POVM.tensor_POVM(cluster_QDOT[relevant_cluster_index[0]], cluster_QDOT[relevant_cluster_index[1]])[0]  
     # We will sort the POVM to occur in decending qubit order. 
     sorted_POVM_list = POVM_sort(tensored_cluster_POVM, sorting_index)[0]
@@ -1592,26 +1592,34 @@ def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_famil
 
     summed_quantum_corr_array, unique_corr_labels = compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels)
 
-# Find the full cluster size of the system
+    # Find the full cluster size of the system
 
     corr_limit = 1/np.sqrt(n_QDT_shots)
 
     n_runs  = 5
-    alpha_array = np.array([ 0.5]) 
+    alpha_array = np.array([0 ,0.4, 0.5, 0.6]) 
 
-# Create initialpartition
+    # Create initialpartition
     reward = -10**6
     for alpha in alpha_array:
         print(f'Alpha: {alpha}')
-        partitions_init = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits,corr_limit)
-        new_partition = [[i] for i in range(n_qubits)]
-        print(f'Inital partions: {partitions_init}')
+        two_point_init_cluster = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits,corr_limit)
+        one_point_init_cluster = [[i] for i in range(n_qubits)]
     # Optimize cluster structure according to heuristic cost function. 
-        noise_cluster_labels_temp, reward_temp = optimize_cluster(n_runs,partitions_init,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
-        if reward < reward_temp:
-            noise_cluster_labels = noise_cluster_labels_temp
-            reward = reward_temp
+        two_noise_cluster_labels_temp, two_reward_temp = optimize_cluster(n_runs,two_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
+        one_noise_cluster_labels_temp, one_reward_temp = optimize_cluster(n_runs,one_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
+        print(f'Found cluster structure\n {two_noise_cluster_labels_temp}, \n{one_noise_cluster_labels_temp}')
+        print(f'Found reward {two_reward_temp}, {one_reward_temp}')
+        if reward < two_reward_temp:
+            noise_cluster_labels = two_noise_cluster_labels_temp
+            reward = two_reward_temp
             print(f'New reward: {reward}')
+            print(f'New cluster labels: {noise_cluster_labels}')
+        if reward < one_reward_temp:
+            noise_cluster_labels = one_noise_cluster_labels_temp
+            reward = one_reward_temp
+            print(f'New reward: {reward}')
+            print(f'New cluster labels: {noise_cluster_labels}')
     return noise_cluster_labels
 
 

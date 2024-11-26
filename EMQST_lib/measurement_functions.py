@@ -281,7 +281,7 @@ def measure_and_QST_target_qubit_only(two_point_array,noise_cluster_labels,n_QST
     target_qubits = np.array(target_qubits.astype(int), dtype=int)
     target_qubits = np.sort(target_qubits)[::-1]
     QST_only_instructions = ot.create_QST_instructions(n_qubits, target_qubits)
-    #print(QST_only_instructions)
+
     QST_outcomes_reduced_instructions = measure_hashed_chunk_QST(n_QST_shots, chunk_size, povm_array, cluster_size, rho_true_array, state_size_array, QST_only_instructions)
 
     print(f'Target Qubits: {target_qubits}')
