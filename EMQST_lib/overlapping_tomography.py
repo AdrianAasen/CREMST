@@ -705,12 +705,11 @@ def find_clusters_from_correlator_labels(correlator_labels, clusters):
         return_cluster.append(temp_cluster)
     return return_cluster
 
-def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits,corr_limit):
+def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits):
     """
     Creates initial cluster by sorting for highest correlation coefficients, 
     and grouping those qubit pairs together.
     
-    Corr_limit: sets limit for how low clusters should be considered. 
     """
     partitions = []
     it = 1
@@ -724,14 +723,17 @@ def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits,corr_limit
     return partitions
 
 
-def obj_func(partitions,corr_array,corr_labels, max_cluster_size,corr_limit=0, alpha=0.1,):
+def obj_func(partitions,corr_array,corr_labels, max_cluster_size, expected_large_values, alpha):
     """
     Objective for the cluster opitmization problem.
     Alpha: A tuning paramter, which tunes the penalty for large clusters. Large alpha discuourages large clusters.
     """
+    # if expected_large_values is None:
+    #     expected_large_values = len(corr_array)
     #print(partitions,corr_array)
     cost = 0
     # Calculate the current cluster strenght
+
     S = np.zeros(len(partitions))
     for i in range(len(partitions)):
         mask = np.all(np.isin(corr_labels,partitions[i]),axis=1)
@@ -741,10 +743,16 @@ def obj_func(partitions,corr_array,corr_labels, max_cluster_size,corr_limit=0, a
     
     partition_size = np.array([len(partition) for partition in partitions])
     
-    # Finding c_avg
-    correlator_limit_mask = np.abs(corr_array) > corr_limit
-    masked_correlators = corr_array[correlator_limit_mask]
-    c_avg = np.sum(masked_correlators)/len(masked_correlators)
+    # # Finding c_avg
+    #correlator_limit_mask = np.abs(corr_array) > corr_limit
+    #masked_correlators = corr_array[correlator_limit_mask]
+    c_avg = np.mean(corr_array)
+    # We expect the average large correlation coefficients to be in the same cluster, therefore there should be about N_qubit*(Corr_max-1) large values. 
+    # print(np.sort(corr_array))
+    # print(np.sort(np.abs(corr_array))[-expected_large_values:])
+    # print()
+    # large_corr = np.sort(np.abs(corr_array))[-expected_large_values:]
+    # c_avg = np.mean(large_corr)
     
     for i in range(len(partitions)):
         if partition_size[i] > max_cluster_size:
@@ -753,141 +761,147 @@ def obj_func(partitions,corr_array,corr_labels, max_cluster_size,corr_limit=0, a
             cost -=c_avg*alpha*partition_size[i]**2
     return cost + S_sum
 
-def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, corr_limit, alpha = 0 ):
+def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, expected_large_values, alpha ):
     """
     Cluster optimization loop.
     """
-    print('Starting optimization of premade cluster structure.')
+    #print('Starting optimization of premade cluster structure.')
     rng = np.random.default_rng()
-    partition = copy.deepcopy(init_partition)
-    for i in range(n_runs):
-        print('Run:',i)
-        S_pairs = copy.deepcopy(corr_labels)
-        S_pairs = rng.permutation(S_pairs)
-        cost_0 = obj_func(partition, corr_array, corr_labels,max_cluster_size, corr_limit, alpha)
-        for pair in S_pairs:
-            #print(pair,parition,np.isin(partitions,pair))
-            if is_pair_in_more_than_one_cluster(pair,partition): # If pairs exist in more than one cluster:
-                
-                masked_partition = []  # Retrieve the partitions that include the pair
-                new_partition_1 = copy.deepcopy(partition)
-                temp_count = 0
-                for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
-                    if np.any(np.isin(partition[i],pair)):
-                        masked_partition.append(partition[i])
-                        new_partition_1.pop(i-temp_count)
-                        temp_count+=1
-                #print(f'Partion removed:{new_partition_1}')
-                #print(f'Parition added {masked_partition}')
-                #partion_mask = np.any(np.isin(parition,pair),axis=1) # Create mask for where what clusters include any of element in the pair
+    best_partition = copy.deepcopy(init_partition)
+    reward = obj_func(best_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
+    repetitions = 3
+    for _ in range(repetitions):
+        partition = copy.deepcopy(init_partition)
+        for i in range(n_runs):
+            #print('Run:',i)
+            S_pairs = copy.deepcopy(corr_labels)
+            S_pairs = rng.permutation(S_pairs)
+            cost_0 = obj_func(partition, corr_array, corr_labels,max_cluster_size, expected_large_values, alpha)
+            for pair in S_pairs:
+                #print(pair,parition,np.isin(partitions,pair))
+                if is_pair_in_more_than_one_cluster(pair,partition): # If pairs exist in more than one cluster:
+                    
+                    masked_partition = []  # Retrieve the partitions that include the pair
+                    new_partition_1 = copy.deepcopy(partition)
+                    temp_count = 0
+                    for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
+                        if np.any(np.isin(partition[i],pair)):
+                            masked_partition.append(partition[i])
+                            new_partition_1.pop(i-temp_count)
+                            temp_count+=1
+                    #print(f'Partion removed:{new_partition_1}')
+                    #print(f'Parition added {masked_partition}')
+                    #partion_mask = np.any(np.isin(parition,pair),axis=1) # Create mask for where what clusters include any of element in the pair
 
-                if len(masked_partition)>2:
-                    print("Pair is assigned to more than 2 clusters.")
-                    print(masked_partition)
-                    return 0
-                # We now check 3 instances of these partitions:
-                # 1) Swap 1st qubit to second
-                # 2) Swat 2nd qubit to first
-                # 3) Exchange qubits between the two partitions
+                    if len(masked_partition)>2:
+                        print("Pair is assigned to more than 2 clusters.")
+                        print(masked_partition)
+                        return 0
+                    # We now check 3 instances of these partitions:
+                    # 1) Swap 1st qubit to second
+                    # 2) Swat 2nd qubit to first
+                    # 3) Exchange qubits between the two partitions
+                    
+                    new_partition_2 = copy.deepcopy(new_partition_1)
+                    new_partition_3 = copy.deepcopy(new_partition_1)
+                    #print(pair)
+                    # 1) Swap 1st qubit to second
+                    masked_partition_1 = copy.deepcopy(masked_partition)
+                    #print(f'Original: {new_partition_1}, {masked_partition}, {pair}')
+                    if pair[0] in masked_partition_1[0]:
+                        masked_partition_1[0].remove(pair[0])
+                        masked_partition_1[1].append(pair[0])
+                    else:
+                        masked_partition_1[1].remove(pair[0])
+                        masked_partition_1[0].append(pair[0])
+                    new_partition_1.append(masked_partition_1[0])
+                    new_partition_1.append(masked_partition_1[1])
+
+                    # 2) Swap 2nd qubit to first
+                    masked_partition_2 = copy.deepcopy(masked_partition)
+                    if pair[1] in masked_partition_2[0]:
+                        masked_partition_2[0].remove(pair[1])
+                        masked_partition_2[1].append(pair[1])
+                    else:
+                        masked_partition_2[1].remove(pair[1])
+                        masked_partition_2[0].append(pair[1])
+                    new_partition_2.append(masked_partition_2[0])
+                    new_partition_2.append(masked_partition_2[1])
                 
-                new_partition_2 = copy.deepcopy(new_partition_1)
-                new_partition_3 = copy.deepcopy(new_partition_1)
-                #print(pair)
-                # 1) Swap 1st qubit to second
-                masked_partition_1 = copy.deepcopy(masked_partition)
-                #print(f'Original: {new_partition_1}, {masked_partition}, {pair}')
-                if pair[0] in masked_partition_1[0]:
+                    # 3) Exchange qubits between the two partitions
+                    masked_partition_3 = copy.deepcopy(masked_partition)
+                    if pair[0] in masked_partition_3[0]:
+                        masked_partition_3[0].remove(pair[0])
+                        masked_partition_3[1].append(pair[0])
+                        masked_partition_3[1].remove(pair[1])
+                        masked_partition_3[0].append(pair[1])
+                    else:
+                        masked_partition_3[1].remove(pair[0])
+                        masked_partition_3[0].append(pair[0])
+                        masked_partition_3[0].remove(pair[1])
+                        masked_partition_3[1].append(pair[1])
+                    new_partition_3.append(masked_partition_3[0])
+                    new_partition_3.append(masked_partition_3[1])
+                    #print(new_partition_1)
+                    for new_partition in [new_partition_1,new_partition_2,new_partition_3]:
+                        cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
+                        #print(cost)
+                        if cost > cost_0:
+                            #print(f'New partition {new_partition}')
+                            #print('Cost:',cost)
+                            partition = copy.deepcopy(new_partition)
+                            cost_0 = cost
+                            
+                            
+                else: # If pair is in the same cluster, try to remove one from the cluster. 
+                    masked_partition = []  # Retrieve the partitions that include the pair
+                    new_partition_1 = copy.deepcopy(partition)
+                    temp_count = 0
+                    for o in range(len(partition)): # Create a partition with the pair removed and one with just the pair
+                        if np.any(np.isin(partition[o],pair)):
+                            masked_partition.append(partition[o])
+                            new_partition_1.pop(o-temp_count)
+                            temp_count+=1
+                    # We remove one qubit into a new partition, then the other qubit into a new partition.
+                    
+                    new_partition_2 = copy.deepcopy(new_partition_1)
+                    new_partition_3 = copy.deepcopy(new_partition_1)
+                    masked_partition_1 = copy.deepcopy(masked_partition)
+                    masked_partition_2 = copy.deepcopy(masked_partition)
+                    masked_partition_3 = copy.deepcopy(masked_partition)
+                    # Put first qubit into a new partition
                     masked_partition_1[0].remove(pair[0])
-                    masked_partition_1[1].append(pair[0])
-                else:
-                    masked_partition_1[1].remove(pair[0])
-                    masked_partition_1[0].append(pair[0])
-                new_partition_1.append(masked_partition_1[0])
-                new_partition_1.append(masked_partition_1[1])
-
-                # 2) Swap 2nd qubit to first
-                masked_partition_2 = copy.deepcopy(masked_partition)
-                if pair[1] in masked_partition_2[0]:
+                    new_partition_1.append(masked_partition_1[0])
+                    new_partition_1.append([pair[0]])
+                    
+                    # Put second qubit into new partition
                     masked_partition_2[0].remove(pair[1])
-                    masked_partition_2[1].append(pair[1])
-                else:
-                    masked_partition_2[1].remove(pair[1])
-                    masked_partition_2[0].append(pair[1])
-                new_partition_2.append(masked_partition_2[0])
-                new_partition_2.append(masked_partition_2[1])
-            
-                # 3) Exchange qubits between the two partitions
-                masked_partition_3 = copy.deepcopy(masked_partition)
-                if pair[0] in masked_partition_3[0]:
-                    masked_partition_3[0].remove(pair[0])
-                    masked_partition_3[1].append(pair[0])
-                    masked_partition_3[1].remove(pair[1])
-                    masked_partition_3[0].append(pair[1])
-                else:
-                    masked_partition_3[1].remove(pair[0])
-                    masked_partition_3[0].append(pair[0])
+                    new_partition_2.append(masked_partition_2[0])
+                    new_partition_2.append([pair[1]])
+                    
+                    # Remove both
                     masked_partition_3[0].remove(pair[1])
-                    masked_partition_3[1].append(pair[1])
-                new_partition_3.append(masked_partition_3[0])
-                new_partition_3.append(masked_partition_3[1])
-                #print(new_partition_1)
-                for new_partition in [new_partition_1,new_partition_2,new_partition_3]:
-                    cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
-                    #print(cost)
-                    if cost > cost_0:
-                        #print(f'New partition {new_partition}')
-                        #print('Cost:',cost)
-                        partition = copy.deepcopy(new_partition)
-                        cost_0 = cost
-                        
-                        
-            else: # If pair is in the same cluster, try to remove one from the cluster. 
-                masked_partition = []  # Retrieve the partitions that include the pair
-                new_partition_1 = copy.deepcopy(partition)
-                temp_count = 0
-                for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
-                    if np.any(np.isin(partition[i],pair)):
-                        masked_partition.append(partition[i])
-                        new_partition_1.pop(i-temp_count)
-                        temp_count+=1
-                # We remove one qubit into a new partition, then the other qubit into a new partition.
+                    masked_partition_3[0].remove(pair[0])
+                    new_partition_3.append(masked_partition_3[0])
+                    new_partition_3.append([pair[1]])
+                    new_partition_3.append([pair[0]])
+                    
+                    for new_partition in [new_partition_1,new_partition_2, new_partition_3]:
+                        cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
+                        if cost > cost_0:
+                            #print(f'New partition {new_partition}')
+                            #print('Cost:',cost)
+                            #print('Created a new parition!')
+                            partition = copy.deepcopy(new_partition)
+                            cost_0 = cost
                 
-                new_partition_2 = copy.deepcopy(new_partition_1)
-                new_partition_3 = copy.deepcopy(new_partition_1)
-                masked_partition_1 = copy.deepcopy(masked_partition)
-                masked_partition_2 = copy.deepcopy(masked_partition)
-                masked_partition_3 = copy.deepcopy(masked_partition)
-                # Put first qubit into a new partition
-                masked_partition_1[0].remove(pair[0])
-                new_partition_1.append(masked_partition_1[0])
-                new_partition_1.append([pair[0]])
-                
-                # Put second qubit into new partition
-                masked_partition_2[0].remove(pair[1])
-                new_partition_2.append(masked_partition_2[0])
-                new_partition_2.append([pair[1]])
-                
-                # Remove both
-                masked_partition_3[0].remove(pair[1])
-                masked_partition_3[0].remove(pair[0])
-                new_partition_3.append(masked_partition_3[0])
-                new_partition_3.append([pair[1]])
-                new_partition_3.append([pair[0]])
-                
-                for new_partition in [new_partition_1,new_partition_2, new_partition_3]:
-                    cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,corr_limit,alpha)
-                    #print(cost)
-                    if cost > cost_0:
-                        #print(f'New partition {new_partition}')
-                        #print('Cost:',cost)
-                        #print('Created a new parition!')
-                        partition = copy.deepcopy(new_partition)
-                        cost_0 = cost
-                
-       
-    while [] in partition: # Remove empty paritions before sending back
-        partition.remove([])           
-    return partition, cost_0
+        if obj_func(partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha) > reward:
+            reward = obj_func(partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
+            best_partition = copy.deepcopy(partition)
+    while [] in best_partition: # Remove empty partitions before sending back
+        best_partition.remove([])
+    best_partition = [np.sort(part)[::-1] for part in best_partition]           
+    return best_partition, reward
 
 
 
@@ -1437,6 +1451,7 @@ def get_true_cluster_labels(cluster_size):
     for i in range(len(cluster_size)):
         true_cluster_labels.append(np.arange(it, it + rev_cluster_size[i]))
         it+=rev_cluster_size[i]
+    true_cluster_labels = [np.sort(cluster)[::-1] for cluster in true_cluster_labels]
     return true_cluster_labels[::-1]
 
 
@@ -1501,17 +1516,21 @@ def reconstruct_POVMs_from_noise_labels(QDT_outcomes,noise_cluster_labels, n_qub
 
 
 def compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels, mode="WC"):	
-    # Compute the quantum and classical correlation coefficients with worst case distance
+    """
+    Compute the quantum correlation coefficients with selected mode, either worse case or average case.
+    """
     quantum_corr_array = [povm.get_quantum_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
-    classical_corr_array = [povm.get_classical_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
-    quantum_corr_array = np.asarray(quantum_corr_array)
-    classical_corr_array = np.asarray(classical_corr_array)
-    # print(f'Quantum corr array shape: {quantum_corr_array.shape}')
-    # print(f'List of two-point correlators shape: {corr_subsystem_labels.shape}')
-    quantum_corr_array = quantum_corr_array.flatten()
-    classical_corr_array = classical_corr_array.flatten()
+    summed_array_V2 = np.array([quantum_corr_array[i][0] + quantum_corr_array[i][1] for i in range(len(quantum_corr_array))])
+    summed_quantum_corr_array = summed_array_V2.flatten()
+    
     unique_corr_labels = corr_subsystem_labels[::2] # Takes out every other label, since the neighbouring label is the swapped qubit labels. 
-    summed_quantum_corr_array = np.array([quantum_corr_array[2*i] + quantum_corr_array[2*i+1] for i in range(len(quantum_corr_array)//2)])
+    
+    # quantum_corr_array = np.asarray(quantum_corr_array)
+    # quantum_corr_array = quantum_corr_array.flatten()
+    # summed_quantum_corr_array = np.array([quantum_corr_array[2*i] + quantum_corr_array[2*i+1] for i in range(len(quantum_corr_array)//2)])
+
+    # if np.all(compareative_sum == summed_quantum_corr_array):
+    #     print("Summed quantum correlation array is equal to the sum of the two quantum correlation coefficients.")
     return summed_quantum_corr_array, unique_corr_labels
 
 
@@ -1524,7 +1543,7 @@ def factorized_state_list_to_correlator_states(two_point_corr_labels, factorized
     for j in range(len(factorized_state_list)):
         correlator_states.append([])
         for i in range(len(two_point_corr_labels)):
-            subsystem_index = ot.qubit_label_to_list_index(np.sort(two_point_corr_labels[i])[::-1], n_qubits) 
+            subsystem_index = qubit_label_to_list_index(np.sort(two_point_corr_labels[i])[::-1], n_qubits) 
             qubit_sublist = factorized_state_list[j][subsystem_index]
             correlator_states[j].append(reduce(np.kron, qubit_sublist))
     return correlator_states
@@ -1741,5 +1760,35 @@ def load_state_array_from_result_dict(result_dict):
                'Classical entanglement safe QREM',
                'Entanglement safe QREM',
     ]
-
     return state_array, label_array
+
+
+def are_sublists_equal(list1, list2):
+    """
+    Checks if every sublist in list1 exists in list2 and vice versa.
+
+    Args:
+        list1 (list of lists): The first list of lists.
+        list2 (list of lists): The second list of lists.
+
+    Returns:
+        bool: True if both lists contain the same sublists, otherwise False.
+    """
+    # Convert sublists to tuples for comparison (tuples are hashable)
+    set1 = {tuple(sublist) for sublist in list1}
+    set2 = {tuple(sublist) for sublist in list2}
+    
+    return set1 == set2
+
+
+def find_all_args_of_label(corr_labels, label_to_find):
+    """
+    Finds all indices of a specified label in a list of correlation labels.
+
+    Args:
+        corr_labels (ndarray): An array of correlation labels.
+        label_to_find (int): The label to search for within the list.
+    Returns:
+        ndarray: An array of indices where the specified label is found in the input list.
+    """
+    return np.array([i for i, label in enumerate(corr_labels) if np.any(label == label_to_find)])

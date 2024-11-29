@@ -105,3 +105,76 @@ class TestCluster(unittest.TestCase):
         traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
         expected_state = reduce(np.kron, [qubit_states[0], qubit_states[1], qubit_states[3]])
         self.assertTrue(np.allclose(expected_state, traced_down_state))
+
+
+    def test_are_sublists_equal(self):
+        # Test case 1: Identical lists
+        list1 = [[1, 2], [3, 4], [5, 6]]
+        list2 = [[1, 2], [3, 4], [5, 6]]
+        self.assertTrue(ot.are_sublists_equal(list1, list2))
+
+        # Test case 2: Lists with same elements but different order
+        list1 = [[1, 2], [3, 4], [5, 6]]
+        list2 = [[5, 6], [1, 2], [3, 4]]
+        self.assertTrue(ot.are_sublists_equal(list1, list2))
+
+        # Test case 3: Lists with different elements
+        list1 = [[1, 2], [3, 4], [5, 6]]
+        list2 = [[1, 2], [3, 4], [7, 8]]
+        self.assertFalse(ot.are_sublists_equal(list1, list2))
+
+        # Test case 4: Lists with different lengths
+        list1 = [[1, 2], [3, 4], [5, 6]]
+        list2 = [[1, 2], [3, 4]]
+        self.assertFalse(ot.are_sublists_equal(list1, list2))
+
+        # Test case 5: Empty lists
+        list1 = []
+        list2 = []
+        self.assertTrue(ot.are_sublists_equal(list1, list2))
+
+        # Test case 6: One empty list and one non-empty list
+        list1 = []
+        list2 = [[1, 2]]
+        self.assertFalse(ot.are_sublists_equal(list1, list2))
+        
+        list1 = [[1, 2]]
+        list2 = [[0,3], [4,1], [2,5]]
+        self.assertFalse(ot.are_sublists_equal(list1, list2))
+        
+    def test_find_all_args_of_label_single_occurrence(self):
+        corr_labels = np.array([[1, 2], [3, 4], [5, 6]])
+        label_to_find = 3
+        expected_result = np.array([1])
+        result = ot.find_all_args_of_label(corr_labels, label_to_find)
+        print(result)
+        self.assertTrue(np.all(result==expected_result))
+
+    def test_find_all_args_of_label_multiple_occurrences(self):
+        corr_labels = np.array([[1, 2], [3, 4], [5, 6], [3, 7], [8, 3]])
+        label_to_find = 3
+        expected_result = [1, 3, 4]
+        result = ot.find_all_args_of_label(corr_labels, label_to_find)
+        self.assertTrue(np.all(result == expected_result))
+
+    def test_find_all_args_of_label_no_occurrence(self):
+        corr_labels = np.array([[1, 2], [3, 4], [5, 6]])
+        label_to_find = 7
+        expected_result = []
+        result = ot.find_all_args_of_label(corr_labels, label_to_find)
+        self.assertTrue(np.all(result == expected_result))
+
+    def test_find_all_args_of_label_empty_list(self):
+        corr_labels = np.array([])
+        label_to_find = 1
+        expected_result = []
+        result = ot.find_all_args_of_label(corr_labels, label_to_find)
+        self.assertTrue(np.all(result == expected_result))
+
+    def test_find_all_args_of_label_single_element_sublists(self):
+        corr_labels = np.array([[1], [2], [3], [1]])
+        label_to_find = 1
+        expected_result = [0, 3]
+        result = ot.find_all_args_of_label(corr_labels, label_to_find)
+        print(result)
+        self.assertTrue(np.all(result == expected_result))
