@@ -746,14 +746,15 @@ def obj_func(partitions,corr_array,corr_labels, max_cluster_size, expected_large
     # # Finding c_avg
     #correlator_limit_mask = np.abs(corr_array) > corr_limit
     #masked_correlators = corr_array[correlator_limit_mask]
-    c_avg = np.mean(corr_array)
-    # We expect the average large correlation coefficients to be in the same cluster, therefore there should be about N_qubit*(Corr_max-1) large values. 
+    # c_avg = np.mean(corr_array)
+    # print(f'Old avg: {c_avg}')
+    # # We expect the average large correlation coefficients to be in the same cluster, therefore there should be about N_qubit*(Corr_max-1) large values. 
     # print(np.sort(corr_array))
     # print(np.sort(np.abs(corr_array))[-expected_large_values:])
     # print()
-    # large_corr = np.sort(np.abs(corr_array))[-expected_large_values:]
-    # c_avg = np.mean(large_corr)
-    
+    large_corr = np.sort(np.abs(corr_array))[-expected_large_values:]
+    c_avg = np.mean(large_corr)
+    #print(f'New avg: {c_avg}')
     for i in range(len(partitions)):
         if partition_size[i] > max_cluster_size:
             cost -= 1e10
