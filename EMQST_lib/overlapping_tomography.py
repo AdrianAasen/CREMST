@@ -1521,7 +1521,7 @@ def compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labe
     Compute the quantum correlation coefficients with selected mode, either worse case or average case.
     """
     quantum_corr_array = [povm.get_quantum_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
-    summed_array_V2 = np.array([quantum_corr_array[i][0] + quantum_corr_array[i][1] for i in range(len(quantum_corr_array))])
+    summed_array_V2 = np.array([quantum_corr_array[i][0] + quantum_corr_array[i][1] for i in range(len(quantum_corr_array))])/2
     summed_quantum_corr_array = summed_array_V2.flatten()
     
     unique_corr_labels = corr_subsystem_labels[::2] # Takes out every other label, since the neighbouring label is the swapped qubit labels. 
