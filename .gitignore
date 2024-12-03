@@ -10,7 +10,7 @@ QDOT_results/
 data/
 hash_list.npy
 test.ipynb
-EMQST_lib/hash_family
+.vscode/
 shot_variance_results/
 Exp_povms/
 images/
