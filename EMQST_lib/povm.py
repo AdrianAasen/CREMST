@@ -496,7 +496,7 @@ class POVM():
             vec1 = x[:3]
             vec2 = x[3:]
             sigma_vec = np.array([[[0,1],[1,0]], [[0,-1j],[1j,0]], [[1,0],[0,-1]]])
-            Delta = np.einsum('ijk,i->jk',sigma_vec,vec1-vec2)
+            Delta = 1/2 * np.einsum('ijk,i->jk',sigma_vec,vec1-vec2)
             if qubit==0:
                 op = (M@np.kron(np.eye(2),Delta)).reshape(2,2,2,2)
                 op = np.einsum('jklk->jl',op)
@@ -504,7 +504,7 @@ class POVM():
                 op = (M@np.kron(Delta,np.eye(2))).reshape(2,2,2,2)
                 op = np.einsum('kjkl->jl',op)
             if mode == 'WC': # Worst case measure
-                return - 1/2 * np.linalg.norm(op, ord = 2)   # Why do we devide by 2?
+                return - np.linalg.norm(op, ord = 2)   # Why do we devide by 2?
             elif mode == 'AC': # Average case measure
                 return - 1/2 * np.sqrt(np.linalg.norm(op)**2 + np.abs(np.trace(op))**2)
                 
@@ -527,8 +527,8 @@ class POVM():
         # Define M for tracing out qubit 1
         M1 = self.POVM_list[0] + self.POVM_list[2]
         tolerance = {"ftol": 1e-8} 
-        tol = 10**-8
-        x0 = np.array([0,0,1,0,0,-1])
+        tol = 10**(-8)
+        x0 = np.array([0,0,1,0,0,-1]) # Start with the classical case to ensure it is at least higher than the classical case. 
         sol0 = minimize(measure, x0, args=(M0,0,mode), method='SLSQP', bounds=bound, constraints=cons, tol=tol, options=tolerance)
         x0 = np.array([0,0,1,0,0,-1])
         sol1 = minimize(measure, x0, args=(M1,1,mode), method='SLSQP', bounds=bound, constraints=cons, tol = tol, options=tolerance)
@@ -555,7 +555,7 @@ class POVM():
             POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],0)
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
-            c_0_to_1 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
+            c_0_to_1 = 1/2 * np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
             
             POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
@@ -563,7 +563,7 @@ class POVM():
             diff = POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0]
             # print(f'norm {np.linalg.norm(diff)}')
             #print(f"trace {np.real(np.trace(diff))}")
-            c_1_to_0 = np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
+            c_1_to_0 = 1/2 * np.sqrt(np.linalg.norm(diff)**2 + np.abs(np.trace(diff))**2)
             
         elif mode == 'WC': # Uses the wors case measure
             POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
