@@ -9,9 +9,6 @@ from EMQST_lib.povm import POVM
 
 
 class TestHash(unittest.TestCase):
-    
-    
-    
     def test_trace_out(self):
         # Test case 1
         qubit_to_keep_labels = np.array([0, 2])
@@ -589,7 +586,7 @@ class TestHash(unittest.TestCase):
         swapped_POVM = ot.POVM_sort(povm,swap_order)[0]
         povm_array = povm.get_POVM()
         swapped_array = swapped_POVM.get_POVM()
-        self.assertTrue(np.all(povm_array == swapped_array))
+        self.assertTrue(np.allclose(povm_array,swapped_array))
         # Modify some entries
         povm_array[1,0,0] = 100
         povm_array[1,1,1] = 1000
@@ -604,12 +601,12 @@ class TestHash(unittest.TestCase):
         povm_ba = POVM.tensor_POVM(povm_b,povm_a)[0]
         sortin_index = np.array([1,0])
         swapped_ba = ot.POVM_sort(povm_ab,sortin_index)[0]
-        self.assertTrue(np.all(povm_ba.get_POVM() == swapped_ba.get_POVM()))
+        self.assertTrue(np.allclose(povm_ba.get_POVM(), swapped_ba.get_POVM()))
         
         # Make sure swapped orderd does not work
         sortin_index = np.array([0,1])
         swapped_ba = ot.POVM_sort(povm_ab,sortin_index)[0]
-        self.assertFalse(np.all(povm_ba.get_POVM() == swapped_ba.get_POVM()))
+        self.assertFalse(np.allclose(povm_ba.get_POVM(), swapped_ba.get_POVM()))
         
         # check tensoring
         povm_c = POVM.generate_random_POVM(2,2)
@@ -704,7 +701,68 @@ class TestHash(unittest.TestCase):
         self.assertTrue(np.allclose(expected_rho, rho[0]))
         
         
-
+    def test_trace_down_qubit_state(self):
+        n_qubits = 4
+        np.random.seed(1)
+        qubit_states  = [sf.generate_random_pure_state(1) for _ in range(n_qubits)]
+        full_state = reduce(np.kron, qubit_states)
+        state_labels = [0,1,2,3]
+        trace_out_labels = [0,1]
+        expected_state = np.kron(qubit_states[0], qubit_states[1])
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Change order to check if it works
+        trace_out_labels = [1,0]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        # Check state order matters
+        state_labels = [1,3,0,2]
+        #trace_out_labels = [0,2]
+        #expected_state = np.kron(qubit_states[], qubit_states[3])
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        
+        # Check mixed state labels
+        state_labels = [0,1,10,3]
+        trace_out_labels = [0,1]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = np.kron(qubit_states[0], qubit_states[1])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Check multiple labels to trace out
+        state_labels = [0,1,10,3]
+        trace_out_labels = [0,1,3]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = qubit_states[0]
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [10]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[1], qubit_states[2], qubit_states[3]])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
+        
+        # Check empty trace
+        
+        trace_out_labels = []
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        self.assertTrue(np.allclose(full_state, traced_down_state))
+        
+        # Test tracing out non-existing labels
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [11]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[1], qubit_states[2], qubit_states[3]])
+        self.assertTrue(np.allclose(full_state, traced_down_state))
+        
+        state_labels = [0,1,10,3]
+        trace_out_labels = [11,1]
+        traced_down_state = ot.trace_down_qubit_state(full_state, state_labels, trace_out_labels)
+        expected_state = reduce(np.kron, [qubit_states[0], qubit_states[1], qubit_states[3]])
+        self.assertTrue(np.allclose(expected_state, traced_down_state))
         
 if __name__ == '__main__':
     unittest.main()

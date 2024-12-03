@@ -1,20 +1,10 @@
 import numpy as np
-from scipy.stats import unitary_group
-import qutip as qt
 from joblib import Parallel, delayed
-from datetime import datetime
-import os
-import uuid
 from functools import reduce
-from itertools import product, chain, repeat, combinations
+from itertools import product, chain, combinations
 from EMQST_lib import support_functions as sf
 from EMQST_lib.povm import POVM, generate_pauli_6_rotation_matrice
 from EMQST_lib import dt
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy.linalg import sqrtm
-import copy
-
 
 
 def trace_out(qubit_to_keep_labels, qubit_array):
@@ -622,289 +612,8 @@ def generate_random_pairs_of_qubits(n_qubits,n_pairs):
             q2 = np.random.randint(0,n_qubits)
         pairs.append([q1,q2])
     return np.array(pairs)
-# def trace_out_outcomes(qubit_to_keep_labels, outcomes):
-#     """
-#     Trace out qubits from a measurement outcome.
-#     Input: 
-#     qubit_labels: list of labels of qubits to keep, order does not matter. [n] 
-#     outcomes: Measurement outcomes. Could be in any shape. 
-#     return: the downconverted outcomes.
-#     """
-#     qubit_to_keep_labels = np.sort(qubit_to_keep_labels) # Sort labels such that input order does not matter
-#     #qubit_index = qubit_label_to_list_index(qubit_labels, len(outcomes.shape))
+
     
-#     # Check the index for it's binary representation by whole number division and then modulo 2
-#     floor_div = np.array([np.floor_divide(outcomes,2**index)%2 for index in qubit_to_keep_labels ])
-    
-#     # Create binary representationf or the current string
-#     binary = 2**np.arange(len(qubit_to_keep_labels))
-    
-#     # Multiply the binary representation with their the index of the new system. 
-#     donconverted_outcomes = np.einsum('i,i...->...',binary,floor_div)
-#     return donconverted_outcomes
-
-# def downconvert_frequencies(subsystem_index,outcome_frequencies):
-#     """
-#     Takes in the outcome frequency measurement of the whole system and a set of qubit subsystem indices,
-#     and return the downconverted frequencies.
-#     Here the row structure matters, so outcome frequencies should be flattend to be m x n_outcomes. One can reshape back to original structure afterwards.
-#     Input:
-#         - system_index ndarray [n_subsystem_qubits]
-#         - outcome_frequencies ndarray n x 2**n_qubits_total
-#     Return:
-#         - The downconverted frequencies ndarray n x 2**len(subsystem_index)
-#     """
-#     # Check how many qubits are in the total system
-#     n_qubits_total = int(np.log2(len(outcome_frequencies[0])))
-    
-#     # Define the axis that need to be traced out
-#     # Find the indices that are not present int he above, and invert the order (such that qubit 0 is axis n_qubit_total). 
-#     traced_indices = tuple(n_qubits_total-1 - get_traced_out_indicies(subsystem_index,n_qubits_total))
-    
-#     # Define the subsystem shape
-#     reshape_tuple = (2,)*n_qubits_total
-
-#     # Sum over all cases where the subsystem indecies are the same, then reshape to be in the same shape as original list. 
-#     downconverted_frequencies = np.array([np.sum(measurement.reshape(reshape_tuple), axis = traced_indices).reshape(2**len(subsystem_index)) for measurement in outcome_frequencies])
-#     return downconverted_frequencies
-
-
-
-def is_pair_in_more_than_one_cluster(pair_label, clusters):
-    """
-    Check if a pair is in more than one cluster.
-    Takes in a pair of qubits, and check the list of clusters if the pair is present in more than one cluster.
-    """
-    counter = 0
-    for cluster in clusters:
-        if np.any(np.isin(pair_label,cluster)):
-            counter +=1
-    if counter > 1:
-        return True
-    else:    
-        return False
-    
-def find_clusters_from_correlator_labels(correlator_labels, clusters):
-    """
-    From the correlation labels finds the clusters that contain any of the labels.
-
-    Parameters:
-    - correlator_labels (list): A list of correlation labels.
-    - clusters (list): A list of clusters.
-
-    Returns:
-    - return_cluster (list): A list of clusters that contain any of the correlator labels.
-    """
-    return_cluster = []
-    for label in correlator_labels:
-        temp_cluster = []
-        for cluster in clusters:
-            if np.any(np.isin(cluster, label)): # label is in cluster
-                temp_cluster.append(cluster) # Adds cluster to label
-            
-        return_cluster.append(temp_cluster)
-    return return_cluster
-
-def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits):
-    """
-    Creates initial cluster by sorting for highest correlation coefficients, 
-    and grouping those qubit pairs together.
-    
-    """
-    partitions = []
-    it = 1
-    while len(partitions) < n_qubits/2:
-        index = np.argpartition(cluster_correlator_array, -(it))[-(it):][0]
-        if not np.any(np.isin(corr_labels[index],partitions )):
-            partitions.append(corr_labels[index].tolist())
-            # print(f'Correlation strenght: {cluster_correlator_array[index]}')
-            # print(f'Current partition: {partitions}')
-        it+=1
-    return partitions
-
-
-def obj_func(partitions,corr_array,corr_labels, max_cluster_size, expected_large_values, alpha):
-    """
-    Objective for the cluster opitmization problem.
-    Alpha: A tuning paramter, which tunes the penalty for large clusters. Large alpha discuourages large clusters.
-    """
-    # if expected_large_values is None:
-    #     expected_large_values = len(corr_array)
-    #print(partitions,corr_array)
-    cost = 0
-    # Calculate the current cluster strenght
-
-    S = np.zeros(len(partitions))
-    for i in range(len(partitions)):
-        mask = np.all(np.isin(corr_labels,partitions[i]),axis=1)
-        #print(mask,partitions[i])
-        S[i] = np.sum(corr_array[mask])
-    S_sum = np.sum(S)
-    
-    partition_size = np.array([len(partition) for partition in partitions])
-    
-    # # Finding c_avg
-    #correlator_limit_mask = np.abs(corr_array) > corr_limit
-    #masked_correlators = corr_array[correlator_limit_mask]
-    # c_avg = np.mean(corr_array)
-    # print(f'Old avg: {c_avg}')
-    # # We expect the average large correlation coefficients to be in the same cluster, therefore there should be about N_qubit*(Corr_max-1) large values. 
-    # print(np.sort(corr_array))
-    # print(np.sort(np.abs(corr_array))[-expected_large_values:])
-    # print()
-    large_corr = np.sort(np.abs(corr_array))[-expected_large_values:]
-    c_avg = np.mean(large_corr)
-    #print(f'New avg: {c_avg}')
-    for i in range(len(partitions)):
-        if partition_size[i] > max_cluster_size:
-            cost -= 1e10
-        else:
-            cost -=c_avg*alpha*partition_size[i]**2
-    return cost + S_sum
-
-def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, expected_large_values, alpha ):
-    """
-    Cluster optimization loop.
-    """
-    #print('Starting optimization of premade cluster structure.')
-    rng = np.random.default_rng()
-    best_partition = copy.deepcopy(init_partition)
-    reward = obj_func(best_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
-    repetitions = 3
-    for _ in range(repetitions):
-        partition = copy.deepcopy(init_partition)
-        for i in range(n_runs):
-            #print('Run:',i)
-            S_pairs = copy.deepcopy(corr_labels)
-            S_pairs = rng.permutation(S_pairs)
-            cost_0 = obj_func(partition, corr_array, corr_labels,max_cluster_size, expected_large_values, alpha)
-            for pair in S_pairs:
-                #print(pair,parition,np.isin(partitions,pair))
-                if is_pair_in_more_than_one_cluster(pair,partition): # If pairs exist in more than one cluster:
-                    
-                    masked_partition = []  # Retrieve the partitions that include the pair
-                    new_partition_1 = copy.deepcopy(partition)
-                    temp_count = 0
-                    for i in range(len(partition)): # Create a partition with the pair removed and one with just the pair
-                        if np.any(np.isin(partition[i],pair)):
-                            masked_partition.append(partition[i])
-                            new_partition_1.pop(i-temp_count)
-                            temp_count+=1
-                    #print(f'Partion removed:{new_partition_1}')
-                    #print(f'Parition added {masked_partition}')
-                    #partion_mask = np.any(np.isin(parition,pair),axis=1) # Create mask for where what clusters include any of element in the pair
-
-                    if len(masked_partition)>2:
-                        print("Pair is assigned to more than 2 clusters.")
-                        print(masked_partition)
-                        return 0
-                    # We now check 3 instances of these partitions:
-                    # 1) Swap 1st qubit to second
-                    # 2) Swat 2nd qubit to first
-                    # 3) Exchange qubits between the two partitions
-                    
-                    new_partition_2 = copy.deepcopy(new_partition_1)
-                    new_partition_3 = copy.deepcopy(new_partition_1)
-                    #print(pair)
-                    # 1) Swap 1st qubit to second
-                    masked_partition_1 = copy.deepcopy(masked_partition)
-                    #print(f'Original: {new_partition_1}, {masked_partition}, {pair}')
-                    if pair[0] in masked_partition_1[0]:
-                        masked_partition_1[0].remove(pair[0])
-                        masked_partition_1[1].append(pair[0])
-                    else:
-                        masked_partition_1[1].remove(pair[0])
-                        masked_partition_1[0].append(pair[0])
-                    new_partition_1.append(masked_partition_1[0])
-                    new_partition_1.append(masked_partition_1[1])
-
-                    # 2) Swap 2nd qubit to first
-                    masked_partition_2 = copy.deepcopy(masked_partition)
-                    if pair[1] in masked_partition_2[0]:
-                        masked_partition_2[0].remove(pair[1])
-                        masked_partition_2[1].append(pair[1])
-                    else:
-                        masked_partition_2[1].remove(pair[1])
-                        masked_partition_2[0].append(pair[1])
-                    new_partition_2.append(masked_partition_2[0])
-                    new_partition_2.append(masked_partition_2[1])
-                
-                    # 3) Exchange qubits between the two partitions
-                    masked_partition_3 = copy.deepcopy(masked_partition)
-                    if pair[0] in masked_partition_3[0]:
-                        masked_partition_3[0].remove(pair[0])
-                        masked_partition_3[1].append(pair[0])
-                        masked_partition_3[1].remove(pair[1])
-                        masked_partition_3[0].append(pair[1])
-                    else:
-                        masked_partition_3[1].remove(pair[0])
-                        masked_partition_3[0].append(pair[0])
-                        masked_partition_3[0].remove(pair[1])
-                        masked_partition_3[1].append(pair[1])
-                    new_partition_3.append(masked_partition_3[0])
-                    new_partition_3.append(masked_partition_3[1])
-                    #print(new_partition_1)
-                    for new_partition in [new_partition_1,new_partition_2,new_partition_3]:
-                        cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
-                        #print(cost)
-                        if cost > cost_0:
-                            #print(f'New partition {new_partition}')
-                            #print('Cost:',cost)
-                            partition = copy.deepcopy(new_partition)
-                            cost_0 = cost
-                            
-                            
-                else: # If pair is in the same cluster, try to remove one from the cluster. 
-                    masked_partition = []  # Retrieve the partitions that include the pair
-                    new_partition_1 = copy.deepcopy(partition)
-                    temp_count = 0
-                    for o in range(len(partition)): # Create a partition with the pair removed and one with just the pair
-                        if np.any(np.isin(partition[o],pair)):
-                            masked_partition.append(partition[o])
-                            new_partition_1.pop(o-temp_count)
-                            temp_count+=1
-                    # We remove one qubit into a new partition, then the other qubit into a new partition.
-                    
-                    new_partition_2 = copy.deepcopy(new_partition_1)
-                    new_partition_3 = copy.deepcopy(new_partition_1)
-                    masked_partition_1 = copy.deepcopy(masked_partition)
-                    masked_partition_2 = copy.deepcopy(masked_partition)
-                    masked_partition_3 = copy.deepcopy(masked_partition)
-                    # Put first qubit into a new partition
-                    masked_partition_1[0].remove(pair[0])
-                    new_partition_1.append(masked_partition_1[0])
-                    new_partition_1.append([pair[0]])
-                    
-                    # Put second qubit into new partition
-                    masked_partition_2[0].remove(pair[1])
-                    new_partition_2.append(masked_partition_2[0])
-                    new_partition_2.append([pair[1]])
-                    
-                    # Remove both
-                    masked_partition_3[0].remove(pair[1])
-                    masked_partition_3[0].remove(pair[0])
-                    new_partition_3.append(masked_partition_3[0])
-                    new_partition_3.append([pair[1]])
-                    new_partition_3.append([pair[0]])
-                    
-                    for new_partition in [new_partition_1,new_partition_2, new_partition_3]:
-                        cost = obj_func(new_partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
-                        if cost > cost_0:
-                            #print(f'New partition {new_partition}')
-                            #print('Cost:',cost)
-                            #print('Created a new parition!')
-                            partition = copy.deepcopy(new_partition)
-                            cost_0 = cost
-                
-        if obj_func(partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha) > reward:
-            reward = obj_func(partition,corr_array,corr_labels,max_cluster_size,expected_large_values,alpha)
-            best_partition = copy.deepcopy(partition)
-    while [] in best_partition: # Remove empty partitions before sending back
-        best_partition.remove([])
-    best_partition = [np.sort(part)[::-1] for part in best_partition]           
-    return best_partition, reward
-
-
 
 def conditioned_trace_out_POVM(povm, qubit_label_to_trace_out):
     """
@@ -1274,8 +983,7 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     return states, relevant_qubit_labels_sorted  
 
 def POVM_sort(povm, sorting_index):
-    """
-    
+    """ 
     Sorts POVM accordng to sorting index order. Will swap the qubits and the outcome order. 
     NOTE: Function takes in sorting index and not sorting label!!!
     
@@ -1444,18 +1152,6 @@ def QST_from_instructions(QST_outcomes, QST_instructions, two_point_correlators,
     return rho_recon
 
 
-def get_true_cluster_labels(cluster_size):
-    "Takes in cluster size_size and returns the qubit labels for the true states clustered together."
-    true_cluster_labels = []
-    it = 0
-    rev_cluster_size = cluster_size[::-1]
-    for i in range(len(cluster_size)):
-        true_cluster_labels.append(np.arange(it, it + rev_cluster_size[i]))
-        it+=rev_cluster_size[i]
-    true_cluster_labels = [np.sort(cluster)[::-1] for cluster in true_cluster_labels]
-    return true_cluster_labels[::-1]
-
-
 
 def parallel_QDOT(QDT_subsystem_labels, QDT_index_counts, hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states):
     """
@@ -1605,42 +1301,7 @@ def is_state_array_physical(state_array):
         print("Returning is_physical array.")
         return False, physical_array
 
-def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
-    print(f'Create all possible 2 qubit POVMs for correlation map.')
-    two_point_POVM, corr_subsystem_labels = reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores)
 
-
-    summed_quantum_corr_array, unique_corr_labels = compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels)
-
-    # Find the full cluster size of the system
-
-    corr_limit = 1/np.sqrt(n_QDT_shots)
-
-    n_runs  = 5
-    alpha_array = np.array([0 ,0.4, 0.5, 0.6]) 
-
-    # Create initialpartition
-    reward = -10**6
-    for alpha in alpha_array:
-        print(f'Alpha: {alpha}')
-        two_point_init_cluster = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits,corr_limit)
-        one_point_init_cluster = [[i] for i in range(n_qubits)]
-    # Optimize cluster structure according to heuristic cost function. 
-        two_noise_cluster_labels_temp, two_reward_temp = optimize_cluster(n_runs,two_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
-        one_noise_cluster_labels_temp, one_reward_temp = optimize_cluster(n_runs,one_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
-        print(f'Found cluster structure\n {two_noise_cluster_labels_temp}, \n{one_noise_cluster_labels_temp}')
-        print(f'Found reward {two_reward_temp}, {one_reward_temp}')
-        if reward < two_reward_temp:
-            noise_cluster_labels = two_noise_cluster_labels_temp
-            reward = two_reward_temp
-            print(f'New reward: {reward}')
-            print(f'New cluster labels: {noise_cluster_labels}')
-        if reward < one_reward_temp:
-            noise_cluster_labels = one_noise_cluster_labels_temp
-            reward = one_reward_temp
-            print(f'New reward: {reward}')
-            print(f'New cluster labels: {noise_cluster_labels}')
-    return noise_cluster_labels
 
 
 
@@ -1764,22 +1425,7 @@ def load_state_array_from_result_dict(result_dict):
     return state_array, label_array
 
 
-def are_sublists_equal(list1, list2):
-    """
-    Checks if every sublist in list1 exists in list2 and vice versa.
 
-    Args:
-        list1 (list of lists): The first list of lists.
-        list2 (list of lists): The second list of lists.
-
-    Returns:
-        bool: True if both lists contain the same sublists, otherwise False.
-    """
-    # Convert sublists to tuples for comparison (tuples are hashable)
-    set1 = {tuple(sublist) for sublist in list1}
-    set2 = {tuple(sublist) for sublist in list2}
-    
-    return set1 == set2
 
 
 def find_all_args_of_label(corr_labels, label_to_find):

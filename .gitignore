@@ -4,7 +4,7 @@
 results/
 profiler/
 EMQST_lib/__pycache__/
-test.py
+holding.py
 Photon_REM/
 QDOT_results/
 data/
