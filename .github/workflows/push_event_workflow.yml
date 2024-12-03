@@ -16,6 +16,7 @@ jobs:
     - run : pip install qutip
     - run : pip install joblib
     - run : pip install matplotlib
+    - run : pip install scikit-learn
       
     - name : Run tests 
       run : python -m  unittest discover -v
