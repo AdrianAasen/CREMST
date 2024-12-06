@@ -137,39 +137,18 @@ def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits):
 def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
     print(f'Create all possible 2 qubit POVMs for correlation map.')
     two_point_POVM, corr_subsystem_labels = ot.reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores)
-
-
     summed_quantum_corr_array, unique_corr_labels = ot.compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels)
-
     # Find the full cluster size of the system
-
-    corr_limit = 1/np.sqrt(n_QDT_shots)
-
     n_runs  = 5
-    alpha_array = np.array([0 ,0.4, 0.5, 0.6]) 
-
+    alpha = 0.4
+    cluster_max = 4
     # Create initialpartition
-    reward = -10**6
-    for alpha in alpha_array:
-        print(f'Alpha: {alpha}')
-        two_point_init_cluster = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits,corr_limit)
-        one_point_init_cluster = [[i] for i in range(n_qubits)]
+    expected_large_values = n_qubits*((cluster_max-1))
+    two_point_init_cluster = assign_init_cluster(summed_quantum_corr_array,unique_corr_labels,n_qubits)
     # Optimize cluster structure according to heuristic cost function. 
-        two_noise_cluster_labels_temp, two_reward_temp = optimize_cluster(n_runs,two_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
-        one_noise_cluster_labels_temp, one_reward_temp = optimize_cluster(n_runs,one_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,4,corr_limit,alpha)
-        print(f'Found cluster structure\n {two_noise_cluster_labels_temp}, \n{one_noise_cluster_labels_temp}')
-        print(f'Found reward {two_reward_temp}, {one_reward_temp}')
-        if reward < two_reward_temp:
-            noise_cluster_labels = two_noise_cluster_labels_temp
-            reward = two_reward_temp
-            print(f'New reward: {reward}')
-            print(f'New cluster labels: {noise_cluster_labels}')
-        if reward < one_reward_temp:
-            noise_cluster_labels = one_noise_cluster_labels_temp
-            reward = one_reward_temp
-            print(f'New reward: {reward}')
-            print(f'New cluster labels: {noise_cluster_labels}')
-    return noise_cluster_labels
+    two_noise_cluster_labels_temp, two_reward_temp = optimize_cluster(n_runs,two_point_init_cluster,summed_quantum_corr_array,unique_corr_labels,cluster_max,expected_large_values,alpha)
+
+    return two_noise_cluster_labels_temp
 
 
 def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, expected_large_values, alpha ):

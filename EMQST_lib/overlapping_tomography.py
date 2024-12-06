@@ -1305,7 +1305,22 @@ def is_state_array_physical(state_array):
 
 
 
-def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, data_path, hash_family, n_hash_symbols, n_qubits, n_cores):
+def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, data_path, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
+    """
+    Function that can perform all the different QST methods. 
+    The method argument can be used to select which methods to perform.
+    The methods are labeld as follows:
+    0: no QREM
+    1: factorized QREM
+    2: two RDM QREM
+    3: Cluster-concious two-point QREM
+    4: Classical correlated QREM
+    5: Entanglement safe QREM
+    There are in addition two more methods that are not included which can be accessed with the following labels:
+    6: Classical state reduction QREM
+    7: State reduction QREM
+    """
+    
     state_reduction_rho_average_array = []
     two_RDM_QREM_rho_average_array = []
     no_QREM_rho_average_array = []
@@ -1315,68 +1330,79 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
     entanglement_safe_QREM_rho_average_array = []
     classical_entangelment_safe_QREM_rho_average_array = []
 
-
+    if method is None: # Defaults to all the main methods. 
+        method = [0,1,2,3,4,5]
+    
+    
     for k in range(n_averages):
         QST_outcomes = QST_outcomes_array[k]      
-    # Simplifed methods
+        # Simplifed methods
         naive_QST_index_counts = [get_traced_out_index_counts(QST_outcomes, two_point) for two_point in two_point_corr_labels]
-    
-    # Reconstruction step 1)
-        no_QREM_two_RDM_recon = [QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, POVM.generate_computational_POVM(len(two_point_corr_labels[i]))[0]) for i in range(len(two_point_corr_labels))]
-        no_QREM_rho_average_array.append(no_QREM_two_RDM_recon)
+
+        # Reconstruction step 1)
+        if 0 in method:
+            no_QREM_two_RDM_recon = [QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, POVM.generate_computational_POVM(len(two_point_corr_labels[i]))[0]) for i in range(len(two_point_corr_labels))]
+            no_QREM_rho_average_array.append(no_QREM_two_RDM_recon)
         
-    # Reconstruction step 2) 
-    # We have facorized POVMs, just need to tensor them together.
-        factorized_POVMs = np.empty(len(two_point_corr_labels),dtype = object)
-        for i,two_point in enumerate(two_point_corr_labels):
-            two_index = qubit_label_to_list_index(np.sort(two_point)[::-1], n_qubits)
-            factorized_POVMs[i] = POVM.tensor_POVM(one_qubit_POVMs[two_index[0]],one_qubit_POVMs[two_index[1]] )[0]
+        # Reconstruction step 2) 
+        # We have facorized POVMs, just need to tensor them together.
+        if 1 in method:
+            factorized_POVMs = np.empty(len(two_point_corr_labels),dtype = object)
+            for i,two_point in enumerate(two_point_corr_labels):
+                two_index = qubit_label_to_list_index(np.sort(two_point)[::-1], n_qubits)
+                factorized_POVMs[i] = POVM.tensor_POVM(one_qubit_POVMs[two_index[0]],one_qubit_POVMs[two_index[1]] )[0]
     
-        factorized_rho_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, factorized_POVMs[i]) for i in range(len(two_point_corr_labels))])
-        factorized_QREM_rho_average_array.append(factorized_rho_recon)   
+            factorized_rho_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, factorized_POVMs[i]) for i in range(len(two_point_corr_labels))])
+            factorized_QREM_rho_average_array.append(factorized_rho_recon)   
         
     
-    # Reconstruction step 3)
-        two_RDM_state_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, two_point_POVM[i]) for i in range(len(two_point_corr_labels))])
-        two_RDM_QREM_rho_average_array.append(two_RDM_state_recon)
+        # Reconstruction step 3)
+        if 2 in method:
+            two_RDM_state_recon = np.array([QST(two_point_corr_labels[i], naive_QST_index_counts[i], hash_family, n_hash_symbols, n_qubits, two_point_POVM[i]) for i in range(len(two_point_corr_labels))])
+            two_RDM_QREM_rho_average_array.append(two_RDM_state_recon)
     
     
-    # Reconstruction step 4)
-        povm_reduction_rho_list = Parallel(n_jobs = n_cores, verbose = 10)(delayed(POVM_reduction_premade_cluster_QST)(two_point,noise_cluster_labels, 
-                                                                                                                      QST_outcomes, clustered_QDOT, hash_family,
-                                                                                                                      n_hash_symbols, n_qubits) for two_point in two_point_corr_labels)
-        povm_reduction_rho_average_array.append(povm_reduction_rho_list)
+        # Reconstruction step 4)
+        if 3 in method:
+            povm_reduction_rho_list = Parallel(n_jobs = n_cores, verbose = 10)(delayed(POVM_reduction_premade_cluster_QST)(two_point,noise_cluster_labels, 
+                                                                                                                        QST_outcomes, clustered_QDOT, hash_family,
+                                                                                                                        n_hash_symbols, n_qubits) for two_point in two_point_corr_labels)
+            povm_reduction_rho_average_array.append(povm_reduction_rho_list)
     
-    # Reconstruction step 5)
-        state_reduction_rho_list = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
-                                                                       clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
-        state_reduction_rho_average_array.append(state_reduction_rho_list)
-    # Reconstruction step 6)
-        classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
-        classical_rho_recon = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
-                                                                classical_povm, hash_family, n_hash_symbols, n_qubits)
-        classical_cluster_QREM_rho_average_array.append(classical_rho_recon)
-    
-    # Reconstruction step 7) Entanglement safe QREM
-        entangled_recon_states, entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
-                        noise_cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
-    
-     # Trace down the entangelment safe states to match the correlator only states. 
-        traced_down_entangled_recon = [trace_down_qubit_state(entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
-      
-    
-        entanglement_safe_QREM_rho_average_array.append(traced_down_entangled_recon)
-    
-    
-    # Reconstruction step 8) Classical entanglement safe QREM
-        classical_entangled_recon_states, classical_entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
-                        noise_cluster_labels, QST_outcomes, classical_povm, hash_family, n_hash_symbols, n_qubits)
-        traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
-        classical_entangelment_safe_QREM_rho_average_array.append(traced_down_classical_entangled_recon)
+        # Reconstruction step 5) Classical entanglement safe QREM
+        if 4 in method:
+            classical_entangled_recon_states, classical_entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
+                noise_cluster_labels, QST_outcomes, classical_povm, hash_family, n_hash_symbols, n_qubits)
+            traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+            classical_entangelment_safe_QREM_rho_average_array.append(traced_down_classical_entangled_recon)
+        
+        
+        # Reconstruction step 6) Entanglement safe QREM
+        if 5 in method:
+            entangled_recon_states, entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
+                noise_cluster_labels, QST_outcomes, clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
+
+            traced_down_entangled_recon = [trace_down_qubit_state(entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+            entanglement_safe_QREM_rho_average_array.append(traced_down_entangled_recon)
+            
+            
+        # Outdated legacy methods classical state reduction method 
+        if 6 in method:
+            classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
+            classical_rho_recon = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
+                                                                    classical_povm, hash_family, n_hash_symbols, n_qubits)
+            classical_cluster_QREM_rho_average_array.append(classical_rho_recon)
+            
+        # Outdated legacy methods state reduction method
+        if 7 in method:
+            state_reduction_rho_list = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
+                                                                        clustered_QDOT, hash_family, n_hash_symbols, n_qubits)
+            state_reduction_rho_average_array.append(state_reduction_rho_list)
+
 
     result_QST_dict = {
     # The states has the shape (n_averages, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits)
-
+    "method": method, # Tells us which methods were used.
     "state_reduction_rho_average_array": state_reduction_rho_average_array,
     "two_RDM_QREM_rho_average_array": two_RDM_QREM_rho_average_array,
     "no_QREM_rho_average_array": no_QREM_rho_average_array,
@@ -1388,13 +1414,13 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
     "two_point_corr_labels": two_point_corr_labels,          
     "n_average": n_averages
 }
-
-
-
-    
     return result_QST_dict
 
 def load_state_array_from_result_dict(result_dict):
+    """
+    Loads data of state averaging. Will only load non-empty arrays.
+    """
+    method = np.array(result_dict['method'],dtype = int)
     state_reduction_rho_average_array = result_dict['state_reduction_rho_average_array']
     two_RDM_QREM_rho_average_array = result_dict['two_RDM_QREM_rho_average_array']
     no_QREM_rho_average_array = result_dict['no_QREM_rho_average_array']
@@ -1405,24 +1431,24 @@ def load_state_array_from_result_dict(result_dict):
     classical_entangelment_safe_QREM_rho_average_array = result_dict['classical_entangelment_safe_QREM_rho_average_array']
 
     state_array = [no_QREM_rho_average_array,
-                    factorized_QREM_rho_average_array,
+                factorized_QREM_rho_average_array,
                 two_RDM_QREM_rho_average_array,
                 povm_reduction_rho_average_array,
-    #               classical_cluster_QREM_rho_average_array,
-    #               state_reduction_rho_average_array,
                 classical_entangelment_safe_QREM_rho_average_array,
-                entanglement_safe_QREM_rho_average_array
+                entanglement_safe_QREM_rho_average_array,
+                classical_cluster_QREM_rho_average_array,
+                state_reduction_rho_average_array
     ]
     label_array = ['No QREM ',
                 'Factorized QREM',
-               'Two-point QREM',
-               'POVM reduction',
-    #           'Classical factorized cluster QREM',
-    #           'Factorized cluster QREM',
-               'Classical entanglement safe QREM',
-               'Entanglement safe QREM',
+                'Two-point QREM',
+                'Cluster-concious two-point QREM',
+                'Classical correlated QREM',
+                'Correlated QREM',
+                'Classical factorized cluster QREM',
+                'Factorized cluster QREM'
     ]
-    return state_array, label_array
+    return [state_array[it] for it in method], [label_array[it] for it in method]
 
 
 
