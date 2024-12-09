@@ -1079,8 +1079,8 @@ def tensor_chunk_states(rho_list, state_label_array, povm_label_array, correlato
     
     # Find the relevant state labels
     relevant_labels = [[state_label_array[index] for index in relevant_state_index] for relevant_state_index in relevant_state_index_list]
-    concatinated_labesl = [np.concatenate(label, axis = 0) for label in relevant_labels]
-    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labesl
+    concatinated_labels = [np.concatenate(label, axis = 0) for label in relevant_labels]
+    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labels
 
 
 
@@ -1305,7 +1305,7 @@ def is_state_array_physical(state_array):
 
 
 
-def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, data_path, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
+def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
     """
     Function that can perform all the different QST methods. 
     The method argument can be used to select which methods to perform.
@@ -1338,6 +1338,7 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
         QST_outcomes = QST_outcomes_array[k]      
         # Simplifed methods
         naive_QST_index_counts = [get_traced_out_index_counts(QST_outcomes, two_point) for two_point in two_point_corr_labels]
+        classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
 
         # Reconstruction step 1)
         if 0 in method:
@@ -1373,7 +1374,7 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
         if 4 in method:
             classical_entangled_recon_states, classical_entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
                 noise_cluster_labels, QST_outcomes, classical_povm, hash_family, n_hash_symbols, n_qubits)
-            traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+            traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], classical_entangled_qubit_order[i], np.setdiff1d(classical_entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(classical_entangled_recon_states))]
             classical_entangelment_safe_QREM_rho_average_array.append(traced_down_classical_entangled_recon)
         
         
@@ -1388,7 +1389,6 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
             
         # Outdated legacy methods classical state reduction method 
         if 6 in method:
-            classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
             classical_rho_recon = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
                                                                     classical_povm, hash_family, n_hash_symbols, n_qubits)
             classical_cluster_QREM_rho_average_array.append(classical_rho_recon)

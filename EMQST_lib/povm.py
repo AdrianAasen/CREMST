@@ -723,7 +723,6 @@ def load_random_exp_povm(path, n_qubit, use_Z_basis_only = False):
     # Load paths. 
     paths = glob.glob(path + f"/{n_qubit}/**/DT_settings.npy",recursive=True)
     label_path = glob.glob(path + f"/{n_qubit}/**/label_order.txt",recursive=True)
-    print(paths)
     # Load povm sublabels.
     label_file = open(label_path[0], "r") 
     data = label_file.read()  

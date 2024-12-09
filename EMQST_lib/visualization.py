@@ -10,7 +10,8 @@ import uuid
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
-import matplotlib.pyplot as plt
+import scipy.cluster.hierarchy as sch
+from EMQST_lib.qrem import QREM
 
 def plot_POVM_folder(path_to_folder = None):
     if path_to_folder is None:
@@ -100,3 +101,17 @@ def visualize_state(rho):
     plt.tight_layout()
     plt.show()
     return 1
+
+
+def plot_dendrogram(qrem : QREM):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+    dn1 = sch.dendrogram(qrem.Z, ax=ax, above_threshold_color='C0',
+                            orientation='top', color_threshold=qrem.cluster_cutoff)
+
+    ax.plot([0, 1000], [qrem.cluster_cutoff, qrem.cluster_cutoff], 'r--',  label = 'Threshold' )
+    ax.set_ylabel('Distance')
+    ax.set_xlabel('Qubit index')
+        #axes[i].set_ylim([0., 1.4])
+    ax.set_title(f'Ward hierarchical clustering, WC distance, with threshold {qrem.cluster_cutoff}')
+    ax.legend()
+    sch.set_link_color_palette(None)  # reset to default after use
