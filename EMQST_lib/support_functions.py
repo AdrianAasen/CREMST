@@ -1,14 +1,10 @@
 import numpy as np
 from scipy.stats import unitary_group
-import qutip as qt
-from joblib import Parallel, delayed
 from datetime import datetime
+from functools import reduce
+import scipy as sp
 import os
 import uuid
-from functools import reduce
-from itertools import product, chain, repeat
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
 
 
@@ -382,6 +378,30 @@ def check_positive_eigenvalues(rho):
     Checks if the density matrix has positive eigenvalues.
     """
     return np.all(np.linalg.eigvals(rho) >= 0)
+
+
+def generate_data_folder(base_path):
+    """
+    Creates a random folder name within base_path and returns the path to the new folder for storage of results.
+    """
+    # Check path
+    path_exists=os.path.exists(base_path)
+    if not path_exists:
+        print(f"Created {base_path} dictionary.")
+        os.makedirs(base_path)
+
+    now=datetime.now()
+    now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
+    dir_name= now_string+str(uuid.uuid4())
+    data_path = f'{base_path}/{dir_name}'
+    os.mkdir(data_path)
+    return data_path
+
+
+def rot_about_collective_X(angle,n_qubits):
+    X = np.array([[0,1],[1,0]],dtype = complex)
+    collective_axis = reduce(np.kron,[X]*(n_qubits))
+    return sp.linalg.expm(-1/2j * angle * collective_axis)
 
 
 if __name__=="__main__":

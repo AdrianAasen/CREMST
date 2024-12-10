@@ -1079,8 +1079,8 @@ def tensor_chunk_states(rho_list, state_label_array, povm_label_array, correlato
     
     # Find the relevant state labels
     relevant_labels = [[state_label_array[index] for index in relevant_state_index] for relevant_state_index in relevant_state_index_list]
-    concatinated_labesl = [np.concatenate(label, axis = 0) for label in relevant_labels]
-    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labesl
+    concatinated_labels = [np.concatenate(label, axis = 0) for label in relevant_labels]
+    return [reduce(np.kron, [rho_list[index] for index in relevant_state_index]) for relevant_state_index in relevant_state_index_list], concatinated_labels
 
 
 
@@ -1260,33 +1260,71 @@ def generate_random_pauli_string(n_samples,n_qubits):
     return np.array([reduce(np.kron, op_list[i]) for i in range(n_samples)]) 
 
 
-
-def compute_exp_value(rho_average_array,pauli_string):
+def compute_op_and_n_averages_mean_MSE(exp_value_array, true_exp_value):
     """
-    Function computes the expectation value of a Pauli string for a given state array.
+    exp values comes in the shape of (n_method,n_averages, n_correlators, n_ops)
+    true_exp_value comes in the shape of (n_averages, n_correlators, n_ops)
+    Returns the mean MSE of the exp values on the form of n_method x n_correlators
     """
+    
+    return np.array([np.mean((true_exp_value - method)**2,axis = (0,2)) for method in exp_value_array])
 
-    return np.einsum('nijk,lkj->nil', rho_average_array, pauli_string).real
-
-def compute_MSE(true_exp_value, exp_value):
+def compute_state_array_exp_values(state_array,op_array):
     """
-    Function computes the mean squared error between two sets of density matrices.
+    Computes the expectation value of the states with shape (n_modes, n_averages, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits)
+    with a list of operators with shape (n_ops, 2**n_qubits, 2**n_qubits)
+    returns the expectation value with shape (n_modes, n_averages,  len(two_point_corr_labels),n_ops)
     """
-    return np.mean((true_exp_value - exp_value)**2,axis = (0,2))
+    return np.einsum('mncij,oji->mnco', state_array, op_array).real
 
 
-def compute_infidelities(rho_array,rho_true_array):
+
+def compute_double_list_of_infidelities(rho_array,rho_true_array):
     """
-    Computes the infidelities of the states that has the shape n_average, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits
+    Computes compuesa a lit of infidelities of the states that has the shape n_average, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits
     """
     return np.array([[np.real(sf.qubit_infidelity(rho,rho_ture)) for rho, rho_ture in zip(rho_array[n],rho_true_array[n])] for n in range(len(rho_array))])
 
 
-def average_infidelities(rho_array ,rho_true_array):
+def compute_k_mean_expectation_values(state_matrix,op_string_array):
     """
-    Averages the infidelities over the different correlators.
+    Computes expectation values for a given state matrix.
+    state_matrix shape has [n_k_mean, n_modes, n_averages, len(two_point_corr_labels) , 2**n_qubits, 2**n_qubits]
+    returns expectation values of shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels), n_op]
     """
-    return np.mean(compute_infidelities(rho_array,rho_true_array),axis = 0)
+    return np.array([compute_state_array_exp_values(matrix,op_string_array) for matrix in state_matrix])
+
+def compute_k_mean_mean_MSE(exp_value_array, true_exp_value):
+    """
+    Computes the mean MSE for a given expectation value array
+    true_exp_value is of shape [n_averages, len(two_point_corr_labels), n_op]
+    exp_value_array is of shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels), n_op]
+    returns an array of shape [n_k_mean, n_modes]
+    """
+    return np.array([[np.mean((true_exp_value - mode)**2) for mode in k_mean] for k_mean in exp_value_array])
+
+def compute_mode_mean_infidelitites(rho_array, rho_true_array):
+    """
+    Computes the mean of n_average infidelities for each recon_mode. See mean_double_list_infidelities for more info.
+    Retursn list of infidelities of shape [n_recon_modes, n_averages]
+    """
+    full_inf_array = np.array([compute_double_list_of_infidelities(recon_mode, rho_true_array) for recon_mode in rho_array])
+    # Full inf array has the shape [n_recon_modes, n_averages, len(two_point_corr_labels)]
+    return np.mean(full_inf_array, axis = 1) # Average over the n_averages
+
+
+def k_mean_infidelity_computation(state_matrix, rho_true_array):
+    """
+    Computes the inifdelities to be plotted for the k-mean plot
+    state_matrix comes in shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels) , 2**n_qubits, 2**n_qubits]
+    rho_true_array comes in shape [n_averages, n_two_point_corr, 2**n_qubits, 2**n_qubits]
+
+    will return infidelities averaged over n_averages and n_two_point_corr, final shape will be [n_k_mean, n_modes]
+    """
+    mode_mean_inf = [compute_mode_mean_infidelitites(k_mean,rho_true_array) for k_mean in state_matrix]
+    # Returns a list of arrays of shape [n_k_mean, n_modes, len(two_point_corr_labels)]
+    return np.mean(mode_mean_inf, axis = 2)
+
 
 def is_state_array_physical(state_array):
     '''
@@ -1303,9 +1341,7 @@ def is_state_array_physical(state_array):
 
 
 
-
-
-def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, data_path, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
+def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
     """
     Function that can perform all the different QST methods. 
     The method argument can be used to select which methods to perform.
@@ -1338,6 +1374,7 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
         QST_outcomes = QST_outcomes_array[k]      
         # Simplifed methods
         naive_QST_index_counts = [get_traced_out_index_counts(QST_outcomes, two_point) for two_point in two_point_corr_labels]
+        classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
 
         # Reconstruction step 1)
         if 0 in method:
@@ -1373,7 +1410,7 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
         if 4 in method:
             classical_entangled_recon_states, classical_entangled_qubit_order = entangled_state_reduction_premade_clusters_QST(two_point_corr_labels,
                 noise_cluster_labels, QST_outcomes, classical_povm, hash_family, n_hash_symbols, n_qubits)
-            traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], entangled_qubit_order[i], np.setdiff1d(entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(entangled_recon_states))]
+            traced_down_classical_entangled_recon= [trace_down_qubit_state(classical_entangled_recon_states[i], classical_entangled_qubit_order[i], np.setdiff1d(classical_entangled_qubit_order[i], two_point_corr_labels[i])) for i in range(len(classical_entangled_recon_states))]
             classical_entangelment_safe_QREM_rho_average_array.append(traced_down_classical_entangled_recon)
         
         
@@ -1388,7 +1425,6 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
             
         # Outdated legacy methods classical state reduction method 
         if 6 in method:
-            classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
             classical_rho_recon = state_reduction_premade_cluster_QST(two_point_corr_labels, noise_cluster_labels, QST_outcomes, 
                                                                     classical_povm, hash_family, n_hash_symbols, n_qubits)
             classical_cluster_QREM_rho_average_array.append(classical_rho_recon)
