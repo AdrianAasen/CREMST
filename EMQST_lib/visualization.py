@@ -103,7 +103,7 @@ def visualize_state(rho):
     return 1
 
 
-def plot_dendrogram(qrem : QREM):
+def plot_dendrogram(qrem : QREM, save_png = False):
     fig, ax = plt.subplots(1, 1, figsize=(10, 6))
     dn1 = sch.dendrogram(qrem.Z, ax=ax, above_threshold_color='C0',
                             orientation='top', color_threshold=qrem.cluster_cutoff)
@@ -115,3 +115,6 @@ def plot_dendrogram(qrem : QREM):
     ax.set_title(f'Ward hierarchical clustering, WC distance, with threshold {qrem.cluster_cutoff}')
     ax.legend()
     sch.set_link_color_palette(None)  # reset to default after use
+
+    if save_png:
+        plt.savefig(qrem.data_path + f'/dendrogram.png')

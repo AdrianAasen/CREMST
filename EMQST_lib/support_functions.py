@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import unitary_group
 from datetime import datetime
+from functools import reduce
+import scipy as sp
 import os
 import uuid
 from scipy.linalg import sqrtm
@@ -393,9 +395,13 @@ def generate_data_folder(base_path):
     dir_name= now_string+str(uuid.uuid4())
     data_path = f'{base_path}/{dir_name}'
     os.mkdir(data_path)
-
     return data_path
 
+
+def rot_about_collective_X(angle,n_qubits):
+    X = np.array([[0,1],[1,0]],dtype = complex)
+    collective_axis = reduce(np.kron,[X]*(n_qubits))
+    return sp.linalg.expm(-1/2j * angle * collective_axis)
 
 
 if __name__=="__main__":

@@ -1286,6 +1286,23 @@ def compute_double_list_of_infidelities(rho_array,rho_true_array):
     return np.array([[np.real(sf.qubit_infidelity(rho,rho_ture)) for rho, rho_ture in zip(rho_array[n],rho_true_array[n])] for n in range(len(rho_array))])
 
 
+def compute_k_mean_expectation_values(state_matrix,op_string_array):
+    """
+    Computes expectation values for a given state matrix.
+    state_matrix shape has [n_k_mean, n_modes, n_averages, len(two_point_corr_labels) , 2**n_qubits, 2**n_qubits]
+    returns expectation values of shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels), n_op]
+    """
+    return np.array([compute_state_array_exp_values(matrix,op_string_array) for matrix in state_matrix])
+
+def compute_k_mean_mean_MSE(exp_value_array, true_exp_value):
+    """
+    Computes the mean MSE for a given expectation value array
+    true_exp_value is of shape [n_averages, len(two_point_corr_labels), n_op]
+    exp_value_array is of shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels), n_op]
+    returns an array of shape [n_k_mean, n_modes]
+    """
+    return np.array([[np.mean((true_exp_value - mode)**2) for mode in k_mean] for k_mean in exp_value_array])
+
 def compute_mode_mean_infidelitites(rho_array, rho_true_array):
     """
     Computes the mean of n_average infidelities for each recon_mode. See mean_double_list_infidelities for more info.
@@ -1294,6 +1311,19 @@ def compute_mode_mean_infidelitites(rho_array, rho_true_array):
     full_inf_array = np.array([compute_double_list_of_infidelities(recon_mode, rho_true_array) for recon_mode in rho_array])
     # Full inf array has the shape [n_recon_modes, n_averages, len(two_point_corr_labels)]
     return np.mean(full_inf_array, axis = 1) # Average over the n_averages
+
+
+def k_mean_infidelity_computation(state_matrix, rho_true_array):
+    """
+    Computes the inifdelities to be plotted for the k-mean plot
+    state_matrix comes in shape [n_k_mean, n_modes, n_averages, len(two_point_corr_labels) , 2**n_qubits, 2**n_qubits]
+    rho_true_array comes in shape [n_averages, n_two_point_corr, 2**n_qubits, 2**n_qubits]
+
+    will return infidelities averaged over n_averages and n_two_point_corr, final shape will be [n_k_mean, n_modes]
+    """
+    mode_mean_inf = [compute_mode_mean_infidelitites(k_mean,rho_true_array) for k_mean in state_matrix]
+    # Returns a list of arrays of shape [n_k_mean, n_modes, len(two_point_corr_labels)]
+    return np.mean(mode_mean_inf, axis = 2)
 
 
 def is_state_array_physical(state_array):

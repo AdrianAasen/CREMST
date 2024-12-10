@@ -73,6 +73,14 @@ class QREM:
         self._hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, self._one_qubit_calibration_states) for instruction in self._hashed_QDT_instructions])
 
 
+    def set_random_cluster_size(self, max_cluster_size = 3):
+        """
+        Sets the cluster size randomly that adhers to the max cluster size.
+        """
+        self._max_cluster_size = max_cluster_size
+        n_chunks = int(self._n_qubits//self._chunk_size) # Assumes chunk_size i a factor of n_qubits. 
+        # Set max chunk size and cluster size equal
+        self._initial_cluster_size = ot.generate_chunk_sizes(self._chunk_size, n_chunks, self._max_cluster_size)
 
 
     def set_initial_cluster_size(self, intial_cluster_array):
@@ -133,7 +141,14 @@ class QREM:
     @property
     def data_path(self):
         return self._data_path
+    
+    @property
+    def rho_true_array(self):
+        return self._rho_true_array
 
+    @rho_true_array.setter
+    def rho_true_array(self, value):
+        self._rho_true_array = value
 
     def save_initialization(self, save_path = None):
         QDOT_run_dictionary = {
@@ -154,8 +169,7 @@ class QREM:
         }
         
         if save_path is not None:
-            new_path = sf.generate_data_folder(save_path)
-            self._data_path = new_path
+            self._data_path = save_path
 
 
         with open(f'{self._data_path}/run_settings.npy','wb') as f:
@@ -169,6 +183,7 @@ class QREM:
         self._initial_cluster_size = inital_cluster_size.copy()
         self._povm_array = povm_array.copy()
         self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
+        self._n_clusters = len(self._initial_cluster_size)
 
     def set_exp_POVM_array(self, noise_mode='strong'):
         """
@@ -197,28 +212,51 @@ class QREM:
         print(f'Loaded {len(self._exp_povms_used)} POVMs from {self._path_to_exp_POVMs}.')
         
 
-    def set_correlated_POVM_array(self, k_mean=0.5, mode='ISWAP'):
+
+    def set_coherent_POVM_array(self, angle=np.pi/10):
         """
-        Sets the POVM array to be a depolarized ISWAP/CNOT POVM.
+        The coherent noise model for POVMs.
+        The model rotates an angle around the collective x axis of the qubits.
+        """
+        if self._initial_cluster_size is None:
+            raise ValueError("Please set the cluster size before setting the POVM array.")
+
+        self._n_clusters = len(self._initial_cluster_size)
+        self._povm_array = []
+        self._noise_mode = 'coherent' + 'anngle=' + str(angle)
+        for size in self._initial_cluster_size:
+            rotation_matrix = sf.rot_about_collective_X(angle, size)
+            comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
+            self._povm_array.append(POVM(np.einsum('jk,ikl,lm->ijm',rotation_matrix.conj().T,comp_povm_array,rotation_matrix)))
+        self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
+
+
+
+
+    def set_correlated_POVM_array(self, k_mean=0.5, noise_mode='iSWAP'):
+        """
+        Sets the POVM array to be a depolarized iSWAP/CNOT POVM.
         This noise mode overrides the cluster size and sets it to be all neigbhoring clusters.
         The noise is appled inversly to the POVM to be equivalent to the same implementation on the state.
         """
-        if mode == 'ISWAP':
-            ISWAP=np.array([[1,0,0,0],[0,0,1j,0],[0,1j,0,0],[0,0,0,1]],dtype=complex)
-            noise_matrix = ISWAP
-            self._noise_mode = 'ISWAP' 
-        elif mode == 'CNOT':
+        if noise_mode == 'iSWAP':
+            iSWAP=np.array([[1,0,0,0],[0,0,1j,0],[0,1j,0,0],[0,0,0,1]],dtype=complex)
+            noise_matrix = iSWAP
+            self._noise_mode = 'iSWAP' 
+        elif noise_mode == 'CNOT':
             CNOT=np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]],dtype=complex)
             noise_matrix = CNOT
             self._noise_mode = 'CNOT'
+        else:
+            raise ValueError("Noise mode not supported, please use 'iSWAP' or 'CNOT'.")
         self._povm_array = []
+        self._n_clusters = len(self._initial_cluster_size)
         self._initial_cluster_size = np.ones(int(self._n_qubits/2),dtype=int)*2
-        self._n_clusters = len(self._initial_cluster_size )
         comp_povm_array = POVM.generate_computational_POVM(2)[0].get_POVM()
         self._random_mixing_strenght =  (np.random.random(int(self._n_qubits/2))*0.2 - 0.1) + k_mean
-        self._povm_array = [POVM(noise_strenght*comp_povm_array + (1-noise_strenght)*np.einsum('jk,ikl,lm->ijm',noise_matrix.conj().T,comp_povm_array,noise_matrix)) for noise_strenght in self._random_mixing_strenght]
-        
+        self._povm_array = [POVM((1-noise_strenght)*comp_povm_array + noise_strenght*np.einsum('jk,ikl,lm->ijm',noise_matrix.conj().T,comp_povm_array,noise_matrix)) for noise_strenght in self._random_mixing_strenght]
         self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
+
 
 
     def perform_QDT_measurements(self):
@@ -263,9 +301,27 @@ class QREM:
         self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
         if max(self._noise_cluster_size) > self._max_cluster_size:
             print("Initial Cluster Assignments:", cl.fcluster_to_labels(self._fcluster_labels))
-            final_assignments = cl.split_large_clusters(self._dist_matrix , self._fcluster_labels, self._max_cluster_size)
-            tuned_labels = cl.fcluster_to_labels(final_assignments)
-            print("Final Cluster Assignments:", tuned_labels)
+            self._fcluster_labels = cl.split_large_clusters(self._dist_matrix , self._fcluster_labels, self._max_cluster_size)
+            self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
+            print("Final Cluster Assignments:", self._noise_cluster_labels)
+
+        
+    def update_cluster_cutoff(self, cutoff):
+        """
+        Updates the cluster cutoff and recomputes clustering.
+        """
+        self._cluster_cutoff = cutoff
+
+        self._fcluster_labels, self._Z = cl.ward_clustering(self._dist_matrix, self._cluster_cutoff)
+        self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
+
+        # If clustering is too large:
+        self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
+        if max(self._noise_cluster_size) > self._max_cluster_size:
+            print("Initial Cluster Assignments:", cl.fcluster_to_labels(self._fcluster_labels))
+            self._fcluster_labels = cl.split_large_clusters(self._dist_matrix , self._fcluster_labels, self._max_cluster_size)
+            self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
+            print("Final Cluster Assignments:", self._noise_cluster_labels)
 
 
     def reconstruct_cluster_POVMs(self):
