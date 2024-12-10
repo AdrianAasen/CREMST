@@ -24,6 +24,7 @@ class QREM:
         self._n_QST_shots = simulation_dictionary['n_QST_shots']
         self._n_hash_symbols = simulation_dictionary['n_hash_symbols']
         self._n_cores = simulation_dictionary['n_cores']
+        self._data_path = simulation_dictionary['data_path']
         
 
         # Optional parameters
@@ -128,6 +129,10 @@ class QREM:
     @property
     def n_cores(self):
         return self._n_cores
+    
+    @property
+    def data_path(self):
+        return self._data_path
 
 
     def save_initialization(self, save_path = None):
@@ -148,25 +153,12 @@ class QREM:
         "exp_POVMs_loaded" : self._exp_povms_used # List of paths to to POVMs used in the noise sumulations. 
         }
         
-        if save_path is None:
-
-            # Check if restuls exist:
-            check_path='QDOT_results'
-            path_exists=os.path.exists(check_path)
-            if not path_exists:
-                print("Created QDOT_results dictionary.")
-                os.makedirs('QDOT_results')
-
-            # Generate new dictionary for current run
-            now = datetime.now()
-            now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
-            dir_name= now_string+str(uuid.uuid4())
+        if save_path is not None:
+            new_path = sf.generate_data_folder(save_path)
+            self._data_path = new_path
 
 
-            save_path=f'QDOT_results/{dir_name}'
-            os.mkdir(save_path)
-
-        with open(f'{save_path}/run_settings.npy','wb') as f:
+        with open(f'{self._data_path}/run_settings.npy','wb') as f:
             np.save(f,QDOT_run_dictionary)
 
 

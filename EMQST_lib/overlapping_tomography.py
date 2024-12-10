@@ -1260,33 +1260,41 @@ def generate_random_pauli_string(n_samples,n_qubits):
     return np.array([reduce(np.kron, op_list[i]) for i in range(n_samples)]) 
 
 
-
-def compute_exp_value(rho_average_array,pauli_string):
+def compute_op_and_n_averages_mean_MSE(exp_value_array, true_exp_value):
     """
-    Function computes the expectation value of a Pauli string for a given state array.
+    exp values comes in the shape of (n_method,n_averages, n_correlators, n_ops)
+    true_exp_value comes in the shape of (n_averages, n_correlators, n_ops)
+    Returns the mean MSE of the exp values on the form of n_method x n_correlators
     """
+    
+    return np.array([np.mean((true_exp_value - method)**2,axis = (0,2)) for method in exp_value_array])
 
-    return np.einsum('nijk,lkj->nil', rho_average_array, pauli_string).real
-
-def compute_MSE(true_exp_value, exp_value):
+def compute_state_array_exp_values(state_array,op_array):
     """
-    Function computes the mean squared error between two sets of density matrices.
+    Computes the expectation value of the states with shape (n_modes, n_averages, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits)
+    with a list of operators with shape (n_ops, 2**n_qubits, 2**n_qubits)
+    returns the expectation value with shape (n_modes, n_averages,  len(two_point_corr_labels),n_ops)
     """
-    return np.mean((true_exp_value - exp_value)**2,axis = (0,2))
+    return np.einsum('mncij,oji->mnco', state_array, op_array).real
 
 
-def compute_infidelities(rho_array,rho_true_array):
+
+def compute_double_list_of_infidelities(rho_array,rho_true_array):
     """
-    Computes the infidelities of the states that has the shape n_average, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits
+    Computes compuesa a lit of infidelities of the states that has the shape n_average, len(two_point_corr_labels), 2**n_qubits, 2**n_qubits
     """
     return np.array([[np.real(sf.qubit_infidelity(rho,rho_ture)) for rho, rho_ture in zip(rho_array[n],rho_true_array[n])] for n in range(len(rho_array))])
 
 
-def average_infidelities(rho_array ,rho_true_array):
+def compute_mode_mean_infidelitites(rho_array, rho_true_array):
     """
-    Averages the infidelities over the different correlators.
+    Computes the mean of n_average infidelities for each recon_mode. See mean_double_list_infidelities for more info.
+    Retursn list of infidelities of shape [n_recon_modes, n_averages]
     """
-    return np.mean(compute_infidelities(rho_array,rho_true_array),axis = 0)
+    full_inf_array = np.array([compute_double_list_of_infidelities(recon_mode, rho_true_array) for recon_mode in rho_array])
+    # Full inf array has the shape [n_recon_modes, n_averages, len(two_point_corr_labels)]
+    return np.mean(full_inf_array, axis = 1) # Average over the n_averages
+
 
 def is_state_array_physical(state_array):
     '''
@@ -1300,8 +1308,6 @@ def is_state_array_physical(state_array):
         print("Not all states are physical.")
         print("Returning is_physical array.")
         return False, physical_array
-
-
 
 
 
