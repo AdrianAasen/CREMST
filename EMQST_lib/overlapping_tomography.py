@@ -1198,7 +1198,7 @@ def reconstruct_spesific_two_qubit_POVMs(QDT_outcomes, QDT_subsystem_labels , n_
 
 def reconstruct_all_one_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
     # Create all 1 qubit POVMS for comparison
-    one_qubit_subsystem_labels = np.array([[i] for i in range(n_qubits)])
+    one_qubit_subsystem_labels = np.array([[i] for i in range(n_qubits)])[::-1] # This creates qubit label order [..., 3,2,1,0]
     one_qubit_QDT_index_counts = [get_traced_out_index_counts(QDT_outcomes, subsystem_label) for subsystem_label in one_qubit_subsystem_labels]
     one_qubit_POVMs = Parallel(n_jobs = n_cores,verbose = 10)(delayed(parallel_QDOT)(one_qubit_subsystem_labels[i], one_qubit_QDT_index_counts[i], hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states) for i in range(len(one_qubit_subsystem_labels)))
     return one_qubit_POVMs
