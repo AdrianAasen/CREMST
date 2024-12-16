@@ -1,8 +1,7 @@
 import numpy as np
 import os
-from datetime import datetime 
-import uuid
 from joblib import Parallel, delayed
+from functools import reduce
 
 
 from EMQST_lib import overlapping_tomography as ot
@@ -215,7 +214,8 @@ class QREM:
 
     def set_coherent_POVM_array(self, angle=np.pi/10):
         """
-        The coherent noise model for POVMs.
+        Sets noise POVM where XX-crosstalk is applied to all adjacent qubits.
+        If a cluster only has a single qubit, a costant rotation with the same angle is applied.
         The model rotates an angle around the collective x axis of the qubits.
         """
         if self._initial_cluster_size is None:
@@ -223,11 +223,23 @@ class QREM:
 
         self._n_clusters = len(self._initial_cluster_size)
         self._povm_array = []
-        self._noise_mode = 'coherent' + 'anngle=' + str(angle)
+        self._noise_mode = 'coherent' + 'angle=' + str(angle)
         for size in self._initial_cluster_size:
-            rotation_matrix = sf.rot_about_collective_X(angle, size)
+            if size == 1 or size == 2:
+                rotation_matrix = sf.rot_about_collective_X(angle, size)
+            else: # If size is larger than 2, we create 
+                two_qubit_rotation_matrix = sf.rot_about_collective_X(angle, 2)
+                Id = np.eye(2)
+                rotation_matrix = np.zeros((2**size,2**size),dtype=complex)
+
+                for i in range(size-1): 
+                    full_rot_matrix = [Id]*(size-1)
+                    full_rot_matrix[i] = two_qubit_rotation_matrix
+                    rotation_matrix += reduce(np.kron,full_rot_matrix)
+    
             comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
             self._povm_array.append(POVM(np.einsum('jk,ikl,lm->ijm',rotation_matrix.conj().T,comp_povm_array,rotation_matrix)))
+                
         self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
 
 
