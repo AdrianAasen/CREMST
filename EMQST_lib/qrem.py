@@ -2,6 +2,7 @@ import numpy as np
 import os
 from joblib import Parallel, delayed
 from functools import reduce
+import scipy as sp
 
 
 from EMQST_lib import overlapping_tomography as ot
@@ -220,23 +221,26 @@ class QREM:
         """
         if self._initial_cluster_size is None:
             raise ValueError("Please set the cluster size before setting the POVM array.")
-
+        X = np.array([[0,1],[1,0]])
+        Id = np.eye(2)
         self._n_clusters = len(self._initial_cluster_size)
         self._povm_array = []
         self._noise_mode = 'coherent' + 'angle=' + str(angle)
         for size in self._initial_cluster_size:
             if size == 1 or size == 2:
                 rotation_matrix = sf.rot_about_collective_X(angle, size)
-            else: # If size is larger than 2, we create 
-                two_qubit_rotation_matrix = sf.rot_about_collective_X(angle, 2)
-                Id = np.eye(2)
-                rotation_matrix = np.zeros((2**size,2**size),dtype=complex)
+            else: # If size is larger than 2, iterative next neighbor rotations
+                XX = np.kron(X,X)
+                full_H = np.zeros((2**size,2**size),dtype=complex)
 
                 for i in range(size-1): 
-                    full_rot_matrix = [Id]*(size-1)
-                    full_rot_matrix[i] = two_qubit_rotation_matrix
-                    rotation_matrix += reduce(np.kron,full_rot_matrix)
-    
+                    H_temp = [Id]*(size-1)
+                    H_temp[i] = XX
+                    full_H += reduce(np.kron,H_temp)
+                rotation_matrix = sp.linalg.expm(-1/2j * angle * full_H)
+                
+            # print("Check unitary:")
+            # print(rotation_matrix@rotation_matrix.conj().T)
             comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
             self._povm_array.append(POVM(np.einsum('jk,ikl,lm->ijm',rotation_matrix.conj().T,comp_povm_array,rotation_matrix)))
                 
@@ -262,8 +266,8 @@ class QREM:
         else:
             raise ValueError("Noise mode not supported, please use 'iSWAP' or 'CNOT'.")
         self._povm_array = []
-        self._n_clusters = len(self._initial_cluster_size)
         self._initial_cluster_size = np.ones(int(self._n_qubits/2),dtype=int)*2
+        self._n_clusters = len(self._initial_cluster_size)
         comp_povm_array = POVM.generate_computational_POVM(2)[0].get_POVM()
         self._random_mixing_strenght =  (np.random.random(int(self._n_qubits/2))*0.2 - 0.1) + k_mean
         self._povm_array = [POVM((1-noise_strenght)*comp_povm_array + noise_strenght*np.einsum('jk,ikl,lm->ijm',noise_matrix.conj().T,comp_povm_array,noise_matrix)) for noise_strenght in self._random_mixing_strenght]
