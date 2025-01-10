@@ -380,7 +380,7 @@ def check_positive_eigenvalues(rho):
     return np.all(np.linalg.eigvals(rho) >= 0)
 
 
-def generate_data_folder(base_path):
+def generate_data_folder(base_path, subfolder_names = None):
     """
     Creates a random folder name within base_path and returns the path to the new folder for storage of results.
     """
@@ -395,6 +395,12 @@ def generate_data_folder(base_path):
     dir_name= now_string+str(uuid.uuid4())
     data_path = f'{base_path}/{dir_name}'
     os.mkdir(data_path)
+    
+    # Creates subfolders if specified
+    if subfolder_names is not None:
+        for subfolder in subfolder_names:
+            os.mkdir(f'{data_path}/{subfolder}')
+            
     return data_path
 
 

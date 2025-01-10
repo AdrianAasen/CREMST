@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from functools import reduce
 import sys
-sys.path.append('../') # Adding path to library
+sys.path.append('../')
 from EMQST_lib import support_functions as sf
 from EMQST_lib import overlapping_tomography as ot
 from EMQST_lib import clustering as cl

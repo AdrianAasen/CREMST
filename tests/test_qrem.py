@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import scipy as sp
 import sys
 sys.path.append('../')
 from EMQST_lib import support_functions as sf
@@ -38,10 +39,12 @@ class TestQREM(unittest.TestCase):
         self.assertTrue(np.allclose(qrem._povm_array[0].get_POVM(), true_povm))
         
         # Check the 3 qubit case.
-        rot_matrix = sf.rot_about_collective_X(noise, 2)
-        id = np.eye(2)
-        cum_rot_matrix = np.kron(rot_matrix, id)
-        cum_rot_matrix += np.kron(id, rot_matrix)
+        X = np.array([[0,1],[1,0]], dtype=complex)
+        Id = np.eye(2, dtype=complex)
+        H = np.kron(np.kron(X,X),Id) + np.kron(np.kron(Id,X),X)
+        rot_matrix = sp.linalg.expm(1j*noise*H/2)
+        #rot_matrix = sf.rot_about_collective_X(noise, 2)
+
         comp_povm = POVM.generate_computational_POVM(3)[0].get_POVM()
-        true_povm = np.einsum("ij,kjl,lm->kim",cum_rot_matrix.conj().T,comp_povm,cum_rot_matrix) 
+        true_povm = np.einsum("ij,kjl,lm->kim",rot_matrix.conj().T,comp_povm,rot_matrix) 
         self.assertTrue(np.allclose(qrem._povm_array[3].get_POVM(), true_povm))
