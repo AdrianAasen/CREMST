@@ -212,6 +212,14 @@ class QREM:
         print(f'Loaded {len(self._exp_povms_used)} POVMs from {self._path_to_exp_POVMs}.')
         
 
+    def copy_POVM_array(self, qrem):
+        self._povm_array = np.array(qrem._povm_array)
+        self._initial_cluster_size = np.array(qrem._initial_cluster_size)
+        self.true_cluster_labels = qrem.true_cluster_labels
+        self._noise_mode = qrem._noise_mode
+        self._n_clusters = qrem._n_clusters
+        
+        
 
     def set_coherent_POVM_array(self, angle=np.pi/10):
         """
@@ -275,6 +283,8 @@ class QREM:
 
 
 
+        
+        
     def perform_QDT_measurements(self):
         if self._povm_array is None:
             raise ValueError("No POVM array set, please set the POVM array before performing measurements.")
@@ -384,7 +394,18 @@ class QREM:
 
         #self._rho_true_list, self._rho_labels_in_state = ot.tensor_chunk_states(self._rho_true_array, self._rho_true_labels, self._noise_cluster_labels, self._two_point_corr_labels)
 
-
+    def copy_chunked_true_states(self,qrem):
+        """
+        Copies the chunked true states from self to another QREM object.
+        
+        """
+        self._rho_true_array = np.array(qrem._rho_true_array)
+        self._rho_true_labels = np.array(qrem._rho_true_labels)
+        self._n_averages = qrem._n_averages
+        self._true_state_mode = qrem._true_state_mode
+        self._state_size_array = np.array(qrem._state_size_array)
+        
+        
     def perform_averaged_QST_measurements(self, n_QST_shots = None):
         """
         Performs QST measurements on the reconstructed POVMs.

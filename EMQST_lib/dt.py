@@ -146,7 +146,7 @@ def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
     j=0
     dist=1
     #tol=10**-15
-    
+    #print(calibration_states)
     while j<iter_max and dist>1e-9:    
         
         p=np.abs(np.real(np.einsum('qij,nji->nq',POVM_reconstruction,calibration_states,optimize=optm)))
