@@ -65,8 +65,8 @@ def photon_label_to_operator(name_list):
     op_dict = {
         'H': zup,
         'V': zdown,
-        'L': yup,
-        'R': ydown,
+        'R': yup,
+        'L': ydown,
         'D': xup,
         'A': xdown
     }
@@ -102,13 +102,14 @@ def coincidence_to_states(coincidence_counts, operator_order, n_qubits = 2):
     # Include the additional operators and coincidences in the list of operators and coincidences, making them full POVMs
     new_op = np.append(operator_order,additional_op[2**n_qubits:],axis = 0)
     new_coincidenes = np.append(coincidence_counts, additional_coincidenses[2**n_qubits:])
+    #print(np.sum(new_op, axis = 0))
     rho = photon_MLE(new_op, new_coincidenes)
     
     return rho
 
-def coincidence_to_POVM(QDT_coincidence, calib_states):
+def coincidence_to_POVM(QDT_coincidence, calib_states, undercomplete = False):
     """
-    Takes in coincidence counts the calibration state  and returns the POVMs for [H,V] [R,L] and [D,A].
+    Takes in coincidence counts the calibration state  and returns the POVMs for [H,V] [L,R] and [D,A].
     Currently requires manual setting of order_list if the input order is not the default. 
     The default measurement order is [H,V,R,D], if other than this specify with measurement_order. 
     The QDT coincidences has shape [n_calib_states, n_measurements]
@@ -118,21 +119,30 @@ def coincidence_to_POVM(QDT_coincidence, calib_states):
     
     # Create inital guess states for QDT MLE
     inital_guess_POVM = POVM.generate_random_POVM(2, 2)
+    # if undercomplete:
+    #     # Find total shot count for each state
+    #     n_shot_total = np.array([QDT_coincidence[i,0] + QDT_coincidence[i,1] for i in range(len(QDT_coincidence))])
+        
+
+    #     # Create coincidences for the other measurements. 
+    #     additional_coincidenses = np.array([n_shot_total[0] - QDT_coincidence[i] for i in range(len(QDT_coincidence))],dtype=int)
+
+    #     new_coincidenes = np.concatenate((QDT_coincidence,additional_coincidenses[:,2:]),axis = 1)
+
+    #     new_coincidenes[new_coincidenes < 0] = 0
     
-    # Find total shot count for each state
-    n_shot_total = np.array([QDT_coincidence[i,0] + QDT_coincidence[i,1] for i in range(len(QDT_coincidence))])
-    
-
-    # Create coincidences for the other measurements. 
-    additional_coincidenses = np.array([n_shot_total[0] - QDT_coincidence[i] for i in range(len(QDT_coincidence))],dtype=int)
-
-    new_coincidenes = np.concatenate((QDT_coincidence,additional_coincidenses[:,2:]),axis = 1)
-
-    new_coincidenes[new_coincidenes < 0] = 0
-    # Create 3 sets of two outcome Paulies.
-    # Order array set such that new_coincidences gives this order: [[H,V],[R,L],[D,A]] 
-    order_list = np.array([[0,1], [4, 2], [3,5]])
-    povm_recon = [dt.POVM_MLE(1, new_coincidenes[:,order]+1, calib_states[:], inital_guess_POVM) for order in order_list]
+        
+    #     # Create 3 sets of two outcome Paulies.
+    #     # Order array set such that new_coincidences gives this order: [[H,V],[L,R],[D,A]] 
+    #     order_list = np.array([[0,1], [4, 2], [3,5]])
+    #     povm_recon = [dt.POVM_MLE(1, new_coincidenes[:,order]+1, calib_states[:], inital_guess_POVM) for order in order_list]
+    #     print('Using undercomplete')
+    # else:
+        # The measurements are assumed to be complete and no completions is nessecary
+    order_list = np.array([[0,1], [2, 3], [4,5]]) # Order is HV LR DA
+    for order in order_list:
+        print(QDT_coincidence[:,order])
+    povm_recon = [dt.POVM_MLE(1, QDT_coincidence[:,order], calib_states[:], inital_guess_POVM) for order in order_list]
     return povm_recon
 
 
