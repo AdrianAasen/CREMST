@@ -300,7 +300,7 @@ def OT_MLE(hashed_subsystem_reconstructed_Pauli_6, index_counts):
     optimize_path_p = np.einsum_path('ik,nki->n', rho_1, OP_list)[0]
     optimize_path_R = np.einsum_path('n,n,nij->ij', index_counts, index_counts, OP_list)[0]
     
-    while j<iter_max and dist>1e-14:
+    while j<iter_max and dist>1e-10:
         p      = np.einsum('ik,nki->n', rho_1, OP_list, optimize=optimize_path_p)
         R      = np.einsum('n,n,nij->ij', index_counts, 1/p, OP_list, optimize=optimize_path_R)
         # p      = np.einsum('ik,nki->n', rho_1, OP_list)
@@ -351,7 +351,7 @@ def OT_MLE_efficient(comp_basis_POVM, hashed_subsystem_Pauli_6_rotators, index_c
     optimize_path_p = np.einsum_path('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
     optimize_path_R = np.einsum_path('nm,nm,nkl,mlo,noi->ki', index_counts, index_counts, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize="optimal")[0]
     
-    while j<iter_max and dist>1e-14:
+    while j<iter_max and dist>1e-10:
         # new_mesh = np.einsum('nij, mjk, nkl->nmil', tensored_rot, comp_list, np.transpose(tensored_rot, axes=[0,2,1]).conj()) 
         p = np.einsum('ik,nkl,mlo,noi->nm', rho_1, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_p)
         R = np.einsum('nm,nm,nkl,mlo,noi->ki', index_counts, 1/p, hashed_subsystem_Pauli_6_rotators, comp_basis_operator_list,hashed_subsystem_Pauli_6_rotators_conj, optimize=optimize_path_R)
@@ -1212,11 +1212,11 @@ def reconstruct_POVMs_from_noise_labels(QDT_outcomes,noise_cluster_labels, n_qub
 
 
 
-def compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels, mode="WC"):	
+def compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels, mode="WC", wc_distance_ord = None):	
     """
     Compute the quantum correlation coefficients with selected mode, either worse case or average case.
     """
-    quantum_corr_array = [povm.get_quantum_correlation_coefficient(mode).flatten() for povm in two_point_POVM]
+    quantum_corr_array = [povm.get_quantum_correlation_coefficient(mode, wc_distance_ord = wc_distance_ord).flatten() for povm in two_point_POVM]
     summed_array_V2 = np.array([quantum_corr_array[i][0] + quantum_corr_array[i][1] for i in range(len(quantum_corr_array))])/2
     summed_quantum_corr_array = summed_array_V2.flatten()
     

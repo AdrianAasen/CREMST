@@ -25,12 +25,13 @@ class QREM:
         self._n_hash_symbols = simulation_dictionary['n_hash_symbols']
         self._n_cores = simulation_dictionary['n_cores']
         self._data_path = simulation_dictionary['data_path']
+        self._max_cluster_size = simulation_dictionary['max_cluster_size']
         
 
         # Optional parameters
         self._initial_cluster_size = kwargs.get('initial_cluster_size', None)
         self._path_to_exp_POVMs = kwargs.get('path_to_exp_PVOMS', "Exp_povms/Extracted_modified")
-        self._max_cluster_size = kwargs.get('max_cluster_size', None)
+        
         self._chunk_size = kwargs.get('chunk_size', 4) # Chunk size is to simplify state measurement simulation
 
 
@@ -297,11 +298,15 @@ class QREM:
 
     def delete_QDT_outcomes(self):
         del self._QDT_outcomes
+        
+    def delete_QST_outcomes(self):
+        del self._QST_outcomes
 
 
-    def perform_clustering(self, cutoff = None, max_cluster_size = None):
+    def perform_clustering(self, cutoff = None, max_cluster_size = None, method = None, wc_distance_ord = np.inf):
         """
-        Performs Ward based clustering on the QDT outcomes.
+        Performs hierarchical clustering based on the QDT outcomes.
+        wc_distance_ord (int): The order of the vector distance used for the operator norm. Default is infinity norm, as described in the paper.
         """
         if max_cluster_size is not None:
             self._max_cluster_size = max_cluster_size
@@ -314,39 +319,43 @@ class QREM:
             self._cluster_cutoff = cutoff
 
         self._two_point_POVM, self._two_point_POVM_labels = ot.reconstruct_all_two_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._hash_family, self._n_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
-        self._summed_quantum_corr_array, self._unique_corr_labels = ot.compute_quantum_correlation_coefficients(self._two_point_POVM, self._two_point_POVM_labels)
+        self._summed_quantum_corr_array, self._unique_corr_labels = ot.compute_quantum_correlation_coefficients(self._two_point_POVM, self._two_point_POVM_labels, mode="WC", wc_distance_ord = wc_distance_ord)
         
         
         # Create distance matrix 
         self._dist_matrix = cl.create_distance_matrix_from_corr(self._summed_quantum_corr_array, self._unique_corr_labels, self._n_qubits)
 
-        self._fcluster_labels, self._Z = cl.ward_clustering(self._dist_matrix, self._cluster_cutoff)
+        self._fcluster_labels, self._Z = cl.hierarchical_clustering(self._dist_matrix, self._cluster_cutoff, method )
         self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
 
         # If clustering is too large:
         self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
-        if max(self._noise_cluster_size) > self._max_cluster_size:
+        while max(self._noise_cluster_size) > self._max_cluster_size:
             print("Initial Cluster Assignments:", cl.fcluster_to_labels(self._fcluster_labels))
-            self._fcluster_labels = cl.split_large_clusters(self._dist_matrix , self._fcluster_labels, self._max_cluster_size)
+            self._fcluster_labels = cl.split_oversized_clusters(self._Z , self._fcluster_labels, self._max_cluster_size )
             self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
+            self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
             print("Final Cluster Assignments:", self._noise_cluster_labels)
 
         
-    def update_cluster_cutoff(self, cutoff):
+    def update_cluster_cutoff(self, cutoff, method = None):
         """
         Updates the cluster cutoff and recomputes clustering.
         """
         self._cluster_cutoff = cutoff
 
-        self._fcluster_labels, self._Z = cl.ward_clustering(self._dist_matrix, self._cluster_cutoff)
+        self._fcluster_labels, self._Z = cl.hierarchical_clustering(self._dist_matrix,  self._cluster_cutoff, method = method)
         self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
 
         # If clustering is too large:
         self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
-        if max(self._noise_cluster_size) > self._max_cluster_size:
+        while max(self._noise_cluster_size) > self._max_cluster_size:
             print("Initial Cluster Assignments:", cl.fcluster_to_labels(self._fcluster_labels))
-            self._fcluster_labels = cl.split_large_clusters(self._dist_matrix , self._fcluster_labels, self._max_cluster_size)
+            self._fcluster_labels = cl.split_oversized_clusters(self._Z , self._fcluster_labels, self._max_cluster_size )
+
             self._noise_cluster_labels = cl.fcluster_to_labels(self._fcluster_labels)
+            print(self._noise_cluster_labels)
+            self._noise_cluster_size = [len(item) for item in cl.fcluster_to_labels(self._fcluster_labels)]
             print("Final Cluster Assignments:", self._noise_cluster_labels)
 
 
@@ -419,7 +428,26 @@ class QREM:
 
     def set_two_point_correlators(self, two_point_corr_labels = None, n_two_point_correlators = 1):
         """
-        Performs two point correlation analysis on the QST outcomes.
+            Initializes all internal parameters for the requested two-point correlators.
+            This method prepares the true states for the relevant correlators and reconstructs the two-qubit 
+            POVMs (Positive Operator-Valued Measures) for that set of correlators.
+            Parameters:
+            -----------
+            two_point_corr_labels : list of lists
+                A list of lists where each list contains two qubit indices representing the correlators. 
+                If not provided, random pairs of qubits will be generated.
+            n_two_point_correlators : int, optional
+                The number of two-point correlators to generate if `two_point_corr_labels` is not provided. 
+                Default is 1.
+            Notes:
+            ------
+            - If `two_point_corr_labels` is provided, it sets the internal labels and the number of correlators 
+              based on the length of this list.
+            - If `two_point_corr_labels` is not provided, it generates random pairs of qubits for the specified 
+              number of correlators.
+            - It prints the set two-point correlators.
+            - It creates true states for the correlators to compare to and stores them in `traced_down_correlator_rho_true_array` based on the set of 'rho_ture_array'.
+            - It reconstructs the two-qubit POVMs for the set of correlators and stores them in `two_point_POVM_array`.
         """
         if two_point_corr_labels is not None:
             self._two_point_corr_labels = two_point_corr_labels
@@ -428,7 +456,7 @@ class QREM:
             self._two_point_corr_labels = ot.generate_random_pairs_of_qubits(self._n_qubits, n_two_point_correlators)
 
             self._n_two_point_correlators = n_two_point_correlators
-        print(f'Set current two-point correlators to {self._two_point_corr_labels}.')
+        print(f'Setting two-point correlators to {self._two_point_corr_labels}.')
         # Create true states for the correlators to compare to. 
         self.traced_down_correlator_rho_true_array = []
         for av in range(self._n_averages):

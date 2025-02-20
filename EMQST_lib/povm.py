@@ -473,7 +473,7 @@ class POVM():
 
         return np.array([cls(povm) for povm in toal_POVM_list])
         
-    def get_quantum_correlation_coefficient(self, mode = 'WC'):
+    def get_quantum_correlation_coefficient(self, mode = 'WC', wc_distance_ord = None):
         """ 
         For two qubit POVMs one can compute how correlated the POVMs are and extract a correlation coefficient. 
         This procedure follows eq. (7) and (5) from http://arxiv.org/abs/2311.10661
@@ -484,6 +484,9 @@ class POVM():
         Return coefficients [c_0->1, c_1->0]
         """
         
+        if wc_distance_ord is None:
+            wc_distance_ord = np.inf
+
         # Check if the POVM is a two qubit POVM
         if len(self.POVM_list[0]) != 4:
             print("The POVM is not a two qubit POVM")
@@ -504,7 +507,7 @@ class POVM():
                 op = (M@np.kron(Delta,np.eye(2))).reshape(2,2,2,2)
                 op = np.einsum('kjkl->jl',op)
             if mode == 'WC': # Worst case measure
-                return - np.linalg.norm(op, ord = 2)   # Why do we devide by 2?
+                return - np.linalg.norm(op, ord = wc_distance_ord)
             elif mode == 'AC': # Average case measure
                 return - 1/2 * np.sqrt(np.linalg.norm(op)**2 + np.abs(np.trace(op))**2)
                 
@@ -513,6 +516,7 @@ class POVM():
                 return None 
     
 
+        
             
         
         def cons_1(x):
@@ -526,7 +530,7 @@ class POVM():
         M0 = self.POVM_list[0] + self.POVM_list[1]
         # Define M for tracing out qubit 1
         M1 = self.POVM_list[0] + self.POVM_list[2]
-        tolerance = {"ftol": 1e-8} 
+        tolerance = {"ftol": 1e-10} 
         tol = 10**(-8)
         x0 = np.array([0,0,1,0,0,-1]) # Start with the classical case to ensure it is at least higher than the classical case. 
         sol0 = minimize(measure, x0, args=(M0,0,mode), method='SLSQP', bounds=bound, constraints=cons, tol=tol, options=tolerance)
@@ -568,11 +572,11 @@ class POVM():
         elif mode == 'WC': # Uses the wors case measure
             POVM_A = self.reduce_POVM_two_to_one(states[0],0)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],0)
-            c_0_to_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+            c_0_to_1 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = np.inf)
 
             POVM_A = self.reduce_POVM_two_to_one(states[0],1)    
             POVM_B = self.reduce_POVM_two_to_one(states[1],1)
-            c_1_to_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = 2)
+            c_1_to_0 = np.linalg.norm(POVM_A.get_POVM()[0] - POVM_B.get_POVM()[0], ord = np.inf)
         
         else:
             print("Invalid mode. Please select either 'AC' or 'WC' ")

@@ -27,62 +27,96 @@ def fcluster_to_labels(fcluster_labels):
     return cluster
 
 
-def split_large_clusters(dist_matrix, cluster_assignments, max_size=4):
-    """
-    Splits clusters that exceed a given size limit using k-means clustering.
 
-    Parameters:
-    - data: np.ndarray, the dataset.
-    - cluster_assignments: np.ndarray, initial cluster labels from `fcluster`.
-    - max_size: int, maximum allowed cluster size.
-
-    Returns:
-    - updated_assignments: np.ndarray, updated cluster labels.
+def split_oversized_clusters(linkage, fcluster_labels, max_cluster_size):
     """
-    # Create a dictionary to hold indices of points for each cluster
-    clusters = {}
-    for idx, cluster_label in enumerate(cluster_assignments):
-        clusters.setdefault(cluster_label, []).append(idx)
+    Given a hierarchical clustering dendrogram (linkage matrix), the flat cluster labels
+    (e.g. from fcluster), and a mutual distance vector, perform one additional “cut”
+    for each cluster that exceeds max_cluster_size. The cut is made at the first available
+    intersection (i.e. at the node’s immediate children in the dendrogram).
+
+    Parameters
+    ----------
+    linkage : ndarray
+        The linkage matrix (as returned by, e.g., scipy.cluster.hierarchy.linkage).
+    fcluster_labels : array-like
+        1D array of cluster labels (e.g. produced by scipy.cluster.hierarchy.fcluster).
+        It is assumed that these clusters correspond to subtrees in the dendrogram.
+    mutual_distance : array-like
+        A vector of mutual distances (e.g. the distances from the linkage matrix).
+        (Not used in this simple one-cut routine but provided for potential extensions.)
+    max_cluster_size : int
+        The maximum allowed cluster size. Any cluster with more observations than this
+        will be split at its first available dendrogram intersection.
     
-    # Initialize a dictionary for new assignments
-    updated_assignments = cluster_assignments.copy()
-    next_label = max(cluster_assignments) + 1  # Next cluster label
-
-    for cluster_label, indices in clusters.items():
-        # Check the size of the current cluster
-        if len(indices) > max_size:
-            # Extract data for this cluster
-            cluster_data = dist_matrix[indices]
-            
-            # Apply k-means clustering to split the cluster
-            n_splits = len(indices) // max_size + 1  # Determine number of splits
-            kmeans = KMeans(n_clusters=n_splits, random_state=42)
-            kmeans.fit(cluster_data)
-            labels = kmeans.labels_
-            
-            # Reassign points to new sub-clusters
-            for i, idx in enumerate(indices):
-                updated_assignments[idx] = next_label + labels[i]
-            
-            # Increment the next available label
-            next_label += n_splits
-        else:
-            # Keep the cluster as is
-            continue
-    return updated_assignments
-
-
-def ward_clustering(dist_matrix, threshold = None):
+    Returns
+    -------
+    new_labels : ndarray
+        A copy of fcluster_labels with new labels assigned to the newly split clusters.
+        Each oversized cluster is split only once (its node is replaced by its two immediate children).
     """
-    Implements Ward's hierarchical clustering algorithm.
+    # Convert the linkage matrix to a tree structure.
+    # 'to_tree' returns the root node and a list of all nodes.
+    root, _ = sch.to_tree(linkage, rd=True)
+    
+    # Make a copy of the labels to update.
+    new_labels = np.array(fcluster_labels, copy=True)
+    current_max_label = new_labels.max()
+    
+    def find_node_for_cluster(node, target_set):
+        """
+        Recursively search for the node whose leaves exactly match target_set.
+        target_set is a set of indices (0-indexed) of the original observations.
+        """
+        # If the current node's leaves match exactly, return it.
+        if set(node.pre_order()) == target_set:
+            return node
+        # If leaf, cannot split further.
+        if node.is_leaf():
+            return None
+        # Otherwise, search in the children.
+        left_result = find_node_for_cluster(node.left, target_set)
+        if left_result is not None:
+            return left_result
+        return find_node_for_cluster(node.right, target_set)
+    
+    # Process each unique cluster label
+    for label in np.unique(fcluster_labels):
+        # Get the indices belonging to this cluster
+        cluster_idx = np.where(fcluster_labels == label)[0]
+        if len(cluster_idx) > max_cluster_size:
+            target_set = set(cluster_idx)
+            node = find_node_for_cluster(root, target_set)
+            # Only split if we found a matching node and it is not a leaf.
+            if node is not None and not node.is_leaf():
+                # Use the immediate children as the split clusters.
+                left_leaves = node.left.pre_order()
+                right_leaves = node.right.pre_order()
+                # In this simple version, we keep one branch with the original label and assign
+                # a new label to the other branch.
+                # (You could choose based on additional criteria, e.g. using mutual_distance.)
+                current_max_label += 1
+                # Here, we assign the right branch the new label.
+                new_labels[right_leaves] = current_max_label
+                # The left branch keeps the original label.
+    return new_labels
+
+
+
+def hierarchical_clustering(dist_matrix, threshold = None,  method = None):
+    """
+    Implements Scipy's hierarchical clustering algorithm. Default is complete linkage method.
+    Ward's method works well in our tested cases, but the distance metric is not Euclidean and can behave unpredictably, therefore not recommended.
     """
     
     if threshold is None:
         threshold = 1 # If no threadhold is spesified, we select the upper limit.
+    if method is None:
+        method = 'complete'
     
     np.fill_diagonal(dist_matrix, 0)  # Diagonal should be 0
     condensed_distance_matrix = sch.distance.squareform(dist_matrix)
-    Z = sch.linkage(condensed_distance_matrix, method='ward')
+    Z = sch.linkage(condensed_distance_matrix, method=method)
     cluster_labels = sch.fcluster(Z, t=threshold, criterion='distance')
     return cluster_labels, Z # Returns Z for plotting
 
@@ -94,7 +128,7 @@ def create_distance_matrix_from_corr(corr_array, unique_corr_labels, n_qubits):
         corr_matrix[i,j] = corr_array[it] 
         corr_matrix[j,i] = corr_array[it] 
         it += 1
-    return 1 - corr_matrix
+    return (1 - corr_matrix)
 
 def are_sublists_equal(list1, list2):
     """
@@ -368,3 +402,5 @@ def find_clusters_from_correlator_labels(correlator_labels, clusters):
             
         return_cluster.append(temp_cluster)
     return return_cluster
+
+
