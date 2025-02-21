@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.cluster import KMeans
 import scipy.cluster.hierarchy as sch
 import copy
 from EMQST_lib import overlapping_tomography as ot

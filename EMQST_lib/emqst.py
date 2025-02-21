@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 from scipy.optimize import curve_fit
-from joblib import Parallel, delayed
+
 
 from EMQST_lib import support_functions as sf
-from EMQST_lib import measurement_functions as mf
+#from EMQST_lib import measurement_functions as mf
 from EMQST_lib import dt
 from EMQST_lib.qst import QST
 from EMQST_lib.povm import POVM

@@ -1,14 +1,7 @@
 
 import numpy as np
-from scipy.stats import unitary_group
-import qutip as qt
 from joblib import Parallel, delayed
-from datetime import datetime
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy.linalg import sqrtm
 import scipy as sp
-import sys
 import time
 #sys.path.append("../")
 #from support_functions import *
@@ -165,7 +158,7 @@ def POVM_MLE(n_qubits,index_counts, calibration_states,initial_guess_POVM):
         if j%50==0:
             dist=POVM_convergence(POVM_reconstruction,POVM_reconstruction_old)
 
-    print(f'\tNumber of MLE iterations: {j}, final distance {sf.POVM_distance(POVM_reconstruction,POVM_reconstruction_old)}')
+    #print(f'\tNumber of MLE iterations: {j}, final distance {sf.POVM_distance(POVM_reconstruction,POVM_reconstruction_old)}')
     return POVM(POVM_reconstruction)
 
 def POVM_convergence(POVM_reconstruction,POVM_reconstruction_old):

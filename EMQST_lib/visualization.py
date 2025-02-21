@@ -103,18 +103,31 @@ def visualize_state(rho):
     return 1
 
 
-def plot_dendrogram(qrem : QREM, save_png = True, plot_shape = (10,6)):
-    fig, ax = plt.subplots(1, 1, figsize=plot_shape)
-    dn1 = sch.dendrogram(qrem.Z, ax=ax, above_threshold_color='C0',
-                            orientation='top', color_threshold=qrem.cluster_cutoff)
+def plot_dendrogram(data, plot_shape = (10,6), cutoff=None, save_path = None):
+    
+    if isinstance(data, QREM):
+        fig, ax = plt.subplots(1, 1, figsize=plot_shape)
+        dn1 = sch.dendrogram(data.Z, ax=ax, above_threshold_color='C0',
+                                orientation='top', color_threshold=data.cluster_cutoff)
+        ax.plot([0, 1000], [data.cluster_cutoff, data.cluster_cutoff], 'r--',  label = 'Threshold' )
+        ax.set_ylabel('Distance')
+        ax.set_xlabel('Qubit index')
+        plt.xticks(fontsize=10)
+        ax.legend()
+        sch.set_link_color_palette(None)  # reset to default after use
+ 
+        plt.savefig(data.data_path + f'/dendrogram.png')
+        
+    else: # Data is a linkage map
+        fig, ax = plt.subplots(1, 1, figsize=plot_shape)
+        dn1 = sch.dendrogram(data, ax=ax, above_threshold_color='C0',
+                                orientation='top', color_threshold=cutoff)
 
-    ax.plot([0, 1000], [qrem.cluster_cutoff, qrem.cluster_cutoff], 'r--',  label = 'Threshold' )
-    ax.set_ylabel('Distance')
-    ax.set_xlabel('Qubit index')
-    plt.xticks(fontsize=10)
-    #ax.set_title(f'ierarchical clustering, WC distance, with threshold {qrem.cluster_cutoff}')
-    ax.legend()
-    sch.set_link_color_palette(None)  # reset to default after use
+        ax.plot([0, 1000], [cutoff, cutoff], 'r--',  label = 'Threshold' )
+        ax.set_ylabel('Distance')
+        ax.set_xlabel('Qubit index')
+        plt.xticks(fontsize=10)
+        ax.legend()
+        sch.set_link_color_palette(None)  # reset to default after use
 
-    if save_png:
-        plt.savefig(qrem.data_path + f'/dendrogram.png')
+        plt.savefig(save_path + f'/dendrogram.png')
