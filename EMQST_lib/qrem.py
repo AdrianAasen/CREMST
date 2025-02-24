@@ -22,7 +22,8 @@ class QREM:
         self._n_qubits = simulation_dictionary['n_qubits']
         self._n_QDT_shots = simulation_dictionary['n_QDT_shots']
         self._n_QST_shots = simulation_dictionary['n_QST_shots']
-        self._n_hash_symbols = simulation_dictionary['n_hash_symbols']
+        self._n_QDT_hash_symbols = simulation_dictionary['n_QDT_hash_symbols']
+        self._n_QST_hash_symbols = simulation_dictionary['n_QST_hash_symbols']
         self._n_cores = simulation_dictionary['n_cores']
         self._data_path = simulation_dictionary['data_path']
         self._max_cluster_size = simulation_dictionary['max_cluster_size']
@@ -52,26 +53,42 @@ class QREM:
         self._possible_QST_instructions = np.array(["X", "Y", "Z"]) # For QST we need to meaure each qubit in the 3 Pauli basis.
         # Experiment equivalent = [[pi/2, 0], [pi/2, pi/2], [0,0]]
         self._possible_QDT_instructions = np.array([0, 1, 2, 3]) # For QDT we need to measure each of the 4 calibration states.  
-        self._hash_family = None
+        self._QDT_hash_family = None
+        self._QST_hash_family = None
 
-        # Loads hash family
-        if self._n_hash_symbols>2:
+        # Load QDT hash family
+        if self._n_QDT_hash_symbols>2:
             for files in os.listdir(self._path_to_hashes):
-                if files.endswith(f"{self._n_qubits},{self._n_hash_symbols}).npy"):
+                if files.endswith(f"{self._n_qubits},{self._n_QDT_hash_symbols}).npy"):
                     print(f'Using hash from {files}.')
                     with open(f'{self._path_to_hashes}{files}' ,'rb') as f:
-                        self._hash_family = np.load(f)
+                        self._QDT_hash_family = np.load(f)
                     break # This break is to make sure it does not load a worse hash if it is stored.
-            if self._hash_family is None: 
+            if self._QDT_hash_family is None: 
                 raise ValueError("Did not find hash for this combination, please change settings or create relevant perfect hash family.")
         else: # For k=2 we can use the 2-RDM hash family
-            self._hash_family = ot.create_2RDM_hash(self._n_qubits)
-        self._n_hashes = len(self._hash_family)
+            self._QDT_hash_family = ot.create_2RDM_hash(self._n_qubits)
+        self._n_QDT_hashes = len(self._QDT_hash_family)
+
+
+        # Load QST hash family
+        if self._n_QST_hash_symbols>2:
+            for files in os.listdir(self._path_to_hashes):
+                if files.endswith(f"{self._n_qubits},{self._n_QST_hash_symbols}).npy"):
+                    print(f'Using hash from {files}.')
+                    with open(f'{self._path_to_hashes}{files}' ,'rb') as f:
+                        self._QST_hash_family = np.load(f)
+                    break # This break is to make sure it does not load a worse hash if it is stored.
+            if self._QST_hash_family is None: 
+                raise ValueError("Did not find hash for this combination, please change settings or create relevant perfect hash family.")
+        else: # For k=2 we can use the 2-RDM hash family
+            self._QST_hash_family = ot.create_2RDM_hash(self._n_qubits)
+        self._n_QST_hashes = len(self._QST_hash_family)
 
      # Experiment equivalent =  one_qubit_calibration_angles
-        self._hashed_QST_instructions = ot.create_hashed_instructions(self._hash_family, self._possible_QST_instructions, self._n_hash_symbols)
+        self._hashed_QST_instructions = ot.create_hashed_instructions(self._QST_hash_family, self._possible_QST_instructions, self._n_QST_hash_symbols)
         # Create QDT instructions based on hashing (covering arrays) 
-        self._hashed_QDT_instructions = ot.create_hashed_instructions(self._hash_family, self._possible_QDT_instructions, self._n_hash_symbols)
+        self._hashed_QDT_instructions = ot.create_hashed_instructions(self._QDT_hash_family, self._possible_QDT_instructions, self._n_QDT_hash_symbols)
         # Create hashed calibration states
         self._hashed_calib_states = np.array([ot.calibration_states_from_instruction(instruction, self._one_qubit_calibration_states) for instruction in self._hashed_QDT_instructions])
 
@@ -91,8 +108,8 @@ class QREM:
 
     def print_current_state(self):
         print("The shot budget of the currents settings are:")
-        print(f'QDT shots for computational basis reconstruction: {(self._n_hashes*(4**self._n_hash_symbols -4) +4):,} x {self._n_QDT_shots:,}.')
-        print(f'QST shots for arbitrary {self._n_hash_symbols}-RDM reconstruction: {(self._n_hashes*(3**self._n_hash_symbols -3) +3):,} x {self._n_QST_shots:,}.')
+        print(f'QDT shots for computational basis reconstruction: {(self._n_QDT_hashes*(4**self._n_QDT_hash_symbols -4) +4):,} x {self._n_QDT_shots:,}.')
+        print(f'QST shots for arbitrary {self._n_QST_hash_symbols}-RDM reconstruction: {(self._n_QST_hashes*(3**self._n_QST_hash_symbols -3) +3):,} x {self._n_QST_shots:,}.')
         return 1
     
     
@@ -126,12 +143,20 @@ class QREM:
         return self._n_QST_shots
     
     @property
-    def hash_family(self):
-        return self._hash_family
+    def QDT_hash_family(self):
+        return self._QDT_hash_family
     
     @property
-    def n_hash_symbols(self):
-        return self._n_hash_symbols
+    def QST_hash_family(self):
+        return self._QST_hash_family
+    
+    @property
+    def n_QDT_hash_symbols(self):
+        return self._n_QDT_hash_symbols
+    
+    @property
+    def n_QST_hash_symbols(self):
+        return self._n_QST_hash_symbols
     
     @property
     def one_qubit_calibration_states(self):
@@ -160,11 +185,14 @@ class QREM:
         QDOT_run_dictionary = {
         "n_QST_shots": self._n_QST_shots,
         "n_QDT_shots": self._n_QDT_shots,
-        "n_hash_symbols": self._n_hash_symbols,
+        "n_QST_hash_symbols": self._n_QST_hash_symbols,
+        "n_QDT_hash_symbols": self._n_QDT_hash_symbols,
         "n_qubits": self._n_qubits,
         "n_cores": self._n_cores,
-        "hash_family": self._hash_family,
-        "n_hashes": self._n_hashes,
+        "QST_hash_family": self._QST_hash_family,
+        "n_QST_hashes": self._n_QST_hashes,
+        "QDT_hash_family": self._QDT_hash_family,
+        "n_QDT_hashes": self._n_QDT_hashes,
         "noise_mode": self._noise_mode,
         "povm_array": [povm.get_POVM() for povm in self._povm_array], # Can be of inhomogenious shape.
         "initial_cluster_size": self._initial_cluster_size,
@@ -322,8 +350,7 @@ class QREM:
             self._cluster_cutoff = 1 - 1/np.sqrt(self._n_QDT_shots)
         else:
             self._cluster_cutoff = cutoff
-
-        self._two_point_POVM, self._two_point_POVM_labels = ot.reconstruct_all_two_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._hash_family, self._n_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
+        self._two_point_POVM, self._two_point_POVM_labels = ot.reconstruct_all_two_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._QDT_hash_family, self._n_QDT_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
         self._summed_quantum_corr_array, self._unique_corr_labels = ot.compute_quantum_correlation_coefficients(self._two_point_POVM, self._two_point_POVM_labels, mode="WC", wc_distance_ord = wc_distance_ord)
         
         
@@ -368,21 +395,21 @@ class QREM:
         """
         Reconstructs the POVMs for each cluster.
         """
-        self._clustered_QDOT = ot.reconstruct_POVMs_from_noise_labels(self._QDT_outcomes, self._noise_cluster_labels, self._n_qubits, self._hash_family, self._n_hash_symbols,
+        self._clustered_QDOT = ot.reconstruct_POVMs_from_noise_labels(self._QDT_outcomes, self._noise_cluster_labels, self._n_qubits, self._QDT_hash_family, self._n_QDT_hash_symbols,
                                                         self._one_qubit_calibration_states, self._n_cores)
 
     def reconstruct_cluster_with_perfect_clustering(self):
         """
         Reconstructs the POVMs for each cluster with perfect clustering.
         """
-        self._perfect_clustered_QDOT = ot.reconstruct_POVMs_from_noise_labels(self._QDT_outcomes, self.true_cluster_labels, self._n_qubits, self._hash_family, self._n_hash_symbols,
+        self._perfect_clustered_QDOT = ot.reconstruct_POVMs_from_noise_labels(self._QDT_outcomes, self.true_cluster_labels, self._n_qubits, self._QDT_hash_family, self._n_QDT_hash_symbols,
                                                         self._one_qubit_calibration_states, self._n_cores)
         
     def reconstruct_all_one_qubit_POVMs(self):
         """
         Reconstructs the POVMs for each qubit.
         """
-        self._one_qubit_POVMs = ot.reconstruct_all_one_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._hash_family, self._n_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
+        self._one_qubit_POVMs = ot.reconstruct_all_one_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._QDT_hash_family, self._n_QDT_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
 
 
 
@@ -471,8 +498,8 @@ class QREM:
                                     np.setdiff1d(rho_labels_in_state[i], self._two_point_corr_labels[i])) for i in range(len(rho_true_list))]
             self.traced_down_correlator_rho_true_array.append(traced_down_rho_true)
         # Reconstruct all two-qubit POVMs used for the correlators (only used for the REMST method (two-point QREM))
-        self._two_point_POVM_array = ot.reconstruct_spesific_two_qubit_POVMs(self._QDT_outcomes, self._two_point_corr_labels , self._n_qubits, self._hash_family, 
-                                                         self._n_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
+        self._two_point_POVM_array = ot.reconstruct_spesific_two_qubit_POVMs(self._QDT_outcomes, self._two_point_corr_labels , self._n_qubits, self._QDT_hash_family, 
+                                                         self._n_QDT_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
 
         
     
@@ -505,7 +532,7 @@ class QREM:
 
         result_dict  = ot.perform_full_comparative_QST(applied_clustering, self._QST_outcomes,  self._two_point_corr_labels, 
                                                   used_povm, self._one_qubit_POVMs, self._two_point_POVM_array, self._n_averages, 
-                                                  self._hash_family, self._n_hash_symbols, self._n_qubits, self._n_cores, method = reconstruction_methods)
+                                                  self._QST_hash_family, self._n_QST_hash_symbols, self._n_qubits, self._n_cores, method = reconstruction_methods)
         
         # Include additional info in result dict
         result_dict["rho_true_array"] = self._rho_true_array
