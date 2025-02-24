@@ -483,13 +483,14 @@ class QREM:
         """
         if  self._two_point_corr_labels is None:
             ValueError("Please set the two-point correlators before performing measurements.")
-        
+    
         self._n_two_point_correlators = len(self._two_point_corr_labels)
 
 
         print(f'Setting two-point correlators to {self._two_point_corr_labels}.')
         # Create true states for the correlators to compare to. 
         self.traced_down_correlator_rho_true_array = []
+
         for av in range(self._n_averages):
             rho_true_list, rho_labels_in_state = ot.tensor_chunk_states(self._rho_true_array[av], self._rho_true_labels, 
                                                                                     self._noise_cluster_labels, self._two_point_corr_labels)
@@ -543,3 +544,47 @@ class QREM:
         result_dict["n_QST_shots"] = self._n_QST_shots
         
         return result_dict
+
+    def perform_correlated_QREM_comparison(self,comparison_methods = None):
+        """
+        Function performs comparativ QST measurements where each method recieves the same measurements outcomes as correlated QREM. 
+        
+        The protocol is as follows:
+        - Performs the nessecary QST measurements to reconstruct the connected noise clusters.
+        - Computes the readout error mitigated states for the connected cluster, the two-point correlators and the one-qubit POVMs.
+        - Assumes it takes in a single two-point correlator label, to make function parallelizable.
+        Args
+        comparison_methods: list of integers that selects which methods to compare to correlated QREM.
+        0: no QREM
+        1: factorized QREM
+        2: two RDM QREM
+        3: Classical correlated QREM
+        """
+        if comparison_methods is None:
+            comparison_methods = [0]
+            print(f'No method selected. Comparsion defaults to no QREM.')
+        # Perform QST measurements for each of the connected clusters separatly
+        QST_result = Parallel(n_jobs = self._n_cores, verbose = 5)(delayed(mf.correlator_spesific_QST_measurements)(
+            self._noise_cluster_labels, two_point_label, self._n_averages, self._n_qubits, comparison_methods, 
+            self._n_QST_shots, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array,
+            self._state_size_array) for two_point_label in self._two_point_corr_labels)
+        self._QST_outcomes, target_qubits, QST_instructions = zip(*QST_result)
+
+        print(f'QST state sizes: {[len(qubit_set) for qubit_set in target_qubits]}.')
+        
+        # For each of these QST results, compute the following based on methods:
+        state_results = Parallel(n_jobs=self._n_cores, verbose = 5)(delayed(ot.perform_comparative_QST)(
+            self._noise_cluster_labels, self._two_point_corr_labels[i], self._QST_outcomes[i],
+            self._clustered_QDOT,self._one_qubit_POVMs, self._two_point_POVM_array[i], self._n_averages,
+            self._n_qubits, comparison_methods, target_qubits[i], QST_instructions[i]
+            ) for i in range(len(self._two_point_corr_labels)))
+        #result_array = np.array(state_results)
+        return state_results
+
+        #print(self.traced_down_correlator_rho_true_array[0][i])
+        # print('Checking infidelities')
+        # for i in range(len(state_results)):
+        #     print(sf.qubit_infidelity(state_results[i][0], self.traced_down_correlator_rho_true_array[0][i]))
+
+
+        

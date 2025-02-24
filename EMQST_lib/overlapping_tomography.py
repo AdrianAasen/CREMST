@@ -951,8 +951,9 @@ def entangled_state_reduction_premade_clusters_QST(two_point_correlator_list, cl
     tensored_cluster_POVM_list = [cluster_QDOT[relevant_cluster_index[0]] if len(relevant_cluster_index) == 1 else  POVM.tensor_POVM(cluster_QDOT[relevant_cluster_index[0]], cluster_QDOT[relevant_cluster_index[1]])[0]  for relevant_cluster_index in relevant_cluster_index_list]
     # We will sort the POVM to occur in decending qubit order. 
     sorted_POVM_list = [POVM_sort(tensored_cluster_POVM, sorting_index)[0] for tensored_cluster_POVM, sorting_index in zip(tensored_cluster_POVM_list, sorting_index_list)]
-
-    
+    print(f'POVM shapes to be reconstructed:')
+    for POVM in sorted_POVM_list:
+        print(f'({len(POVM.get_POVM())}, {len(POVM.get_POVM())})')    
     # Reconstruct the states in decenting qubit label order.
     states = [QST(relevant_qubit_label, traced_down_outcome, hash_family,
                   n_hash_symbols, n_qubits, sorted_POVM) 
@@ -990,7 +991,7 @@ def POVM_sort(povm, sorting_index):
     wanted_order = np.arange(0,n_qubits,1,dtype=int)[::-1]
     # MAKE DEEP COPT IMPORTANT
     povm_array = np.copy(povm.get_POVM())
-    print(f'POVM shape {povm_array.shape}')
+    #print(f'POVM shape {povm_array.shape}')
     # Find scrambling order
     scralbing_order = np.argsort(sorting_index)
     current_order = wanted_order[scralbing_order]
@@ -1332,7 +1333,71 @@ def is_state_array_physical(state_array):
 
 
 
-def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels, clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
+
+        
+def perform_comparative_QST(noise_cluster_labels,  two_point_corr_label, QST_outcomes,
+                                 clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, 
+                                 n_qubits,comparison_methods, target_qubits, QST_instructions,):
+    """
+    
+    comparison_methods: list of integers that selects which methods to compare to correlated QREM.
+    0: no QREM
+    1: factorized QREM
+    2: two RDM QREM
+    3: Classical correlated QREM
+    """
+    no_QREM_rho_average_array = []
+    factorized_QREM_rho_average_array = []
+    two_point_QREM_rho_average_array = []
+    classical_correlated_QREM_rho_average_array = []
+    correlated_QREM_rho_average_array = []
+    result_array = []
+    # Need to create index counts for the compared methods
+    traced_index_counts = np.array([get_traced_out_index_counts(QST_outcomes[i], two_point_corr_label) for i in range(n_averages)])
+    # Trace down instructions to just the two-point qubits and translate to integers.
+    two_point_traced_instructions = trace_out(two_point_corr_label, QST_instructions)
+    two_point_POVM_instuctions = [instruction_equivalence(instruction, ['X','Y','Z'], [0,1,2]) for instruction in two_point_traced_instructions]
+
+    
+    if 0 in comparison_methods: # No QREM
+        # To create naiv instruction we supply a standard Pauli-POVM
+        naive_POVM =  POVM.generate_Pauli_POVM(len(two_point_corr_label))
+        naive_POVM_instructions = subsystem_instructions_to_POVM(two_point_POVM_instuctions, naive_POVM, len(two_point_corr_label))
+        no_QREM_two_RDM_recon = [OT_MLE(naive_POVM_instructions, index_counts)for index_counts in traced_index_counts] # Each index count is for one of the n_averages states
+        result_array.append(no_QREM_two_RDM_recon)
+        
+    if 1 in comparison_methods: # Factorized QREM
+        
+        two_index = qubit_label_to_list_index(np.sort(two_point_corr_label)[::-1], n_qubits)
+        factorized_POVMs = POVM.tensor_POVM(one_qubit_POVMs[two_index[0]],one_qubit_POVMs[two_index[1]])[0]
+        factorized_pauli_POVM = POVM.generate_Pauli_from_comp(factorized_POVMs)
+        factorized_POVM_instructions = subsystem_instructions_to_POVM(two_point_POVM_instuctions, factorized_pauli_POVM, len(two_point_corr_label))
+        factorized_rho_recon =  [OT_MLE(factorized_POVM_instructions, index_counts) for index_counts in traced_index_counts]
+        result_array.append(factorized_rho_recon)
+        
+    if 2 in comparison_methods: # Two-point REMST method
+        two_point_Pauli_POVM = POVM.generate_Pauli_from_comp(two_point_POVM)
+        two_point_POVM_instructions = subsystem_instructions_to_POVM(two_point_POVM_instuctions, two_point_Pauli_POVM, len(two_point_corr_label))
+        two_point_rho_recon = [OT_MLE(two_point_POVM_instructions, index_counts) for index_counts in traced_index_counts]
+        result_array.append(two_point_rho_recon)
+        
+    if 3 in comparison_methods: # Classical correlated QREM
+        # Create classical POVM from the reconstructed one
+        classical_povm = [povm.get_classical_POVM() for povm in clustered_QDOT]
+        classical_QREM_recon = [QST_from_instructions(outcome, QST_instructions, np.array([two_point_corr_label]), target_qubits, classical_povm, noise_cluster_labels)for outcome in QST_outcomes]
+        traced_down_classical_recon = [trace_down_qubit_state(recon, target_qubits, np.setdiff1d(target_qubits, two_point_corr_label)) for recon in classical_QREM_recon]
+        result_array.append(traced_down_classical_recon)
+        
+    # Correlator QREM
+    correlator_QREM_recon = [QST_from_instructions(outcome, QST_instructions, np.array([two_point_corr_label]), target_qubits, clustered_QDOT, noise_cluster_labels) for outcome in QST_outcomes]
+    traced_down_correlator_recon = [trace_down_qubit_state(recon, target_qubits, np.setdiff1d(target_qubits, two_point_corr_label)) for recon in correlator_QREM_recon]
+    #print(traced_down_correlator_recon)
+    result_array.append(traced_down_correlator_recon)
+    return result_array
+            
+
+def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_point_corr_labels,
+                                 clustered_QDOT, one_qubit_POVMs, two_point_POVM, n_averages, hash_family, n_hash_symbols, n_qubits, n_cores, method=None):
     """
     Function that can perform all the different QST methods. 
     The method argument can be used to select which methods to perform.
@@ -1357,8 +1422,9 @@ def perform_full_comparative_QST(noise_cluster_labels, QST_outcomes_array, two_p
     entanglement_safe_QREM_rho_average_array = []
     classical_entangelment_safe_QREM_rho_average_array = []
 
-    if method is None: # Defaults to all the main methods. 
-        method = [0,1,2,3,4,5]
+    if method is None: # Defaults to no QREM. 
+        method = [0]
+        print(f'No method selected. Defaults to no QREM.')
     
     
     for k in range(n_averages):

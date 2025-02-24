@@ -287,3 +287,39 @@ def measure_and_QST_target_qubit_only(two_point_array,noise_cluster_labels,n_QST
     print(f'Target Qubits: {target_qubits}')
     rho_recon_1 = ot.QST_from_instructions(QST_outcomes_reduced_instructions, QST_only_instructions,two_point_array, target_qubits, clustered_QDOT, noise_cluster_labels)
     return rho_recon_1, target_qubits
+
+
+def correlator_spesific_QST_measurements(noise_cluster_labels, two_point_corr_label,
+                                       n_averages, n_qubits, method,
+                                       n_QST_shots,  chunk_size, povm_array, cluster_size, rho_true_array, state_size_array):
+    """
+    Function performs comparativ QST measurements where each method recieves the same measurements outcomes as correlated QREM. 
+    
+    The protocol is as follows:
+    - Performs the nessecary QST measurements to reconstruct the connected noise clusters.
+    - Computes the readout error mitigated states for the connected cluster, the two-point correlators and the one-qubit POVMs.
+    - Assumes it takes in a single two-point correlator label, to make function parallelizable.
+    Args
+    method: list of integers that selects which methods to compare to correlated QREM.
+    0: no QREM
+    1: factorized QREM
+    2: two RDM QREM
+    3: Classical correlated QREM
+    """
+    if method is None:
+        method = [0]
+        print(f'No method selected. Comparsion defaults to no QREM.')
+        
+    # Find the relevant cluster qubits.
+    selected_cluster_index = ot.get_cluster_index_from_correlator_labels(noise_cluster_labels, two_point_corr_label) 
+    target_qubits = []
+    for index in selected_cluster_index:
+        target_qubits = np.append(target_qubits, noise_cluster_labels[index])
+    target_qubits = np.array(target_qubits.astype(int), dtype=int)
+    target_qubits = np.sort(target_qubits)[::-1]
+    print(f'Qubit labels to be reconstructed: {target_qubits}.')
+    QST_only_instructions = ot.create_QST_instructions(n_qubits, target_qubits)
+    #print(f'QST instructions: {QST_only_instructions}.')
+    QST_outcomes_reduced_instructions = [measure_hashed_chunk_QST(n_QST_shots, chunk_size, povm_array, cluster_size, rho_true_array[i], state_size_array, QST_only_instructions) for i in range(n_averages)]
+    #print(len(QST_outcomes_reduced_instructions))
+    return QST_outcomes_reduced_instructions, target_qubits, QST_only_instructions
