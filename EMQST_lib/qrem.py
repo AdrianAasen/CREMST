@@ -31,7 +31,9 @@ class QREM:
         # Optional parameters
         self._initial_cluster_size = kwargs.get('initial_cluster_size', None)
         self._path_to_exp_POVMs = kwargs.get('path_to_exp_PVOMS', "Exp_povms/Extracted_modified")
-        
+        self._two_point_corr_labels = kwargs.get('two_point_corr_labels',None)
+        if self._two_point_corr_labels is not None:
+            self._n_two_point_correlators = len(self._two_point_corr_labels)
         self._chunk_size = kwargs.get('chunk_size', 4) # Chunk size is to simplify state measurement simulation
 
 
@@ -146,6 +148,9 @@ class QREM:
     @property
     def rho_true_array(self):
         return self._rho_true_array
+    @property
+    def Z(self):
+        return self._Z
 
     @rho_true_array.setter
     def rho_true_array(self, value):
@@ -426,7 +431,7 @@ class QREM:
 
         self._QST_outcomes = [mf.measure_hashed_chunk_QST(self._n_QST_shots, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array[i], self._state_size_array, self._hashed_QST_instructions) for i in range(self._n_averages) ]
 
-    def set_two_point_correlators(self, two_point_corr_labels = None, n_two_point_correlators = 1):
+    def compute_correlator_true_states(self):
         """
             Initializes all internal parameters for the requested two-point correlators.
             This method prepares the true states for the relevant correlators and reconstructs the two-qubit 
@@ -449,13 +454,12 @@ class QREM:
             - It creates true states for the correlators to compare to and stores them in `traced_down_correlator_rho_true_array` based on the set of 'rho_ture_array'.
             - It reconstructs the two-qubit POVMs for the set of correlators and stores them in `two_point_POVM_array`.
         """
-        if two_point_corr_labels is not None:
-            self._two_point_corr_labels = two_point_corr_labels
-            self._n_two_point_correlators = len(two_point_corr_labels)
-        else:
-            self._two_point_corr_labels = ot.generate_random_pairs_of_qubits(self._n_qubits, n_two_point_correlators)
+        if  self._two_point_corr_labels is None:
+            ValueError("Please set the two-point correlators before performing measurements.")
+        
+        self._n_two_point_correlators = len(self._two_point_corr_labels)
 
-            self._n_two_point_correlators = n_two_point_correlators
+
         print(f'Setting two-point correlators to {self._two_point_corr_labels}.')
         # Create true states for the correlators to compare to. 
         self.traced_down_correlator_rho_true_array = []
@@ -466,7 +470,7 @@ class QREM:
             traced_down_rho_true = [ot.trace_down_qubit_state(rho_true_list[i], rho_labels_in_state[i], 
                                     np.setdiff1d(rho_labels_in_state[i], self._two_point_corr_labels[i])) for i in range(len(rho_true_list))]
             self.traced_down_correlator_rho_true_array.append(traced_down_rho_true)
-
+        # Reconstruct all two-qubit POVMs used for the correlators (only used for the REMST method (two-point QREM))
         self._two_point_POVM_array = ot.reconstruct_spesific_two_qubit_POVMs(self._QDT_outcomes, self._two_point_corr_labels , self._n_qubits, self._hash_family, 
                                                          self._n_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
 

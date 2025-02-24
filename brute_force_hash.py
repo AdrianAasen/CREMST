@@ -137,7 +137,7 @@ if __name__ == "__main__":
     k_hash_symbols = 6 # Size of subsets to distinguish
     timeout_start = time.time()
     num_runs = 1000
-    family = generate_best_perfect_hash_family(n_qubits, k_hash_symbols, num_runs = num_runs, max_iter=500)
+    family = generate_best_perfect_hash_family(n_qubits, k_hash_symbols, num_runs = num_runs, max_iter=400)
     size=len(family)
     print(f"Time spent: {time.time() - timeout_start}.")
     print(f"Best hash found: {len(family)}")

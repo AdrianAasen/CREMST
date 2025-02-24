@@ -567,10 +567,6 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
     """
     Brute force algorithm to create kRDM perfect hash family
     """
-
-    
-    #test_list = np.array(list(itertools.combinations(number_list, 4)))
-    
     def _is_hash_perfect(hash_list,k_hash_symbols):
         """
         Checks if hash list is perfect.
@@ -579,11 +575,7 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
         k_array = np.arange(k_hash_symbols) 
         # Create all possible k-RDM labels
         check_array_index = np.array(list(combinations(number_array, k_hash_symbols)))
-
-        #print(hash_list[:,check_array_index[0]].T)
-        #print(k_array)
         masked_list = np.all(np.array([[np.isin(k_array,hash_list[:,line].T) for line in check] for check in check_array_index]),axis=(1,2))
-  
         return  np.all(masked_list) # Return if all checks pass. 
     
     
@@ -597,7 +589,6 @@ def generate_kRDm_hash_brute(n_qubits,k_hash_symbols):
         #print(hash_list)
         perfect_hash = _is_hash_perfect(hash_list,k_hash_symbols)
         #print(f'Added hash \n{hash_list[-1]}')
-    
     return hash_list
     
 def generate_random_pairs_of_qubits(n_qubits,n_pairs):
