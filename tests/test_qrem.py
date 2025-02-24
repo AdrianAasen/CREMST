@@ -16,10 +16,11 @@ class TestQREM(unittest.TestCase):
         data_path = sf.generate_data_folder(base_path)
 
         sim_dict ={
-            'n_qubits': 12,
+            'n_qubits': 16,
             'n_QST_shots': 10**3,
             'n_QDT_shots': 10**4,
-            'n_hash_symbols': 4,
+            'n_QDT_hash_symbols': 4,
+            'n_QST_hash_symbols': 4,
             'n_cores': 7,
             'max_cluster_size': 3,
             'data_path': data_path,
