@@ -1,7 +1,9 @@
 import numpy as np
 import scipy.cluster.hierarchy as sch
 import copy
+from itertools import combinations
 from EMQST_lib import overlapping_tomography as ot
+
 
 def fcluster_to_labels(fcluster_labels):
     """
@@ -168,6 +170,10 @@ def assign_init_cluster(cluster_correlator_array,corr_labels,n_qubits):
 
 
 def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
+    """
+    This is now an defuct function, and should not be used. It is kept for reference only. 
+    """
+    
     print(f'Create all possible 2 qubit POVMs for correlation map.')
     two_point_POVM, corr_subsystem_labels = ot.reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores)
     summed_quantum_corr_array, unique_corr_labels = ot.compute_quantum_correlation_coefficients(two_point_POVM, corr_subsystem_labels)
@@ -187,6 +193,7 @@ def find_noise_cluster_structure(QDT_outcomes, n_qubits, n_QDT_shots, hash_famil
 def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_size, expected_large_values, alpha ):
     """
     Cluster optimization loop.
+    This is now an defuct function, and should not be used. It is kept for reference only. 
     """
     #print('Starting optimization of premade cluster structure.')
     rng = np.random.default_rng()
@@ -329,6 +336,7 @@ def optimize_cluster(n_runs,init_partition,corr_array,corr_labels,max_cluster_si
 
 def obj_func(partitions,corr_array,corr_labels, max_cluster_size, expected_large_values, alpha):
     """
+    This is now an defuct function, and should not be used. It is kept for reference only. 
     Objective for the cluster opitmization problem.
     Alpha: A tuning paramter, which tunes the penalty for large clusters. Large alpha discuourages large clusters.
     """
@@ -403,3 +411,26 @@ def find_clusters_from_correlator_labels(correlator_labels, clusters):
     return return_cluster
 
 
+def is_hash_family_perfect(hash_list, k_hash_symbols):
+    """
+    Checks if a collection of hash functions (hash_list) forms a perfect hash family
+    for subsets of size k_hash_symbols.
+    """
+    n_qubits = hash_list.shape[1]
+
+    # Generate all subsets of size k_hash_symbols
+    subset_indices = list(combinations(range(n_qubits), k_hash_symbols))
+
+    # For each subset of size k_hash_symbols, we need at least one hash function
+    # that assigns distinct labels to those elements in the subset.
+    for subset in subset_indices:
+        found_distinguishing_hash = False
+        for hash_func in hash_list:
+            labels = hash_func[list(subset)]
+            # If these k qubits get k distinct labels in 'hash_func':
+            if len(np.unique(labels)) == k_hash_symbols:
+                found_distinguishing_hash = True
+                break
+        if not found_distinguishing_hash:
+            return False
+    return True
