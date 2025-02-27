@@ -1,4 +1,5 @@
 import numpy as np
+from joblib import Parallel, delayed, parallel_config, wrap_non_picklable_objects
 from joblib import Parallel, delayed
 from functools import reduce
 from itertools import product, chain, combinations
@@ -259,7 +260,7 @@ def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_sub
     return povm_array
 
 
-
+@wrap_non_picklable_objects
 def get_traced_out_index_counts(outcomes, subsystem_label):
     """
     Takes in outcomes and subsystem labels and returns the index counts for the subsystem.
@@ -1181,7 +1182,7 @@ def reconstruct_all_two_qubit_POVMs(QDT_outcomes, n_qubits, hash_family, n_hash_
 
 
 def reconstruct_spesific_two_qubit_POVMs(QDT_outcomes, QDT_subsystem_labels , n_qubits, hash_family, n_hash_symbols, one_qubit_calibration_states, n_cores):
-    QDT_index_counts =  Parallel(n_jobs = n_cores, verbose = 1)(delayed(get_traced_out_index_counts)(QDT_outcomes, subsystem_label) for subsystem_label in QDT_subsystem_labels)
+    QDT_index_counts =  Parallel(n_jobs = 1, verbose = 1)(delayed(get_traced_out_index_counts)(QDT_outcomes, subsystem_label) for subsystem_label in QDT_subsystem_labels)
     QDT_index_counts = np.asarray(QDT_index_counts)
     two_point_POVM = Parallel(n_jobs = n_cores, verbose = 1)(delayed(parallel_QDOT)(QDT_subsystem_labels[i], QDT_index_counts[i], hash_family, n_hash_symbols, n_qubits, one_qubit_calibration_states) for i in range(len(QDT_subsystem_labels)))
     two_point_POVM = np.asarray(two_point_POVM)
