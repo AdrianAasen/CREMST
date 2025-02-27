@@ -17,7 +17,7 @@ class TestQREM(unittest.TestCase):
 
         sim_dict ={
             'n_qubits': 16,
-            'n_QST_shots': 10**3,
+            'n_QST_shots_total': 10**3,
             'n_QDT_shots': 10**4,
             'n_QDT_hash_symbols': 4,
             'n_QST_hash_symbols': 4,
