@@ -3,6 +3,7 @@ import os
 from joblib import Parallel, delayed
 from functools import reduce
 import scipy as sp
+import pickle 
 
 
 from EMQST_lib import overlapping_tomography as ot
@@ -21,7 +22,7 @@ class QREM:
         """
         self._n_qubits = simulation_dictionary['n_qubits']
         self._n_QDT_shots = simulation_dictionary['n_QDT_shots']
-        self._n_QST_shots = simulation_dictionary['n_QST_shots']
+        self._n_QST_shots_total = simulation_dictionary['n_QST_shots_total']
         self._n_QDT_hash_symbols = simulation_dictionary['n_QDT_hash_symbols']
         self._n_QST_hash_symbols = simulation_dictionary['n_QST_hash_symbols']
         self._n_cores = simulation_dictionary['n_cores']
@@ -109,7 +110,7 @@ class QREM:
     def print_current_state(self):
         print("The shot budget of the currents settings are:")
         print(f'QDT shots for computational basis reconstruction: {(self._n_QDT_hashes*(4**self._n_QDT_hash_symbols -4) +4):,} x {self._n_QDT_shots:,}.')
-        print(f'QST shots for arbitrary {self._n_QST_hash_symbols}-RDM reconstruction: {(self._n_QST_hashes*(3**self._n_QST_hash_symbols -3) +3):,} x {self._n_QST_shots:,}.')
+        print(f'QST shots for arbitrary {self._n_QST_hash_symbols}-RDM reconstruction (approximatly): {self.n_QST_shots_total}.')
         return 1
     
     
@@ -139,8 +140,8 @@ class QREM:
         return self._n_QDT_shots
     
     @property
-    def n_QST_shots(self):
-        return self._n_QST_shots
+    def n_QST_shots_total(self):
+        return self._n_QST_shots_total
     
     @property
     def QDT_hash_family(self):
@@ -183,7 +184,7 @@ class QREM:
 
     def save_initialization(self, save_path = None):
         QDOT_run_dictionary = {
-        "n_QST_shots": self._n_QST_shots,
+        "n_QST_shots_total": self._n_QST_shots_total,
         "n_QDT_shots": self._n_QDT_shots,
         "n_QST_hash_symbols": self._n_QST_hash_symbols,
         "n_QDT_hash_symbols": self._n_QDT_hash_symbols,
@@ -326,7 +327,7 @@ class QREM:
 
         # Simulate all instruction measurements
         print(f'Simulating QDT measurements for {self._n_qubits} qubits.')
-        QDT_outcomes_parallel = Parallel(n_jobs = self._n_cores, verbose = 5)(delayed(mf.measure_clusters)(self._n_QDT_shots, self._povm_array, rho_array, self._initial_cluster_size) for rho_array in self._hashed_calib_states)
+        QDT_outcomes_parallel = Parallel(n_jobs = self._n_cores, verbose = 1)(delayed(mf.measure_clusters)(self._n_QDT_shots, self._povm_array, rho_array, self._initial_cluster_size) for rho_array in self._hashed_calib_states)
         self._QDT_outcomes = np.asarray(QDT_outcomes_parallel)
 
     def delete_QDT_outcomes(self):
@@ -447,16 +448,16 @@ class QREM:
         self._state_size_array = np.array(qrem._state_size_array)
         
         
-    def perform_averaged_QST_measurements(self, n_QST_shots = None):
+    def perform_averaged_QST_measurements(self, n_QST_shots_total = None):
         """
         Performs QST measurements on the reconstructed POVMs.
         """
-        if n_QST_shots is not None:
-            self._n_QST_shots = n_QST_shots
+        if n_QST_shots_total is not None:
+            self._n_QST_shots_total = n_QST_shots_total
         if self._clustered_QDOT is None:
             raise ValueError("Please reconstruct the POVMs before performing QST measurements.")
 
-        self._QST_outcomes = [mf.measure_hashed_chunk_QST(self._n_QST_shots, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array[i], self._state_size_array, self._hashed_QST_instructions) for i in range(self._n_averages) ]
+        self._QST_outcomes = [mf.measure_hashed_chunk_QST(self._n_QST_shots_total, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array[i], self._state_size_array, self._hashed_QST_instructions) for i in range(self._n_averages) ]
 
     def compute_correlator_true_states(self):
         """
@@ -541,7 +542,7 @@ class QREM:
         result_dict["initial_cluster_size"] = self._initial_cluster_size
         result_dict["noise_mode"] = self._noise_mode
         result_dict["n_QDT_shots"] = self._n_QDT_shots  
-        result_dict["n_QST_shots"] = self._n_QST_shots
+        result_dict["n_QST_shots_total"] = self._n_QST_shots_total
         
         return result_dict
 
@@ -564,27 +565,63 @@ class QREM:
             comparison_methods = [0]
             print(f'No method selected. Comparsion defaults to no QREM.')
         # Perform QST measurements for each of the connected clusters separatly
-        QST_result = Parallel(n_jobs = self._n_cores, verbose = 5)(delayed(mf.correlator_spesific_QST_measurements)(
+        QST_result = Parallel(n_jobs = self._n_cores, verbose = 1)(delayed(mf.correlator_spesific_QST_measurements)(
             self._noise_cluster_labels, two_point_label, self._n_averages, self._n_qubits, comparison_methods, 
-            self._n_QST_shots, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array,
+            self._n_QST_shots_total, self._chunk_size, self._povm_array, self._initial_cluster_size, self._rho_true_array,
             self._state_size_array) for two_point_label in self._two_point_corr_labels)
         self._QST_outcomes, target_qubits, QST_instructions = zip(*QST_result)
 
         print(f'QST state sizes: {[len(qubit_set) for qubit_set in target_qubits]}.')
-        
+        print(f'Number of shots for each correlators: {[len(outcome[0])*len(outcome[0][0]) for outcome in self._QST_outcomes]}.')
         # For each of these QST results, compute the following based on methods:
-        state_results = Parallel(n_jobs=self._n_cores, verbose = 5)(delayed(ot.perform_comparative_QST)(
+        state_results = Parallel(n_jobs=self._n_cores, verbose = 1)(delayed(ot.perform_comparative_QST)(
             self._noise_cluster_labels, self._two_point_corr_labels[i], self._QST_outcomes[i],
             self._clustered_QDOT,self._one_qubit_POVMs, self._two_point_POVM_array[i], self._n_averages,
             self._n_qubits, comparison_methods, target_qubits[i], QST_instructions[i]
             ) for i in range(len(self._two_point_corr_labels)))
-        #result_array = np.array(state_results)
-        return state_results
+        
+        # State results comes in the format [#2-point correlators, #methods, #n_averages, state dim, state dim]
+        # We want to convert this to a dictionary where they are sorted by the methods, then the averages, then the correlators.
+        # We swap the two outer dimenstions
+        state_results = np.einsum('ijklm->jkilm',state_results)
+        # New order is  [#methods, #n_averages, #2-point correlators, state dim, state dim]
+        # We create a dictionary with the results
+        result_name_list = ["no_QREM", "factorized_QREM", "two_RDM_QREM", "classical_correlated_QREM"]        
+        result_dict = {
+            "no_QREM": None,
+            "factorized_QREM": None,
+            "two_RDM_QREM": None,
+            "classical_correlated_QREM": None,
+            "correlated_QREM": state_results[-1], # We assume that correlated QREM is always computed.
+            'Z': self._Z, # This is the linkage matrix for the hierarchical clustering.
+            'noise_cluster_labels': self._noise_cluster_labels,
+            'two_point_corr_labels': self._two_point_corr_labels,
+            'rho_true_array': self._rho_true_array,
+            'traced_down_rho_true_array': self.traced_down_correlator_rho_true_array,
+            'initial_cluster_size': self._initial_cluster_size,
+            'noise_mode': self._noise_mode,
+            'n_QDT_shots': self._n_QDT_shots,	
+            'n_QST_shots_total': self._n_QST_shots_total,
+            'n_cores': self._n_cores,
+            'n_qubits': self._n_qubits,
+            'n_averages': self._n_averages,
+            'state_size_array': self._state_size_array,
+            'result_name_list': result_name_list,
+            'comparison_modes': comparison_methods,
+            'dendrogram_cutoff': self._cluster_cutoff,
+            'cluster_QDOT': [povm.get_POVM() for povm in self._clustered_QDOT],
+            
+        }
+	
+        for i, method in enumerate(comparison_methods):
+            result_dict[result_name_list[method]] = state_results[i]
+        
 
-        #print(self.traced_down_correlator_rho_true_array[0][i])
-        # print('Checking infidelities')
-        # for i in range(len(state_results)):
-        #     print(sf.qubit_infidelity(state_results[i][0], self.traced_down_correlator_rho_true_array[0][i]))
+        # with open(f'{self._data_path}/result_QST.pkl', 'wb') as f:
+        #     print(f'Saving results to {self._data_path}/result_QST.pkl.')	
+        #     pickle.dump(result_dict, f)
 
+        
+        return result_dict
 
         

@@ -213,6 +213,7 @@ def measure_hashed_chunk_QST(n_shots, chunk_size, povm_array, povm_size_array, s
     """
     Measures sets of qubits as genuine chunk-size states and POVMs.
     Assumes that the states and POVMs are already split into chunks of spesificed size. This function is only for QST, as calibration states should always be factorized.
+    n_shots: number of shots used for each possible computational basis measurement, XX, XY, XZ, YX, YY, YZ, ZX, ZY, ZZ etc.
     """
     n_qubits = np.sum(state_size_array)
     n_hashes = len(hashed_QST_instructions)
@@ -291,7 +292,7 @@ def measure_and_QST_target_qubit_only(two_point_array,noise_cluster_labels,n_QST
 
 def correlator_spesific_QST_measurements(noise_cluster_labels, two_point_corr_label,
                                        n_averages, n_qubits, method,
-                                       n_QST_shots,  chunk_size, povm_array, cluster_size, rho_true_array, state_size_array):
+                                       n_total_QST_shots,  chunk_size, povm_array, cluster_size, rho_true_array, state_size_array):
     """
     Function performs comparativ QST measurements where each method recieves the same measurements outcomes as correlated QREM. 
     
@@ -317,9 +318,13 @@ def correlator_spesific_QST_measurements(noise_cluster_labels, two_point_corr_la
         target_qubits = np.append(target_qubits, noise_cluster_labels[index])
     target_qubits = np.array(target_qubits.astype(int), dtype=int)
     target_qubits = np.sort(target_qubits)[::-1]
-    print(f'Qubit labels to be reconstructed: {target_qubits}.')
+    
+    # The spesific number of QST shots needs to be modified such that it adhers to the total number of shots.
+    # To do this we devide the total number of shots by the number of basis that will be measured
+    n_shots_pr_basis = int(n_total_QST_shots/3**len(target_qubits) +1) # +1 to make sure that each group gets at least total number of shots. Some groups will have slightly more. 
+    #print(f'Qubit labels to be reconstructed: {target_qubits}.')
     QST_only_instructions = ot.create_QST_instructions(n_qubits, target_qubits)
     #print(f'QST instructions: {QST_only_instructions}.')
-    QST_outcomes_reduced_instructions = [measure_hashed_chunk_QST(n_QST_shots, chunk_size, povm_array, cluster_size, rho_true_array[i], state_size_array, QST_only_instructions) for i in range(n_averages)]
+    QST_outcomes_reduced_instructions = [measure_hashed_chunk_QST(n_shots_pr_basis, chunk_size, povm_array, cluster_size, rho_true_array[i], state_size_array, QST_only_instructions) for i in range(n_averages)]
     #print(len(QST_outcomes_reduced_instructions))
     return QST_outcomes_reduced_instructions, target_qubits, QST_only_instructions
