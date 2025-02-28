@@ -111,6 +111,11 @@ class QREM:
         print("The shot budget of the currents settings are:")
         print(f'QDT shots for computational basis reconstruction: {(self._n_QDT_hashes*(4**self._n_QDT_hash_symbols -4) +4):,} x {self._n_QDT_shots:,}.')
         print(f'QST shots for arbitrary {self._n_QST_hash_symbols}-RDM reconstruction (approximatly): {self.n_QST_shots_total}.')
+        print(f'There are {self._n_qubits} qubits in the system.')
+        print(f'The simulated sizes are: {self._initial_cluster_size}.')
+        print(f'The maximum cluster size is: {self._max_cluster_size}.')
+        print(f'The there are {self._n_averages} state averages.')
+        print(f'There are {len(self._two_point_corr_labels)} two-point correlators.')
         return 1
     
     
@@ -351,7 +356,9 @@ class QREM:
             self._cluster_cutoff = 1 - 1/np.sqrt(self._n_QDT_shots)
         else:
             self._cluster_cutoff = cutoff
+        
         self._two_point_POVM, self._two_point_POVM_labels = ot.reconstruct_all_two_qubit_POVMs(self._QDT_outcomes, self._n_qubits, self._QDT_hash_family, self._n_QDT_hash_symbols, self._one_qubit_calibration_states, self._n_cores)
+        print(f'Finished all two-point POVM reconstructions.')
         self._summed_quantum_corr_array, self._unique_corr_labels = ot.compute_quantum_correlation_coefficients(self._two_point_POVM, self._two_point_POVM_labels, mode="WC", wc_distance_ord = wc_distance_ord)
         
         

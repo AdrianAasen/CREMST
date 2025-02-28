@@ -260,7 +260,7 @@ def subsystem_instructions_to_POVM(instructions, reconstructed_Pauli_POVM, n_sub
     return povm_array
 
 
-@wrap_non_picklable_objects
+#@wrap_non_picklable_objects
 def get_traced_out_index_counts(outcomes, subsystem_label):
     """
     Takes in outcomes and subsystem labels and returns the index counts for the subsystem.
