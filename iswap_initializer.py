@@ -34,13 +34,13 @@ sim_dict ={
 }
  
 # Load random parameters
-total_two_point_corr_labels = ot.generate_random_pairs_of_qubits(sim_dict["n_qubits"], 5)
+total_two_point_corr_labels = ot.generate_random_pairs_of_qubits(sim_dict["n_qubits"], 20)
 
 
 # Ensure that cluster_sizes is a numpy array of integers
 #cluster_size = np.array([4, 1, 3, 2, 2, 1, 1, 2], dtype=int)
 
-n_state_averages = 2#10
+n_state_averages = 10
 chunk_size = 4
 qrem_default = QREM(sim_dict, two_point_corr_labels = total_two_point_corr_labels)
 qrem_default.set_chunked_true_states(n_averages=n_state_averages, chunk_size=chunk_size)
