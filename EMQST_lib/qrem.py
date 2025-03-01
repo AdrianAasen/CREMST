@@ -269,24 +269,29 @@ class QREM:
         """
         if self._initial_cluster_size is None:
             raise ValueError("Please set the cluster size before setting the POVM array.")
-        X = np.array([[0,1],[1,0]])
+        X = np.array([[0,1],[1,0]], dtype = complex)
         Id = np.eye(2)
+        XX = np.kron(X,X)
         self._n_clusters = len(self._initial_cluster_size)
         self._povm_array = []
         self._noise_mode = 'coherent' + 'angle=' + str(angle)
         for size in self._initial_cluster_size:
+            rotation_matrix = np.zeros((2**size,2**size),dtype=complex)
             if size == 1 or size == 2:
                 rotation_matrix = sf.rot_about_collective_X(angle, size)
             else: # If size is larger than 2, iterative next neighbor rotations
-                XX = np.kron(X,X)
+                print(f'We use the nn rotation model, size = {size}.')
+                
                 full_H = np.zeros((2**size,2**size),dtype=complex)
-
                 for i in range(size-1): 
                     H_temp = [Id]*(size-1)
                     H_temp[i] = XX
+                    #print(H_temp)
+                    #print(len(H_temp))
                     full_H += reduce(np.kron,H_temp)
+                #print(full_H)
                 rotation_matrix = sp.linalg.expm(-1/2j * angle * full_H)
-                
+                print(rotation_matrix)
             # print("Check unitary:")
             # print(rotation_matrix@rotation_matrix.conj().T)
             comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
@@ -361,7 +366,8 @@ class QREM:
         print(f'Finished all two-point POVM reconstructions.')
         self._summed_quantum_corr_array, self._unique_corr_labels = ot.compute_quantum_correlation_coefficients(self._two_point_POVM, self._two_point_POVM_labels, mode="WC", wc_distance_ord = wc_distance_ord)
         
-        
+        del self._two_point_POVM # to free up space 
+        print(f'Deleted all two-qubits POVMs after use.')
         # Create distance matrix 
         self._dist_matrix = cl.create_distance_matrix_from_corr(self._summed_quantum_corr_array, self._unique_corr_labels, self._n_qubits)
 

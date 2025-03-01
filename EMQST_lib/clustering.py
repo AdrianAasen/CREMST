@@ -112,7 +112,7 @@ def hierarchical_clustering(dist_matrix, threshold = None,  method = None):
     
     if threshold is None:
         threshold = 1 # If no threadhold is spesified, we select the upper limit.
-    if method is None:
+    if method is None: # The only other possible method is Ward, which has no guarantee to work in our case. 
         method = 'complete'
     
     np.fill_diagonal(dist_matrix, 0)  # Diagonal should be 0
