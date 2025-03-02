@@ -24,7 +24,7 @@ if len(sys.argv) > 1:
 
 sim_dict ={
     'n_qubits': 100,
-    'n_QST_shots_total': 10**5, # This is the number of shots for each two-point correlator QST.
+    'n_QST_shots_total': 5*10**4, # This is the number of shots for each two-point correlator QST.
     'n_QDT_shots': 5*10**3,
     'n_QDT_hash_symbols': 3,
     'n_QST_hash_symbols': 2, # We still supply this, but it is no longer used. 

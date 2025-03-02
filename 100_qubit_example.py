@@ -52,7 +52,7 @@ print(f'Reconstructing cluster POVMs took {t.time() - start_time:.2f} seconds')
 start_time = t.time()
 qrem.compute_correlator_true_states()
 print(f'Computing correlator true states and two-point POVMs took {t.time() - start_time:.2f} seconds')
-
+qrem.delete_QDT_outcomes() # To save space. 
 
 
 print('Starting parallel correlator QST')

@@ -410,6 +410,22 @@ def rot_about_collective_X(angle,n_qubits):
     return sp.linalg.expm(-1/2j * angle * collective_axis)
 
 
+def generate_two_qubit_Pauli_string(use_identity: bool = False):
+    """
+    Creates all possible two-qubit Pauli strings madefrom the Pauli operators X, Y and Z. 
+    If use_identity is set to True, the identity operator is included in the list of operators.
+    """
+    X = np.array([[0,1],[1,0]], dtype=complex)
+    Y = np.array([[0,-1j],[1j,0]])
+    Z = np.array([[1,0],[0,-1]], dtype=complex)
+    id = np.eye(2, dtype = complex)
+    if use_identity:
+        op_array = [X,Y,Z,id]
+    else:
+        op_array = [X,Y,Z]
+    op_string_array = [np.kron(a, b) for a in op_array for b in op_array]
+    return op_string_array
+
 if __name__=="__main__":
     main()
 

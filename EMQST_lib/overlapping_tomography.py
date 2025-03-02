@@ -1247,8 +1247,8 @@ def generate_random_pauli_string(n_samples,n_qubits):
     pauli_x = np.array([[0,1],[1,0]])
     pauli_y = np.array([[0,-1j],[1j,0]])
     pauli_z = np.array([[1,0],[0,-1]])
-    pauli_operators = np.array([pauli_1,pauli_x, pauli_y, pauli_z])
-    pauli_string = np.random.randint(0,4,n_samples*n_qubits).reshape(n_samples,n_qubits)
+    pauli_operators = np.array([pauli_x, pauli_y, pauli_z])
+    pauli_string = np.random.randint(0,3,n_samples*n_qubits).reshape(n_samples,n_qubits)
     op_list = pauli_operators.take(pauli_string,axis = 0)  
     return np.array([reduce(np.kron, op_list[i]) for i in range(n_samples)]) 
 

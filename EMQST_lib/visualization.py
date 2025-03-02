@@ -103,31 +103,35 @@ def visualize_state(rho):
     return 1
 
 
-def plot_dendrogram(data, plot_shape = (10,6), cutoff=None, save_path = None):
+def plot_dendrogram(data, plot_shape = (10,6), cutoff=None, save_path = None, x_lim = None, y_lim = None):
     
+
     if isinstance(data, QREM):
         fig, ax = plt.subplots(1, 1, figsize=plot_shape)
         dn1 = sch.dendrogram(data.Z, ax=ax, above_threshold_color='C0',
                                 orientation='top', color_threshold=data.cluster_cutoff)
         ax.plot([0, 1000], [data.cluster_cutoff, data.cluster_cutoff], 'r--',  label = 'Threshold' )
-        ax.set_ylabel('Distance')
-        ax.set_xlabel('Qubit index')
-        plt.xticks(fontsize=10)
-        ax.legend()
-        sch.set_link_color_palette(None)  # reset to default after use
- 
-        plt.savefig(data.data_path + f'/dendrogram.png')
+
         
     else: # Data is a linkage map
+        if cutoff is None:
+            cutoff = 0.9
+
+
         fig, ax = plt.subplots(1, 1, figsize=plot_shape)
         dn1 = sch.dendrogram(data, ax=ax, above_threshold_color='C0',
                                 orientation='top', color_threshold=cutoff)
 
         ax.plot([0, 1000], [cutoff, cutoff], 'r--',  label = 'Threshold' )
-        ax.set_ylabel('Distance')
-        ax.set_xlabel('Qubit index')
-        plt.xticks(fontsize=10)
-        ax.legend()
-        sch.set_link_color_palette(None)  # reset to default after use
 
-        plt.savefig(save_path + f'/dendrogram.png')
+    if x_lim is not None:
+        ax.set_xlim(x_lim)
+    if y_lim is not None:
+        ax.set_ylim(y_lim) 
+    ax.set_ylabel('Distance')
+    ax.set_xlabel('Qubit index')
+    plt.xticks(fontsize=10)
+    ax.legend()
+    sch.set_link_color_palette(None)  # reset to default after use
+
+    plt.savefig(save_path + f'/dendrogram.png')
