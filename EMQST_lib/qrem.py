@@ -44,7 +44,9 @@ class QREM:
         self._povm_array = None
         self._exp_povms_used = []
         self._noise_cluster_labels = None
-
+        self._cluster_cutoff = None
+        self._Z = None
+        
         # Define an IC calibration basis, here we use the SIC states (by defining the angles (as will be used for state preparation))
         self._one_qubit_calibration_angles = np.array([[[0,0]],[[2*np.arccos(1/np.sqrt(3)),0]],
                                                         [[2*np.arccos(1/np.sqrt(3)),2*np.pi/3]],
@@ -56,6 +58,7 @@ class QREM:
         self._possible_QDT_instructions = np.array([0, 1, 2, 3]) # For QDT we need to measure each of the 4 calibration states.  
         self._QDT_hash_family = None
         self._QST_hash_family = None
+
 
         # Load QDT hash family
         if self._n_QDT_hash_symbols>2:
@@ -179,9 +182,6 @@ class QREM:
     @property
     def rho_true_array(self):
         return self._rho_true_array
-    @property
-    def Z(self):
-        return self._Z
 
     @rho_true_array.setter
     def rho_true_array(self, value):
@@ -277,8 +277,10 @@ class QREM:
         self._noise_mode = 'coherent' + 'angle=' + str(angle)
         for size in self._initial_cluster_size:
             rotation_matrix = np.zeros((2**size,2**size),dtype=complex)
+            
             if size == 1 or size == 2:
-                rotation_matrix = sf.rot_about_collective_X(angle, size)
+                rot_angle = angle + (np.random.random(1)*2-1)*angle*0.2
+                rotation_matrix = sf.rot_about_collective_X(rot_angle, size)
             else: # If size is larger than 2, iterative next neighbor rotations
                 print(f'We use the nn rotation model, size = {size}.')
                 
@@ -288,25 +290,28 @@ class QREM:
                     H_temp[i] = XX
                     #print(H_temp)
                     #print(len(H_temp))
-                    full_H += reduce(np.kron,H_temp)
-                #print(full_H)
-                rotation_matrix = sp.linalg.expm(-1/2j * angle * full_H)
-                print(rotation_matrix)
+                    rot_angle = angle + (np.random.random(1)*2-1)*angle*0.2
+                    full_H += -1/2j *reduce(np.kron,H_temp) * rot_angle
+                print(size-1)
+                rotation_matrix = sp.linalg.expm(full_H)
+                #print(rotation_matrix)
             # print("Check unitary:")
-            # print(rotation_matrix@rotation_matrix.conj().T)
+            # print(np.isclose(rotation_matrix@rotation_matrix.conj().T,np.eye(2**size)))
             comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
-            self._povm_array.append(POVM(np.einsum('jk,ikl,lm->ijm',rotation_matrix.conj().T,comp_povm_array,rotation_matrix)))
+            rotated_POVM = np.einsum('jk,ikl,lm->ijm',rotation_matrix,comp_povm_array,rotation_matrix.conj().T)
+            #print(np.sum(rotated_POVM,axis=0))
+            is_valid = np.all(np.isclose(np.sum(rotated_POVM, axis=0), np.eye(len(rotated_POVM[0]))))
+            print(f'is_valid: {is_valid}')
+            self._povm_array.append(POVM(rotated_POVM))
                 
         self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
-
-
 
 
     def set_correlated_POVM_array(self, k_mean=0.5, noise_mode='iSWAP'):
         """
         Sets the POVM array to be a depolarized iSWAP/CNOT POVM.
-        This noise mode overrides the cluster size and sets it to be all neigbhoring clusters.
-        The noise is appled inversly to the POVM to be equivalent to the same implementation on the state.
+        This noise mode overrides the cluster size and sets it to be all neighboring clusters.
+        The noise is applied inversely to the POVM to be equivalent to the same implementation on the state.
         """
         if noise_mode == 'iSWAP':
             iSWAP=np.array([[1,0,0,0],[0,0,1j,0],[0,1j,0,0],[0,0,0,1]],dtype=complex)
