@@ -36,16 +36,16 @@ class TestQREM(unittest.TestCase):
         # Check that first POVM is simple X rotation
         rot_matrix = sf.rot_about_collective_X(noise, 1)
         comp_povm = POVM.generate_computational_POVM(1)[0].get_POVM()
-        true_povm = np.einsum("ij,kjl,lm->kim",rot_matrix.conj().T,comp_povm,rot_matrix) # We use the inverse of the rotation matrix on POVMs as opposed to states.
+        true_povm = np.einsum("ij,kjl,lm->kim",rot_matrix,comp_povm,rot_matrix.conj().T) # We use the inverse of the rotation matrix on POVMs as opposed to states.
         self.assertTrue(np.allclose(qrem._povm_array[0].get_POVM(), true_povm))
         
         # Check the 3 qubit case.
         X = np.array([[0,1],[1,0]], dtype=complex)
         Id = np.eye(2, dtype=complex)
         H = np.kron(np.kron(X,X),Id) + np.kron(np.kron(Id,X),X)
-        rot_matrix = sp.linalg.expm(1j*noise*H/2)
+        rot_matrix = sp.linalg.expm(-1j*noise*H/2)
         #rot_matrix = sf.rot_about_collective_X(noise, 2)
 
         comp_povm = POVM.generate_computational_POVM(3)[0].get_POVM()
-        true_povm = np.einsum("ij,kjl,lm->kim",rot_matrix.conj().T,comp_povm,rot_matrix) 
+        true_povm = np.einsum("ij,kjl,lm->kim",rot_matrix,comp_povm,rot_matrix.conj().T) 
         self.assertTrue(np.allclose(qrem._povm_array[3].get_POVM(), true_povm))

@@ -37,13 +37,13 @@ for qrem in qrem_array:
 print(f'QDT measurements and initialization took {t.time() - start_time:.2f} seconds')
 
 # Compute clusters and save dendrogram data
-update_cutoffs = [ 0.85, 0.8, 0.8, 0.8]
+update_cutoffs = [ 0.95, 0.85, 0.7, 0.6]
 
 # Use a cutoff update since in the synthetic cases it is very easy to see what clusters should be present.
 start_time = t.time()
 print('Starting clustering')
 for qrem, cutoff in zip(qrem_array, update_cutoffs):
-    qrem.perform_clustering(cutoff = cutoff)
+    qrem.perform_clustering(cutoff = cutoff, method = 'average')	
 print(f'Clustering took {t.time() - start_time:.2f} seconds')
 
 # for qrem in qrem_array: # Set cluster labels to true labels

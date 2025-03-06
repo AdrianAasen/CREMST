@@ -103,14 +103,17 @@ def visualize_state(rho):
     return 1
 
 
-def plot_dendrogram(data, plot_shape = (10,6), cutoff=None, save_path = None, x_lim = None, y_lim = None):
+def plot_dendrogram(data, plot_shape = (7,4), cutoff=None, save_path = None, x_lim = None, y_lim = None):
     
 
     if isinstance(data, QREM):
+        print()
         fig, ax = plt.subplots(1, 1, figsize=plot_shape)
+        if cutoff is None:
+            cutoff = data.cluster_cutoff
         dn1 = sch.dendrogram(data.Z, ax=ax, above_threshold_color='C0',
-                                orientation='top', color_threshold=data.cluster_cutoff)
-        ax.plot([0, 1000], [data.cluster_cutoff, data.cluster_cutoff], 'r--',  label = 'Threshold' )
+                                orientation='top', color_threshold=cutoff)
+        ax.plot([0, 1000], [cutoff, cutoff], 'r--',  label = 'Threshold' )
 
         
     else: # Data is a linkage map
@@ -133,5 +136,5 @@ def plot_dendrogram(data, plot_shape = (10,6), cutoff=None, save_path = None, x_
     plt.xticks(fontsize=10)
     ax.legend()
     sch.set_link_color_palette(None)  # reset to default after use
-
-    plt.savefig(save_path + f'/dendrogram.png')
+    if save_path is not None:
+        plt.savefig(f'dendrogram.png', dpi=300, bbox_inches='tight')

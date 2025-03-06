@@ -28,7 +28,7 @@ class QREM:
         self._n_cores = simulation_dictionary['n_cores']
         self._data_path = simulation_dictionary['data_path']
         self._max_cluster_size = simulation_dictionary['max_cluster_size']
-        
+        self._sim_dict = simulation_dictionary
 
         # Optional parameters
         self._initial_cluster_size = kwargs.get('initial_cluster_size', None)
@@ -260,13 +260,43 @@ class QREM:
         self._n_clusters = qrem._n_clusters
         
         
+        
+    # def set_old_coherent_POVM_array(self, angle):
+    #     """
+    #     Sets noise POVM where XX-crosstalk is applied to all adjacent qubits.
+    #     If a cluster only has a single qubit, a costant rotation with the same angle is applied.
+    #     The model rotates an angle around the collective x axis of the qubits.
+    #     """
+        
+    #     if self._initial_cluster_size is None:
+    #         raise ValueError("Please set the cluster size before setting the POVM array.")
+    #     X = np.array([[0,1],[1,0]], dtype = complex)
+    #     Id = np.eye(2)
+    #     XX = np.kron(X,X)
+    #     self._n_clusters = len(self._initial_cluster_size)
+    #     self._povm_array = []
+    #     self._noise_mode = 'coherent' + 'angle=' + str(angle)
+    #     for size in self._initial_cluster_size:
+    #         rotation_matrix = sf.rot_about_collective_X(angle, size)
+    #         print("Check unitary:")
+    #         print(np.all(np.isclose(rotation_matrix@rotation_matrix.conj().T,np.eye(2**size))))
+    #         comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
+    #         rotated_POVM = np.einsum('jk,ikl,lm->ijm',rotation_matrix,comp_povm_array,rotation_matrix.conj().T)
+    #         #print(np.sum(rotated_POVM,axis=0))
+    #         is_valid = np.all(np.isclose(np.sum(rotated_POVM, axis=0), np.eye(len(rotated_POVM[0]))))
+    #         print(f'is_valid: {is_valid}')
+    #         self._povm_array.append(POVM(rotated_POVM))
+                
+    #     self.true_cluster_labels = cl.get_true_cluster_labels(self._initial_cluster_size)
+        
 
-    def set_coherent_POVM_array(self, angle=np.pi/10):
+    def set_coherent_POVM_array(self, angle):
         """
         Sets noise POVM where XX-crosstalk is applied to all adjacent qubits.
         If a cluster only has a single qubit, a costant rotation with the same angle is applied.
         The model rotates an angle around the collective x axis of the qubits.
         """
+        
         if self._initial_cluster_size is None:
             raise ValueError("Please set the cluster size before setting the POVM array.")
         X = np.array([[0,1],[1,0]], dtype = complex)
@@ -279,10 +309,10 @@ class QREM:
             rotation_matrix = np.zeros((2**size,2**size),dtype=complex)
             
             if size == 1 or size == 2:
-                rot_angle = angle + (np.random.random(1)*2-1)*angle*0.2
+                rot_angle = angle #+ (np.random.random(1)*2-1)*angle*0.2
                 rotation_matrix = sf.rot_about_collective_X(rot_angle, size)
             else: # If size is larger than 2, iterative next neighbor rotations
-                print(f'We use the nn rotation model, size = {size}.')
+                #print(f'We use the nn rotation model, size = {size}.')
                 
                 full_H = np.zeros((2**size,2**size),dtype=complex)
                 for i in range(size-1): 
@@ -290,13 +320,13 @@ class QREM:
                     H_temp[i] = XX
                     #print(H_temp)
                     #print(len(H_temp))
-                    rot_angle = angle + (np.random.random(1)*2-1)*angle*0.2
-                    full_H += -1/2j *reduce(np.kron,H_temp) * rot_angle
-                print(size-1)
+                    rot_angle = angle #+ (np.random.random(1)*2-1)*angle*0.2
+                    full_H += -1j/2 *reduce(np.kron,H_temp) * rot_angle
+                #print(size-1)
                 rotation_matrix = sp.linalg.expm(full_H)
                 #print(rotation_matrix)
-            # print("Check unitary:")
-            # print(np.isclose(rotation_matrix@rotation_matrix.conj().T,np.eye(2**size)))
+            print("Check unitary:")
+            print(np.all(np.isclose(rotation_matrix@rotation_matrix.conj().T,np.eye(2**size))))
             comp_povm_array = POVM.generate_computational_POVM(size)[0].get_POVM()
             rotated_POVM = np.einsum('jk,ikl,lm->ijm',rotation_matrix,comp_povm_array,rotation_matrix.conj().T)
             #print(np.sum(rotated_POVM,axis=0))

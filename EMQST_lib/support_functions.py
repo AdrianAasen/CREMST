@@ -407,7 +407,7 @@ def generate_data_folder(base_path, subfolder_names = None):
 def rot_about_collective_X(angle,n_qubits):
     X = np.array([[0,1],[1,0]],dtype = complex)
     collective_axis = reduce(np.kron,[X]*(n_qubits))
-    return sp.linalg.expm(-1/2j * angle * collective_axis)
+    return sp.linalg.expm(-1j/2 * angle * collective_axis)
 
 
 def generate_two_qubit_Pauli_string(use_identity: bool = False):
