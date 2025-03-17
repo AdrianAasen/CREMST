@@ -6,7 +6,6 @@ profiler/
 EMQST_lib/__pycache__/
 holding.py
 Photon_REM/
-QDOT_results/
 data/
 hash_list.npy
 test.ipynb
