@@ -140,8 +140,10 @@ def coincidence_to_POVM(QDT_coincidence, calib_states, undercomplete = False):
     # else:
         # The measurements are assumed to be complete and no completions is nessecary
     order_list = np.array([[0,1], [2, 3], [4,5]]) # Order is HV LR DA
-    for order in order_list:
-        print(QDT_coincidence[:,order])
+    # for order in order_list:
+    #     print(QDT_coincidence[:,order])
+    
+    # Modify data such that for each state, the HV LR DA are in the same number of measurements. 
     povm_recon = [dt.POVM_MLE(1, QDT_coincidence[:,order], calib_states[:], inital_guess_POVM) for order in order_list]
     return povm_recon
 
