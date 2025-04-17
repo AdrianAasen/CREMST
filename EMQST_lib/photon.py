@@ -148,6 +148,10 @@ def coincidence_to_POVM(QDT_coincidence, calib_states, undercomplete = False):
     return povm_recon
 
 
+def comp_basis_QDT(QDT_coincidence, calib_states):
+    inital_guess_POVM = POVM.generate_random_POVM(2, 2)
+    povm_recon = dt.POVM_MLE(1, QDT_coincidence, calib_states[:], inital_guess_POVM)
+
 def simulate_photon_coincidence_counts(N_shots, states, projectors):
     prob = np.real(np.einsum('mij,nji->mn',states, projectors))
     return N_shots*prob
