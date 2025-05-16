@@ -12,7 +12,10 @@ hash_list.npy
 test.ipynb
 euler_project.ipynb
 EMQST_lib/hash_family
-
+thesis_visualization.ipynb
+Shot_variance_results/
+images/
+Exp_povms/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
