@@ -138,3 +138,35 @@ def plot_dendrogram(data, plot_shape = (7,4), cutoff=None, save_path = None, x_l
     sch.set_link_color_palette(None)  # reset to default after use
     if save_path is not None:
         plt.savefig(f'dendrogram.png', dpi=300, bbox_inches='tight')
+
+
+def power_law(x,a,b):
+    return a*x**(b)
+
+def plot_infidelity_curves(qst):
+    """
+    Plots infidelity curves from a qst object.
+    """
+    cutoff = 100
+    fitcutoff = 3000
+    plt.figure(figsize=(10, 6))
+    x = np.arange(len(qst.infidelity[0]))
+    for i in range(qst.n_averages):
+
+        plt.plot(x[cutoff:], qst.infidelity[i][cutoff:], alpha=0.3)
+    mean_infidelity = np.mean(qst.infidelity, axis=0)
+    plt.plot(x[cutoff:], mean_infidelity[cutoff:], label='Mean Infidelity', color='black', linewidth=2, linestyle='--')
+    popt,pcov=curve_fit(power_law,x[fitcutoff:],mean_infidelity[fitcutoff:],p0=np.array([1,-0.5]))
+    infiFit=power_law(x[fitcutoff:],popt[0],popt[1])
+
+    #plt.plot(x[cutoff:],infiFit,label='Power Law Fit',color='red',linewidth=2)
+    plt.plot(x[fitcutoff:],infiFit,'r--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$')
+    plt.xlabel('Shot Index')
+    plt.ylabel('Infidelity')
+    plt.title('Infidelity Curves')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.legend()
+    plt.grid()
+    plt.show()
+    return 1
