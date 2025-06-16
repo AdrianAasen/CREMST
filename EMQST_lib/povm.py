@@ -20,6 +20,9 @@ class POVM():
     The class itself does support arbitrary POVMs. 
     """
     def __init__(self,POVM_list,angle_representation=np.array([])):
+        if not np.isclose(np.sum(POVM_list, axis=0), np.eye(len(POVM_list[0]))).all():
+            #print("POVM is not  normalized.")
+            raise ValueError(f"POVM is not normalized. Please check the input.\n {np.sum(POVM_list, axis=0)}")
         self.POVM_list=POVM_list
         self.angle_representation=angle_representation
 
@@ -214,7 +217,7 @@ class POVM():
             The histogram of probabilities for all outcomes defined by POVM.
         """
         return np.real(np.einsum('ijk,kj->i', self.POVM_list, rho))
-    
+
     def get_POVM(self):
         """
         Returns a copy of the POVM list.
@@ -252,23 +255,23 @@ class POVM():
         else:
             return int(np.log2(len(self.POVM_list[0])))
 
-    @classmethod
-    def depolarized_POVM(cls, base_POVM, strength=0.1):
-        """
-        Creates a depolarized POVM by combining a base POVM with a depolarization strength.
+    # @classmethod # This method does not provide normalized POVMs. 
+    # def depolarized_POVM(cls, base_POVM, strength=0.1):
+    #     """
+    #     Creates a depolarized POVM by combining a base POVM with a depolarization strength.
 
-        Args:
-            base_POVM (POVM): The base POVM to be depolarized.
-            strength (float): The depolarization strength. Default is 0.1.
+    #     Args:
+    #         base_POVM (POVM): The base POVM to be depolarized.
+    #         strength (float): The depolarization strength. Default is 0.1.
 
-        Returns:
-            POVM: The depolarized POVM.
+    #     Returns:
+    #         POVM: The depolarized POVM.
 
-        """
-        base_POVM_list = base_POVM.get_POVM()
-        dim = int(len(base_POVM_list[0]))
-        new_list = strength/dim * np.eye(dim) + (1-strength) * base_POVM_list
-        return cls(new_list)
+    #     """
+    #     base_POVM_list = base_POVM.get_POVM()
+    #     dim = int(len(base_POVM_list[0]))
+    #     new_list = strength/dim * np.eye(dim) + (1-strength) * base_POVM_list
+    #     return cls(new_list)
 
     @classmethod
     def generate_noisy_POVM(cls, base_POVM ,noise_mode):
