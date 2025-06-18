@@ -16,7 +16,8 @@ Exp_povms/
 images/
 old_hashes/
 thesis_visualization.ipynb
-
+thesis_images/
+adaptive_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

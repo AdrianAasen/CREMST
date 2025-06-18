@@ -22,7 +22,7 @@ class POVM():
     def __init__(self,POVM_list,angle_representation=np.array([])):
         if not np.isclose(np.sum(POVM_list, axis=0), np.eye(len(POVM_list[0]))).all():
             #print("POVM is not  normalized.")
-            raise ValueError(f"POVM is not normalized. Please check the input.\n {np.sum(POVM_list, axis=0)}")
+            print(f"POVM is not normalized. Please check the input.\n {np.sum(POVM_list, axis=0)}")
         self.POVM_list=POVM_list
         self.angle_representation=angle_representation
 
