@@ -137,7 +137,7 @@ def plot_dendrogram(data, plot_shape = (7,4), cutoff=None, save_path = None, x_l
     ax.legend()
     sch.set_link_color_palette(None)  # reset to default after use
     if save_path is not None:
-        plt.savefig(f'dendrogram.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'dendrogram.pdf', dpi=300, bbox_inches='tight')
 
 
 def power_law(x,a,b):
