@@ -214,6 +214,8 @@ def get_calibration_states(n_qubits, calib = None):
                                                  [[2*np.arccos(1/np.sqrt(3)),4*np.pi/3]]])    
     elif calib == "Comp":
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
+    else:
+        raise ValueError(f"Unknown calibration type: {calib}")
         
     calibration_angles=np.copy(one_qubit_calibration_angles)
     one_qubit_calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])

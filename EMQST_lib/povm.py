@@ -20,7 +20,7 @@ class POVM():
     The class itself does support arbitrary POVMs. 
     """
     def __init__(self,POVM_list,angle_representation=np.array([])):
-        if not np.isclose(np.sum(POVM_list, axis=0), np.eye(len(POVM_list[0]))).all():
+        if not np.isclose(np.sum(POVM_list, axis=0), np.eye(len(POVM_list[0])), atol=1e-6).all():
             #print("POVM is not  normalized.")
             print(f"POVM is not normalized. Please check the input.\n {np.sum(POVM_list, axis=0)}")
         self.POVM_list=POVM_list

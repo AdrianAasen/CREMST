@@ -468,6 +468,7 @@ class QREM:
         Lists of modes:
         'random' : Haar random states of chunk size.
         'GHZ' : GHZ states of chunk size.
+        'mixed' : Randomly depolarized states of chunk size.
 
         rho_true_array (list): List of true states for QST, shape [n_averages, n_chunks, 2**chunk_size, 2**chunk_size]
         """
@@ -481,6 +482,13 @@ class QREM:
             self._rho_true_array = [[sf.generate_random_pure_state(size) for size in self._state_size_array] for _ in range(n_averages)]
         elif mode == 'GHZ':
             self._rho_true_array = [[sf.generate_GHZ(size) for size in self._state_size_array] for _ in range(n_averages)]
+        elif mode == 'mixed': # Draws randomly from slightly depolarized states
+            pure_states = [[sf.generate_random_pure_state(size) for size in self._state_size_array] for _ in range(n_averages)]
+            k_mean = 0.05 # Mean depolarizing strength
+            k_array = [np.random.random(int(len(self._state_size_array)))*0.04 - 0.02 + k_mean  for _ in range(n_averages)]
+            print(f'K_mean_array: {k_array}')
+            self._rho_true_array = [[state * (1-k_value) + k_value/len(state) * np.eye(len(state))  for state, k_value in zip(state_array, k)] for k, state_array in zip(k_array, pure_states)]
+
 
         #self._rho_true_list, self._rho_labels_in_state = ot.tensor_chunk_states(self._rho_true_array, self._rho_true_labels, self._noise_cluster_labels, self._two_point_corr_labels)
 

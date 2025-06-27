@@ -11,7 +11,11 @@ def measurement(n_shots, povm, rho, bool_exp_measurements = False, exp_dictionar
     Measurment settings and selects either experimental or simulated measurements. 
     For experimental measurements some settings are converted to angle arrays. 
     """
-
+    if exp_dictionary is None:
+        exp_dictionary = {}
+        exp_dictionary["standard_measurement_function"] = None
+        
+        
     if bool_exp_measurements:
         if custom_measurement_function is None:
             if state_angle_representation is None:
