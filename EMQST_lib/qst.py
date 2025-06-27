@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 from scipy.linalg import sqrtm
 import scipy
 import sys
+import copy
 #sys.path.append("../")
 
 import EMQST_lib.support_functions as sf
@@ -20,8 +21,6 @@ class QST():
     This class will handle the QST estimator and maintain all relevant parameters.
     Currently it only performs BME, but could easily be extended to adaptiv BME and MLE
     """
-    __MH_steps=50
-
 
     def __init__(self,POVM_list,true_state_list,n_shots_each_POVM,n_qubits,
                  bool_exp_measurements,exp_dictionary,n_cores=4,
@@ -70,9 +69,10 @@ class QST():
         # BME parameters
         if n_qubits==1:
             self.n_bank=100
+            self._MH_steps=50
         elif n_qubits==2:
             self.n_bank=500
-            self.__MH_steps=75
+            self._MH_steps=75
         elif n_qubits>2:
             self.n_bank=0
         
@@ -87,7 +87,7 @@ class QST():
         "n_QST_shots_each": self.n_shots_each_POVM,
         "list_of_true_states": self.true_state_list,
         "n_qubits": self.n_qubits,
-        "MH_steps": self.__MH_steps,
+        "MH_steps": self._MH_steps,
         "bank_size": self.n_bank,
         "n_cores": self.n_cores,
         "bool_exp_measurements": self.bool_exp_measurement,
@@ -264,9 +264,137 @@ class QST():
             j += 1
 
         return rho_1
-        
+       
+       
+    def perform_adaptive_BME(self,override_POVM_list = None, compute_uncertainty = None, depolarizing_strength = 0, adaptive_burnin_steps = None):
+        """
+        Special purpose adaptive BME. Iteratively updates the measured POVM based on an optimization problem.
+        As opposed to normal BME, measurements must be performed live, and if measurements were performed already they will be deleted.
+        For adaptive noise, only depolarizing strength is supported, and it is applied to the POVM elements.
+        If depolarizing_strength is set to 0, no depolarization is applied.""" 
+        # These imports are only needed for adaptive BME, and requires to be run in a linux environment. 
+        import jax.numpy as jnp
+        from jax import grad, jit, vmap
+        from jax import random
+        import optax
+        import jax
+        from EMQST_lib import adaptive_functions as ad
+        total_grad_steps = 100
+        if adaptive_burnin_steps is None:
+            adaptive_burnin_steps = self.n_shots_total
 
-    def perform_BME(self,override_POVM_list = None, compute_uncertainty = None):
+
+        # Start by defining optimizer
+        if self.n_qubits == 1: # Select two different schedules for 1 and 2 qubits
+            #opt_Schedule = optax.cosine_decay_schedule(0.02, decay_steps=total_grad_steps, alpha=0.95)
+            opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.01,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
+        else:
+            opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.02,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
+
+        def optim(learning_rate):
+            return optax.adam(learning_rate=learning_rate)
+        optimizer = optim(opt_Schedule)
+        
+        @jax.jit
+        def jax_step(angles, opt_state, rho_bank, weights, best_guess,n_qubits):
+            loss_value, grads = jax.value_and_grad(ad.adaptive_cost_function)(angles, rho_bank, weights, best_guess, 1)
+            updates, opt_state = optimizer.update(grads, opt_state, angles)
+            angles = optax.apply_updates(angles, updates)
+            return angles, opt_state, loss_value
+        
+        
+        
+        # Continue with normal BME setup
+        # Checks if BME is performed for more than 2 qubits
+        if self.n_qubits>2:
+            print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
+            print(f'Returning the thermal state.')
+            return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
+        
+        if compute_uncertainty is None:
+            compute_uncertainty = np.array([])
+
+        outcome_index = self.outcome_index.astype(int)
+        rng = np.random.default_rng()
+
+
+        # Create single (potentially depolarized) Pauli-6 POVM
+        temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits)
+        decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(3)])
+        pauli_6_array = 1/3*np.array(decompiled_array.reshape(-1,decompiled_array.shape[-2],decompiled_array.shape[-1]))
+        depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array])
+        # Generate the proper pauli-6 POVM
+        pauli_6 = POVM(depolarized_pauli_6_array)
+        full_operator_list = [] # The full operator list will also contain adaptive POVMs and no direct way to separate them. The outcomes are collected and assigned correct outcome corresponding to the measureemnt operator.
+
+        for j in range(self.n_averages):
+            full_operator_list.append(depolarized_pauli_6_array)
+            # Apply depolarizing channel to intial POVM elements.
+            outcome_offset = 0
+            adaptive_threshold = adaptive_burnin_steps
+            adaptive_it = 0
+            current_POVM = copy.deepcopy(pauli_6)
+            #print(f'Started QST run {j}/{self.n_averages}')
+            # Initalize bank and weights
+            rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
+            weights=np.full(self.n_bank, 1/self.n_bank)
+            S_treshold=0.1*self.n_bank  
+            
+            # Adaptive measurements strategy is based on finding the overall best unitary rotation that has the maximal information gain.
+            for shot_index in range(self.n_shots_total):
+                # Update POVM if adaptive criteria is met.
+                if shot_index > adaptive_threshold:
+                    adaptive_it += 1
+                    prev_loss = 0
+                    current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
+                    inital_angles = ad.rho_to_angles(current_mean_state)
+                    # Initialize optimizer with random angles, create jax-friendly objects.
+                    opt_state = optimizer.init(inital_angles)
+                    best_angles = inital_angles
+                    angles = inital_angles
+                    successful_gradient_step_it = 0
+
+                    jbank=jnp.array(rho_bank)
+                    jweight=jnp.array(weights)
+                    jmean_state=jnp.array(current_mean_state)
+                    for _ in range(total_grad_steps):
+                        angles, opt_state, current_loss = jax_step(angles, opt_state, jbank, jweight, jmean_state, self.n_qubits)
+                        if current_loss<prev_loss:
+                            best_angles = angles
+                            prev_loss = current_loss
+                            successful_gradient_step_it += 1
+                    #print(f'Relative adaptive success: {successful_gradient_step_it/total_grad_steps    }')
+
+                    angles = best_angles
+                    angle_array = np.array([[angles["theta"], angles["phi"]]])
+
+                    current_projector = sf.get_projector_from_angles(angle_array)
+                    copy_projector = copy.deepcopy(current_projector)
+                    depolarized_projector = np.array([sf.depolarizing_channel(copy_projector, depolarizing_strength),sf.depolarizing_channel(np.eye(2)-copy_projector, depolarizing_strength)])
+                    current_POVM = POVM(depolarized_projector)
+                    
+                    # Offset needs to be computed before new measurement setting is used. 
+                    outcome_offset = len(full_operator_list[j]) 
+                    full_operator_list[j] = np.append(full_operator_list[j], depolarized_projector , axis=0)
+                    adaptive_threshold += np.maximum(3,int(shot_index/100))
+
+
+                # outcome_offset is used to be able to mix multiple different POVMs with the same outcome_index.
+                outcome_index[j,shot_index] = mf.simulated_measurement(1, current_POVM, self.true_state_list[j]) + outcome_offset
+                weights = QST.weight_update(weights,rho_bank,full_operator_list[j][outcome_index[j,shot_index]])
+                S_effective=1/np.dot(weights,weights)
+                # If effective sample size of posterior distribution is too low we resample
+                if (S_effective<S_treshold):
+                    print("Resampling")
+                    rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:shot_index],full_operator_list[j],self.n_cores,self._MH_steps)
+                self.infidelity[j,shot_index]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
+
+            self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
+            print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
+                    
+                
+                
+    def perform_BME(self, override_POVM_list = None, compute_uncertainty = None):
         """
         Runs the core loop of BME.
         compute_uncertainy: np.array that contains the sample numbers for which the uncertainty should be computed.
@@ -313,7 +441,7 @@ class QST():
 
                 #If effective sample size of posterior distribution is too low we resample
                 if (S_effective<S_treshold):
-                   rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:k],full_operator_list,self.n_cores,self.__MH_steps)
+                   rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:k],full_operator_list,self.n_cores,self._MH_steps)
                 self.infidelity[j,k]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
                 
                 

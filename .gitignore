@@ -1,6 +1,7 @@
 .venv/
 .work_win_venv/
 .home_win_venv/
+.work_linux_venv/
 results/
 profiler/
 EMQST_lib/__pycache__/
@@ -15,7 +16,8 @@ Exp_povms/
 images/
 old_hashes/
 thesis_visualization.ipynb
-
+thesis_images/
+adaptive_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

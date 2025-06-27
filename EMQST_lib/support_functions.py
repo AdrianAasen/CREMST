@@ -214,6 +214,8 @@ def get_calibration_states(n_qubits, calib = None):
                                                  [[2*np.arccos(1/np.sqrt(3)),4*np.pi/3]]])    
     elif calib == "Comp":
         one_qubit_calibration_angles = np.array([[[0,0]],[[np.pi,0]]])
+    else:
+        raise ValueError(f"Unknown calibration type: {calib}")
         
     calibration_angles=np.copy(one_qubit_calibration_angles)
     one_qubit_calibration_states=np.array([get_density_matrix_from_angles(angle) for angle in calibration_angles])
@@ -425,6 +427,30 @@ def generate_two_qubit_Pauli_string(use_identity: bool = False):
         op_array = [X,Y,Z]
     op_string_array = [np.kron(a, b) for a in op_array for b in op_array]
     return op_string_array
+
+
+def depolarizing_channel(rho, strength):
+    """
+    Applies a depolarizing channel to the density matrix rho with given strength.
+    """
+    if strength==0: # If no strenght then return the input state
+        return rho
+    # Pauli matrices
+    I = np.eye(2)
+    X = np.array([[0, 1], [1, 0]])
+    Y = np.array([[0, -1j], [1j, 0]])
+    Z = np.array([[1, 0], [0, -1]])
+    # Kraus operators
+    K0 = np.sqrt(1 - strength) * I
+    K1 = np.sqrt(strength / 3) * X
+    K2 = np.sqrt(strength / 3) * Y
+    K3 = np.sqrt(strength / 3) * Z
+    kraus_ops = [K0, K1, K2, K3]
+
+    # Apply channel
+    rho_out = sum(K @ rho @ K.conj().T for K in kraus_ops)
+    return rho_out
+
 
 if __name__=="__main__":
     main()
