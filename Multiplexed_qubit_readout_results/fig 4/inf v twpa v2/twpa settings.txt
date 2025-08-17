@@ -1,0 +1,12 @@
+frequency: 7534000000.0 Hz
+twpa_powers = np.linspace(3, 6.7, 11)
+
+readout powers:
+readout_pulse_q0 = create_readout_pulse_q0("q0", amplitude = 0.32)
+readout_pulse_q1 = create_readout_pulse_q1("q1", amplitude = 0.4)
+
+drivelen for single qubit gate: 150ns
+
+dt_shots = 2e3 #7e3
+qst_shots = 2e3 #5e3
+n_averages = 15 #qst

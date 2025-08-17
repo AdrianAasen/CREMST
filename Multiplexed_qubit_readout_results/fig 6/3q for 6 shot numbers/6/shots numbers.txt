@@ -1,0 +1,2 @@
+dt_shots = 1.2e4
+qst_shots = 1.2e4

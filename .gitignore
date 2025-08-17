@@ -8,6 +8,9 @@ test.py
 Photon_REM/
 QDOT_results/
 data/
+thesis_images/
+adaptive_results/
+.work_linux_venv/
 hash_list.npy
 test.ipynb
 euler_project.ipynb
