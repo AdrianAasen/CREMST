@@ -19,6 +19,7 @@ thesis_visualization.ipynb
 Shot_variance_results/
 images/
 Exp_povms/
+Multiplexed_qubit_readout_results/EMQST_lib
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
