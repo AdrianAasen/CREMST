@@ -18,7 +18,7 @@ old_hashes/
 thesis_visualization.ipynb
 thesis_images/
 adaptive_results/
-
+Multiplexed_qubit_readout_results/EMQST_lib
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
