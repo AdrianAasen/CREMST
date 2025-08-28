@@ -446,6 +446,9 @@ class QST():
                 
                 
                 
+                
+                
+                
                 # Compute averag bures distance of distribution
                 if k in compute_uncertainty:
                     self.uncertainty[j,k] = QST.infidelity_uncertainty(rho_bank,weights)
@@ -454,6 +457,16 @@ class QST():
                 self.uncertainty[j,-1] = QST.infidelity_uncertainty(rho_bank,weights)
             self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
             print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
+    
+    
+    def infidelity_uncertainty(rho_bank,weights):
+        """
+        Computes the Bayesian uncertatiny of the likelihood function in terms for the average infidelity between the Bayesian mean state and the weighted bank particles.
+        """
+        rho_mean = np.einsum('ijk,i->jk',rho_bank,weights)
+        bank_infidelity = np.array([sf.qubit_infidelity(rho_mean,particle_rho) for particle_rho in rho_bank])**2 # The square is to make it equivalent to the variance. 
+        infidelity_uncertainty = np.einsum('i,i->',bank_infidelity,weights)
+        return infidelity_uncertainty
     
     
     def infidelity_uncertainty(rho_bank,weights):

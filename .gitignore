@@ -8,6 +8,9 @@ EMQST_lib/__pycache__/
 holding.py
 Photon_REM/
 data/
+thesis_images/
+adaptive_results/
+.work_linux_venv/
 hash_list.npy
 test.ipynb
 .vscode/

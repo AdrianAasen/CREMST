@@ -1,0 +1,7 @@
+250 us cooldown
+Readout: flat top gaussian (square gaussian)
+Readout length: 400ns
+1-qubit gate length: 150ns
+External LO for readout mixing: 1.7 GHz
+Temperature below 10mK
+q2q3 (the two highest in resonator frequency)

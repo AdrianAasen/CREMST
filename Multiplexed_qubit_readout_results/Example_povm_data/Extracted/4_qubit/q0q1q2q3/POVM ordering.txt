@@ -1,0 +1,2 @@
+XXXX, ZZZZ, YXZX, ZYXX, i.e. 4 POVMs in each file
+repeated 4 times
