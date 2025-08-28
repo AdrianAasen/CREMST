@@ -5,22 +5,30 @@ This codebase builds upon the REMST codebase found on [this repository](https://
 ## Publications
 
 The following publications used this protocol:\
-[1] [Readout error mitigated quantum state tomography tested on superconducting qubits](https://www.nature.com/articles/s42005-024-01790-8) (2024) (uses older version of the codebase).\
-[2] [Multiplexed qubit readout quality metric beyond assignment fidelity](https://arxiv.org/abs/2502.08589) (2025 preprint).\
+[1] [Readout error mitigated quantum state tomography tested on superconducting qubits](https://www.nature.com/articles/s42005-024-01790-8) Communications Physics volume **7**, Article number: 301 (2024) (uses older version of the codebase).\
+[2] [Multiplexed qubit readout quality metric beyond assignment fidelity](https://journals.aps.org/pra/abstract/10.1103/6p6s-t8b7)  Phys. Rev. A **112**, 022601 (2025).\
 [3] [Mitigation of correlated readout errors without randomized measurements](https://arxiv.org/abs/2503.24276) (2025 preprint).
 
-## Code Structure
+This repository contains code, results, and example notebooks developed for each of the publication. Each major project or paper has its own folder under `Paper_results_and_notebooks`, containing:
+- **Code** for simulations and data analysis
+- **Results** (numerical and visual outputs)
+- **Example notebooks** for reproducing figures and workflows
 
-- **Notebook paper_visualization**: Includes example code to display the results used in ref. [3].
-- **cluster_code**: Contains the code blocks used to run the simulations in ref. [3] on a standard SLURM cluster.
-- **initializers scripts**: Used to create an initializer object that runs multiple simulations with identical initial conditions.
+---
 
-## Tutorial
+#### ▸ `Mitigation_of_correlated_readout_errors_without_randomized_measurements/`
+- `cluster_code/` – Batch/cluster execution code.  
+- `Correlated_QREM_results/` – Results of correlated readout error mitigation.  
+- `Exp_povms/` – POVM experiment data.  
+- `images/` – Figures and plots for the paper.  
+- `paper_visualization.ipynb` – Notebook for reproducing paper figures.  
+- `Scalable_QREM.ipynb` – Example scalable QREM notebook.  
 
-A user-friendly tutorial notebook is provided that shows how to run CREMST with examples of how to create your own simulations and load data from previous runs. 
+#### ▸ `Multiplexed_qubit_readout_quality_metric_beyond_assignment_fidelity/`
+- `Example_experimental_povms.ipynb` – Example notebook on how to load in the experimental POVMs characterized. 
+- `Multiplexed_qubit_readout_visualization.ipynb` – Notebook for reproducing paper figures and additional simulations
+- The rest is figure and result folders. 
 
-## Examples
 
-There are examples of other applications, such as:
-- Extracting specific basis states from detector tomography.
-- Computing the standard deviation of the BME infidelities.
+#### ▸ `Readout_error_mitigated_quantum_state_tomography_tested_on_superconducting_qubits/`
+- `Tutorial.ipynb` – Example notebook on how to perform BME and how to extract properties, and how it can be used to perform readout error mitigation.

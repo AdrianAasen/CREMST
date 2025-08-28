@@ -1,0 +1,5 @@
+XX, ZZ, YX, XZ, i.e. 4 POVMs in each file
+repeated 4 times
+
+and then this block of 4 files is repeated in total 8x, with 8 different correlations present in the POVMs
+so in total 32 files. if you sort them by time/name, then each group of 4 is done with the same correlation
