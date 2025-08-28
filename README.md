@@ -16,7 +16,7 @@ This repository contains code, results, and example notebooks developed for each
 
 ---
 
-#### ▸ `Mitigation_of_correlated_readout_errors_without_randomized_measurements/`
+#### ▸ `Mitigation_of_correlated_readout_errors/`
 - `cluster_code/` – Batch/cluster execution code.  
 - `Correlated_QREM_results/` – Results of correlated readout error mitigation.  
 - `Exp_povms/` – POVM experiment data.  
@@ -24,11 +24,11 @@ This repository contains code, results, and example notebooks developed for each
 - `paper_visualization.ipynb` – Notebook for reproducing paper figures.  
 - `Scalable_QREM.ipynb` – Example scalable QREM notebook.  
 
-#### ▸ `Multiplexed_qubit_readout_quality_metric_beyond_assignment_fidelity/`
+#### ▸ `Multiplexed_qubit_readout_quality_metric/`
 - `Example_experimental_povms.ipynb` – Example notebook on how to load in the experimental POVMs characterized. 
 - `Multiplexed_qubit_readout_visualization.ipynb` – Notebook for reproducing paper figures and additional simulations
 - The rest is figure and result folders. 
 
 
-#### ▸ `Readout_error_mitigated_quantum_state_tomography_tested_on_superconducting_qubits/`
+#### ▸ `Readout_error_mitigated_quantum_state_tomography/`
 - `Tutorial.ipynb` – Example notebook on how to perform BME and how to extract properties, and how it can be used to perform readout error mitigation.
