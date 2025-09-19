@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+optax
+jaxlib
+qutip
+joblib

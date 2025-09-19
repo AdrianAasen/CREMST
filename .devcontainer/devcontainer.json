@@ -1,0 +1,11 @@
+{
+  "name": "Minimal Python",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-python.vscode-pylance"]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreate.sh"
+}
+  
