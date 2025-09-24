@@ -93,8 +93,8 @@ def generate_random_Hilbert_Schmidt_mixed_state(nQubit):
     A = np.reshape(A, (2**nQubit, 2**nQubit))
 
     # Project the random matrix onto the positive semi-definite space of density matrices. 
-    randomRho = A @ A.conj().T / (np.trace(A @ A.conj().T))
-    return randomRho
+    random_rho = A @ A.conj().T / (np.trace(A @ A.conj().T))
+    return random_rho
 
 
 

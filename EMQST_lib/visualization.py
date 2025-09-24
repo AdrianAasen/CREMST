@@ -143,13 +143,13 @@ def plot_dendrogram(data, plot_shape = (7,4), cutoff=None, save_path = None, x_l
 def power_law(x,a,b):
     return a*x**(b)
 
-def plot_infidelity_curves(qst):
+def plot_infidelity_curves(qst, adaptive_burnin = None):
     """
     Plots infidelity curves from a qst object.
     """
     plt.rcParams.update({'font.size': 20})
     cutoff = 100
-    fitcutoff = 3000
+    fitcutoff = 1000
     plt.figure(figsize=(15, 9))
     x = np.arange(len(qst.infidelity[0]))
     for i in range(qst.n_averages):
@@ -162,18 +162,21 @@ def plot_infidelity_curves(qst):
 
     #plt.plot(x[cutoff:],infiFit,label='Power Law Fit',color='red',linewidth=2)
     plt.plot(x[fitcutoff:],infiFit,'r--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$')
-    plt.axvline(x=1000, color='red', linestyle='--', label='Adaptive starts')
+    if adaptive_burnin is not None:
+        plt.axvline(x=adaptive_burnin, color='red', linestyle='--', label='Adaptive starts')
     plt.xlabel('Number of measurements')
     plt.ylabel('Infidelity')
     plt.yscale('log')
     plt.xscale('log')
     plt.legend()
-    plt.grid()
+    plt.grid(True, which='both', axis='both')
+    plt.minorticks_on()
     plt.show()
+    print(f'Mean final infidelity {mean_infidelity[-1]}')
     return 1
 
 
-def plot_average_infidelity(infidelity_container, labels = None):
+def plot_average_infidelity(infidelity_container, adaptive_burnin = None, labels = None):
     """
     Plots the average infidelity from a container of infidelity data.
     """
@@ -189,8 +192,8 @@ def plot_average_infidelity(infidelity_container, labels = None):
         popt,pcov=curve_fit(power_law,x[fitcutoff:],mean_infidelities[i][fitcutoff:],p0=np.array([1,-0.5]))
         infiFit=power_law(x[fitcutoff:],popt[0],popt[1])
         plt.plot(x[fitcutoff:],infiFit,'--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$',color=colors[i])
-    
-    plt.axvline(x=1000, color='red', linestyle='--', label='Adaptive starts')
+    if adaptive_burnin is not None:
+        plt.axvline(x=adaptive_burnin, color='red', linestyle='--', label='Adaptive starts')
     # for i in range(len(infidelity_container)):
     #     plt.plot(x, infidelity_container[i], alpha=0.3)
     # mean_infidelity = np.mean(infidelity_container, axis=0)
