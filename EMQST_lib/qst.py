@@ -396,7 +396,7 @@ class QST():
                 S_effective=1/np.dot(weights,weights)
                 # If effective sample size of posterior distribution is too low we resample
                 if (S_effective<S_treshold):
-                    print("Resampling")
+                    #print("Resampling")
                     rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:shot_index],full_operator_list[j],self.n_cores,self._MH_steps)
                 self.infidelity[j,shot_index]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
             self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
@@ -433,7 +433,10 @@ class QST():
             # Initalize bank and weights
             rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
             weights=np.full(self.n_bank, 1/self.n_bank)
-            S_treshold=0.1*self.n_bank  
+            if self.n_qubits==1:
+                S_treshold=0.1*self.n_bank
+            elif self.n_qubits==2:
+                S_treshold=0.05*self.n_bank
             
             # Shuffle outcomes such that BME converges as expected
             rng = np.random.default_rng()
@@ -491,9 +494,9 @@ class QST():
         # Calculate the kick strenght based on the bures variance of the distribution
         likelihood_variance=np.sqrt(np.real(average_Bures(rho_bank,weights,n_qubits,n_cores)))
         if n_qubits==2:
-            likelihood_variance*=0.5
+            likelihood_variance*=0.5 
         elif n_qubits==1:
-            likelihood_variance*=0.4
+            likelihood_variance*=0.4 # This is better than 1.0, tested empirically.
         index_values,index_counts=np.unique(outcome_index,return_counts=True)
         random_seed=np.random.randint(1e8,size=(int(len(rho_bank))))
         new_rho_bank,n_accepted_iterations=zip(*Parallel(n_jobs=n_cores)(delayed(QST.resampling_bank)(n_qubits,rho_bank,cumulative_sum,full_operator_list,index_counts,index_values,likelihood_variance,MH_steps,rng) for rng in random_seed ))

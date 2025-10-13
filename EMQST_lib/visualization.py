@@ -176,24 +176,69 @@ def plot_infidelity_curves(qst, adaptive_burnin = None):
     return 1
 
 
-def plot_average_infidelity(infidelity_container, adaptive_burnin = None, labels = None):
+def plot_infidelity_from_folders(base_path):
+    folders = [f for f in glob.glob(os.path.join(base_path, "*")) if os.path.isdir(f)]
+    print(folders)
+    adaptive_infidelity_container = []
+    nonadaptive_infidelity_container = []
+    
+    plt.rcParams.update({'font.size': 20})
+    plot_cutoff = 10
+    fitcutoff = 1000
+    plt.figure(figsize=(15, 9))
+
+    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8']
+    for i, folder in enumerate(folders):
+        with open(f'{folder}/infidelity_container.npy', 'rb') as f:
+            infidelity_dict = np.load(f, allow_pickle=True).item()
+        with open(f'{folder}/settings.npy', 'rb') as f:    
+            settings = np.load(f, allow_pickle=True).item()
+        adaptive_infidelity_container.append(infidelity_dict['adaptive_infidelity_container'])
+        nonadaptive_infidelity_container.append(infidelity_dict['nonadaptive_infidelity_container'])
+    adaptive_infidelity_container = np.array(adaptive_infidelity_container)
+    container_shape = adaptive_infidelity_container.shape
+    print(adaptive_infidelity_container.shape)
+    adaptive_infidelity_container = np.reshape(adaptive_infidelity_container, (container_shape[0]*container_shape[2], -1))
+
+    mean_infidelities = np.mean(adaptive_infidelity_container, axis=0)
+    print(mean_infidelities)
+    x = np.arange(len(mean_infidelities))
+    plt.plot(x[plot_cutoff:], mean_infidelities[plot_cutoff:], color=colors[i])
+    popt,pcov=curve_fit(power_law,x[fitcutoff:],mean_infidelities[fitcutoff:],p0=np.array([1,-0.5]))
+    infiFit=power_law(x[fitcutoff:],popt[0],popt[1])
+    plt.plot(x[fitcutoff:],infiFit,'--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$',color=colors[i])
+        
+    plt.xlabel('Number of measurements')
+    plt.ylabel('Infidelity')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+def plot_from_infidelity_container(infidelity_container_array, adaptive_burnin = None, labels = None):
     """
     Plots the average infidelity from a container of infidelity data.
     """
     plt.rcParams.update({'font.size': 20})
     cutoff = 10
-    fitcutoff = 3000
+    fitcutoff = 100
     plt.figure(figsize=(15, 9))
-    x = np.arange(len(infidelity_container[0][0]))
-    mean_infidelities = np.mean(infidelity_container, axis=1)
-    colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8']
-    for i in range(len(mean_infidelities)):
-        plt.plot(x[cutoff:], mean_infidelities[i][cutoff:], label=labels[i] if labels else None, color=colors[i])
-        popt,pcov=curve_fit(power_law,x[fitcutoff:],mean_infidelities[i][fitcutoff:],p0=np.array([1,-0.5]))
-        infiFit=power_law(x[fitcutoff:],popt[0],popt[1])
-        plt.plot(x[fitcutoff:],infiFit,'--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$',color=colors[i])
-    if adaptive_burnin is not None:
-        plt.axvline(x=adaptive_burnin, color='red', linestyle='--', label='Adaptive starts')
+
+    for k, infidelity_container in enumerate(infidelity_container_array):
+        
+        
+        x = np.arange(len(infidelity_container[0][0]))
+        mean_infidelities = np.mean(infidelity_container, axis=1)
+        colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8']
+        for i in range(len(mean_infidelities)):
+            plt.plot(x[cutoff:], mean_infidelities[i][cutoff:], label=labels[i] if labels else None, color=colors[k])
+            popt,pcov=curve_fit(power_law,x[fitcutoff:],mean_infidelities[i][fitcutoff:],p0=np.array([1,-0.5]))
+            infiFit=power_law(x[fitcutoff:],popt[0],popt[1])
+            plt.plot(x[fitcutoff:],infiFit,'--',label=rf'Fit, $N^a, a={"%.2f" % popt[1]}$',color=colors[k])
+        if adaptive_burnin is not None:
+            plt.axvline(x=adaptive_burnin, color='red', linestyle='--', label='Adaptive starts')
     # for i in range(len(infidelity_container)):
     #     plt.plot(x, infidelity_container[i], alpha=0.3)
     # mean_infidelity = np.mean(infidelity_container, axis=0)
