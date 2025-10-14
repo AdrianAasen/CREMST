@@ -429,27 +429,14 @@ def generate_two_qubit_Pauli_string(use_identity: bool = False):
     return op_string_array
 
 
-def depolarizing_channel(rho, strength):
+def depolarizing_channel(A, strength):
     """
-    Applies a depolarizing channel to the density matrix rho with given strength.
+    Applies a depolarizing channel to a compleex matrix A with given strength.
+    Note: The trace(A) is nessecary if A is not a normalized Matrix
+    https://pubs.aip.org/aip/jmp/article-abstract/17/5/821/225427/Completely-positive-dynamical-semigroups-of-N?redirectedFrom=fulltext
     """
-    if strength==0: # If no strenght then return the input state
-        return rho
-    # Pauli matrices
-    I = np.eye(2)
-    X = np.array([[0, 1], [1, 0]])
-    Y = np.array([[0, -1j], [1j, 0]])
-    Z = np.array([[1, 0], [0, -1]])
-    # Kraus operators
-    K0 = np.sqrt(1 - strength) * I
-    K1 = np.sqrt(strength / 3) * X
-    K2 = np.sqrt(strength / 3) * Y
-    K3 = np.sqrt(strength / 3) * Z
-    kraus_ops = [K0, K1, K2, K3]
 
-    # Apply channel
-    rho_out = sum(K @ rho @ K.conj().T for K in kraus_ops)
-    return rho_out
+    return (1-strength)*A + strength*np.trace(A)/len(A)*np.eye(len(A))
 
 
 if __name__=="__main__":

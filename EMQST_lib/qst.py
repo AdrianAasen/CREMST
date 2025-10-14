@@ -327,22 +327,23 @@ class QST():
         decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(len(temp_POVM))])
         pauli_6_array = 1/3**(self.n_qubits)*np.array(decompiled_array.reshape(-1,decompiled_array.shape[-2],decompiled_array.shape[-1]))
         
-        #depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array])
+        depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array])
         
         # Generate the proper pauli-6 POVM
-        pauli_6 = POVM(pauli_6_array)
+        #pauli_6 = POVM(pauli_6_array)
+        depolarized_pauli_6 = POVM(depolarized_pauli_6_array)
         full_operator_list = [] # The full operator list will also contain adaptive POVMs and no direct way to separate them. The outcomes are collected and assigned correct outcome corresponding to the measureemnt operator.
         outcome_index = self.outcome_index.astype(int)
         
 
 
         for j in range(self.n_averages):
-            full_operator_list.append(pauli_6_array)
+            full_operator_list.append(depolarized_pauli_6_array)
             # Apply depolarizing channel to intial POVM elements.
             outcome_offset = 0
             adaptive_threshold = adaptive_burnin_steps
             adaptive_it = 0
-            current_POVM = copy.deepcopy(pauli_6)
+            current_POVM = copy.deepcopy(depolarized_pauli_6)
 
             # Initalize bank and weights
             rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
@@ -383,11 +384,14 @@ class QST():
                     projective_vector = ad.angles_to_state_vector(angles, self.n_qubits)
                     out = jnp.einsum('ij,ik->ijk',projective_vector,projective_vector.conj())
                     #print(f'Size: {out.shape}, norm {np.sum(out,axis=0)}')
-                    current_POVM = POVM(out)
-                
+                    # Apply depolarizing channel to new POVM elements
+                    depolarized_out = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in out])
+                    
+                    #current_POVM = POVM(out)
+                    current_POVM = POVM(depolarized_out)    
                     # Offset needs to be computed before new measurement setting is used. 
                     outcome_offset = len(full_operator_list[j]) 
-                    full_operator_list[j] = np.append(full_operator_list[j], out , axis=0)
+                    full_operator_list[j] = np.append(full_operator_list[j], depolarized_out , axis=0)
                     adaptive_threshold += np.maximum(1,int(shot_index/100))
 
                 # outcome_offset is used to be able to mix multiple different POVMs with the same outcome_index.
