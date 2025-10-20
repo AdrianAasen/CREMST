@@ -19,7 +19,7 @@ if len(sys.argv) > 1:
         print(f'Updated core count to {new_n_cores}.')
 
 
-path = "adaptive_results/test"
+path = "adaptive_results/two_qubit_100k"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
 dir_name= now_string+str(uuid.uuid4())
@@ -27,12 +27,11 @@ data_path=f'{path}/{dir_name}'
 os.mkdir(data_path)
 
 
-n_shots_total = 10**3
+n_shots_total = 10**5
 n_qubits = 2
 n_shots = n_shots_total//3**n_qubits # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
-n_averages = 1
-adaptive_burnin = 700
-n_cores = 6
+n_averages = 5
+adaptive_burnin = 30
 print(f'Starting adaptive QST with {n_shots_total} shots, {n_qubits} qubits, {n_averages} averages, and adaptive burnin of {adaptive_burnin}.')
 
 true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n_averages)])
@@ -43,10 +42,8 @@ test_POVM = POVM(pauli_6_array)
 qst_adaptive = QST(povm, true_states, n_shots, n_qubits, False,{}, n_cores=n_cores)
 
 
-
-
-n_steps = 2
-noise_step = 0.1
+n_steps = 4
+noise_step = 0.04
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []
 qst_array = []
