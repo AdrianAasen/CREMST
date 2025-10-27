@@ -41,7 +41,7 @@ def simulated_measurement(n_shots,povm,rho, return_frequencies = False):
 
     # Create cumulative sum
     cumulative_sum = np.cumsum(histogram)
-
+    cumulative_sum[-1] = 1.0  # Ensure sum is exactly one
     # Sample outcomes 
     r = np.random.random(n_shots)
 
@@ -52,7 +52,7 @@ def simulated_measurement(n_shots,povm,rho, return_frequencies = False):
         min_unique_outcomes = len(histogram)
         frequencies = outcomes_to_frequencies(outcome_list,min_unique_outcomes)
         return frequencies
-    else:    
+    else: 
         return outcome_list
 
 def outcomes_to_frequencies(outcomes,min_lenght):

@@ -23,6 +23,8 @@ class POVM():
         if not np.isclose(np.sum(POVM_list, axis=0), np.eye(len(POVM_list[0])), atol=1e-6).all():
             #print("POVM is not  normalized.")
             print(f"POVM is not normalized. Please check the input.\n {np.sum(POVM_list, axis=0)}")
+        elif np.isnan(POVM_list).any():
+            print(f"POVM contains NaN values. Please check the input.\n {POVM_list}")
         self.POVM_list=POVM_list
         self.angle_representation=angle_representation
 
