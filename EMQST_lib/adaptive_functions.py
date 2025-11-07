@@ -33,6 +33,54 @@ def adaptive_cost_function(angles,rho_bank,weights,best_guess,n_qubits):
     return -jnp.real(K-jnp.dot(J,weights))
 
 
+def adaptive_cost_function_array(angles_array, rho_bank, weights, best_guess, n_qubits):
+    """
+    JAX-compatible version of adaptive_cost_function that takes angles as an array.
+    
+    Parameters:
+    -----------
+    angles_array : jnp.array
+        - For 1 qubit: [theta, phi]
+        - For 2 qubits: [theta_A, phi_A, theta_B, phi_B]
+    """
+    # Create projective vector directly from array
+    projective_vector = angles_array_to_state_vector(angles_array, n_qubits)
+    
+    out = jnp.einsum('ij,ik->ijk', projective_vector, projective_vector.conj())
+    # Computes the entropy of prior and posterior distributions. See 10.1103/PhysRevA.85.052120 for more details.
+    K = Shannon(jnp.einsum('ijk,kj->i', out, best_guess))
+    J = Shannon(jnp.einsum('ijk,lkj->il', out, rho_bank))
+    # Returns the negative values such that it becomes a minimization problem rather than maximization problem.
+    return -jnp.real(K - jnp.dot(J, weights))
+
+
+def angles_array_to_state_vector(angles_array, n_qubits):
+    """
+    JAX-compatible version that takes angles as an array instead of dictionary.
+    
+    Parameters:
+    -----------
+    angles_array : jnp.array
+        - For 1 qubit: [theta, phi]  
+        - For 2 qubits: [theta_A, phi_A, theta_B, phi_B]
+    """
+    if n_qubits == 1:
+        theta, phi = angles_array[0], angles_array[1]
+        tempMesh = jnp.array([jnp.cos(theta/2), jnp.exp(1j*phi)*jnp.sin(theta/2)])
+        meshState = jnp.array([tempMesh, get_opposing_state(tempMesh)])
+    elif n_qubits == 2:
+        theta_A, phi_A, theta_B, phi_B = angles_array[0], angles_array[1], angles_array[2], angles_array[3]
+        tempMeshA = jnp.array([jnp.cos(theta_A/2), jnp.exp(1j*phi_A)*jnp.sin(theta_A/2)])
+        tempMeshB = jnp.array([jnp.cos(theta_B/2), jnp.exp(1j*phi_B)*jnp.sin(theta_B/2)])
+        meshA = jnp.array([tempMeshA, get_opposing_state(tempMeshA)])
+        meshB = jnp.array([tempMeshB, get_opposing_state(tempMeshB)])
+        meshState = jnp.array([jnp.kron(meshA[0],meshB[0]), jnp.kron(meshA[0],meshB[1]), 
+                              jnp.kron(meshA[1],meshB[0]), jnp.kron(meshA[1],meshB[1])])
+    else:
+        raise ValueError(f"n_qubits={n_qubits} not supported")
+    return meshState
+
+
 def Shannon(prob):
     """
     Returns the Shannon entropy of the probability histogram. 

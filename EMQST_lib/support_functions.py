@@ -435,8 +435,39 @@ def depolarizing_channel(A, strength):
     Note: The trace(A) is nessecary if A is not a normalized Matrix
     https://pubs.aip.org/aip/jmp/article-abstract/17/5/821/225427/Completely-positive-dynamical-semigroups-of-N?redirectedFrom=fulltext
     """
-
     return (1-strength)*A + strength*np.trace(A)/len(A)*np.eye(len(A))
+
+
+def angles_to_state_vector(angles,n_qubits):
+    """
+    Jax version of AnglesToStateVector.
+    """
+    if n_qubits==1:
+        tempMesh=np.array([np.cos(angles["theta"]/2),np.exp(1j*angles["phi"])*np.sin(angles["theta"]/2)])
+        meshState=np.array([tempMesh,get_opposing_state(tempMesh)])
+    else:
+        tempMeshA=np.array([np.cos(angles["theta_A"]/2),np.exp(1j*angles["phi_A"])*np.sin(angles["theta_A"]/2)])
+        tempMeshB=np.array([np.cos(angles["theta_B"]/2),np.exp(1j*angles["phi_B"])*np.sin(angles["theta_B"]/2)])
+        meshA=np.array([tempMeshA,get_opposing_state(tempMeshA)])
+        meshB=np.array([tempMeshB,get_opposing_state(tempMeshB)])
+        meshState=np.array([np.kron(meshA[0],meshB[0]),np.kron(meshA[0],meshB[1]),np.kron(meshA[1],meshB[0]),np.kron(meshA[1],meshB[1])])
+    return meshState
+
+def get_opposing_state(meshState):
+    """
+    Returns orthogonal state for an arbitrary single qubit state.
+    Jax version of getOpposingState. It has a small bug if meshState[0]==1 and should return np.array([0, 1],dtype=complex).
+    """
+    if meshState[1]==0:
+        print("Warning: Input state is |0>. Would crash adaptive algorithm. Returning |1>.")
+        return np.array([0, 1],dtype=complex)
+        
+
+    a=1
+    b=-np.conjugate(meshState[0])/np.conjugate(meshState[1])
+    norm=np.sqrt(a*np.conjugate(a) + b*np.conjugate(b))
+    oppositeMeshState=np.array([a/norm, b/norm])
+    return oppositeMeshState
 
 
 if __name__=="__main__":

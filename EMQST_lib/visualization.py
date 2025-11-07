@@ -251,3 +251,121 @@ def plot_from_infidelity_container(infidelity_container_array, adaptive_burnin =
     plt.grid()
     plt.show()
     return 1
+
+
+# ============================================
+# Local exponent via curve_fit(power_law, ...)
+# LOG-SPAN windows with FULL coverage (no edge truncation)
+# ============================================
+
+from scipy.optimize import curve_fit
+import numpy as np
+
+def exponent_series_curvefit_logspan(
+    y, x, span=1.5, step_factor=1.25, start_idx=0,
+    p0=(1.0, -0.5), maxfev=10000, min_points=20,
+    include_final_window=True
+):
+    """
+    Slide full log windows: for left edge Xl, window is [Xl, Xl*span].
+    Only evaluate windows that are COMPLETELY inside the valid data range
+    (x>0, y>0, finite). No truncated windows at either end.
+
+    Args:
+        y, x: arrays (x must be non-decreasing)
+        span (float): multiplicative width (>1), e.g., 3 means 1.0 decade ~0.477
+        step_factor (float): multiplicative step between windows (>1)
+        start_idx (int): first index allowed (e.g., fitcutoff)
+        p0, maxfev: curve_fit params
+        min_points (int): minimum points required in a window
+        include_final_window (bool): also try a last full-span window whose
+            right edge touches the max valid x (i.e., Xl = x_max_valid/span)
+
+    Returns:
+        x_centers (geom. means), alphas (exponents)
+    """
+    x = np.asarray(x); y = np.asarray(y)
+    assert np.all(np.diff(x) >= 0), "x must be non-decreasing"
+
+    # Keep only fully valid (positive, finite) samples
+    m_full = (x > 0) & (y > 0) & np.isfinite(x) & np.isfinite(y)
+    if not np.any(m_full):
+        return np.array([]), np.array([])
+
+    xv = x[m_full]; yv = y[m_full]
+
+    # Respect start_idx by x value (align against the filtered xv)
+    x_start_val = x[min(max(start_idx, 0), len(x)-1)]
+    # Effective left boundary is the first valid x >= x_start_val
+    x_left_min = xv[np.searchsorted(xv, x_start_val, side='left')]
+    x_right_max = xv[-1]
+
+    # For full coverage, left edge must satisfy: Xl * span <= x_right_max
+    # Also must be >= x_left_min
+    Xl = max(x_left_min, xv[0])
+    # If the first candidate violates the right bound, push it up
+    if Xl * span > x_right_max:
+        # No full-span window fits at all
+        return np.array([]), np.array([])
+
+    xs, alphas = [], []
+
+    def fit_window(Xl_candidate):
+        """Fit a single full-span window [Xl, Xl*span], return (center, alpha) or None."""
+        Xr_candidate = Xl_candidate * span
+        if Xr_candidate > x_right_max:
+            return None
+
+        left = np.searchsorted(xv, Xl_candidate, side='left')
+        right = np.searchsorted(xv, Xr_candidate, side='right')
+
+        xx = xv[left:right]; yy = yv[left:right]
+        # Need enough points
+        if len(xx) < min_points:
+            return None
+
+        try:
+            popt, _ = curve_fit(power_law, xx, yy, p0=np.array(p0), maxfev=maxfev)
+            x_center = np.sqrt(Xl_candidate * Xr_candidate)  # geometric mean
+            return x_center, popt[1]
+        except Exception:
+            return None
+
+    # Main sweep with multiplicative steps
+    while True:
+        if Xl * span > x_right_max:
+            break
+        out = fit_window(Xl)
+        if out is not None:
+            xc, alpha = out
+            xs.append(xc); alphas.append(alpha)
+
+        # advance
+        Xl *= step_factor
+        if not np.isfinite(Xl) or Xl <= 0:
+            break
+
+    # Optional: ensure we also include a last full-span window that ends at x_right_max
+    # (i.e., left edge at x_right_max/span), without duplicating an already-close window.
+    if include_final_window:
+        Xl_last = x_right_max / span
+        if Xl_last >= x_left_min:
+            out = fit_window(Xl_last)
+            if out is not None:
+                xc_last, a_last = out
+                # Avoid near-duplicate centers
+                if len(xs) == 0 or np.abs(np.log(xc_last) - np.log(xs[-1])) > np.log(step_factor)/2:
+                    xs.append(xc_last); alphas.append(a_last)
+
+    # Sort by x (in case final window appended out of order)
+    if xs:
+        order = np.argsort(xs)
+        xs = np.asarray(xs)[order]
+        alphas = np.asarray(alphas)[order]
+    else:
+        xs = np.array([]); alphas = np.array([])
+
+    return xs, alphas
+
+
+
