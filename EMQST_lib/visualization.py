@@ -253,10 +253,7 @@ def plot_from_infidelity_container(infidelity_container_array, adaptive_burnin =
     return 1
 
 
-# ============================================
-# Local exponent via curve_fit(power_law, ...)
-# LOG-SPAN windows with FULL coverage (no edge truncation)
-# ============================================
+
 
 from scipy.optimize import curve_fit
 import numpy as np
