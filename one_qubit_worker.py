@@ -58,7 +58,7 @@ if len(sys.argv) > 1:
         n_cores = new_n_cores
         print(f'Updated core count to {new_n_cores}.')
 
-path = "adaptive_results/one_qubit_100k_large_noise_new_ada" 
+path = "adaptive_results/one_qubit_100k_large_noise_large_bank" 
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
 dir_name= now_string+str(uuid.uuid4())
@@ -81,7 +81,7 @@ pauli_6_array = 1/3**(n_qubits)*np.array(decompiled_array.reshape(-1,decompiled_
 test_POVM = POVM(pauli_6_array)
 qst_adaptive = QST(povm, true_states, n_shots, n_qubits, False,{}, n_cores=n_cores)
 
-noise_levels = [0, 0.05, 0.15, 0.25]
+noise_levels = [0, 0.05, 0.25]
 n_steps = len(noise_levels)
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []

@@ -68,7 +68,7 @@ class QST():
         
         # BME parameters
         if n_qubits==1:
-            self.n_bank=200
+            self.n_bank=1000
             self._MH_steps=50
         elif n_qubits==2:
             self.n_bank=2000
