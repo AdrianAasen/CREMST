@@ -65,13 +65,13 @@ class QST():
         full_operator_list=np.reshape(full_operator_list,(-1,2**self.n_qubits,2**self.n_qubits))
         self.full_operator_list=full_operator_list
 
-        
+        self.resampling_multiplier = 1
         # BME parameters
         if n_qubits==1:
-            self.n_bank=1000
+            self.n_bank=100
             self._MH_steps=50
         elif n_qubits==2:
-            self.n_bank=2000
+            self.n_bank=1000
             self._MH_steps=200
         elif n_qubits>2:
             self.n_bank=0
@@ -266,164 +266,165 @@ class QST():
         return rho_1
        
 
-    def perform_adaptive_BME(self,override_POVM_list = None, compute_uncertainty = False, depolarizing_strength = 0, adaptive_burnin_steps = None):
-        """
-        Special purpose adaptive BME. Iteratively updates the measured POVM based on an optimization problem.
-        As opposed to normal BME, measurements must be performed live, and if measurements were performed already they will be deleted.
-        For adaptive noise, only depolarizing strength is supported, and it is applied to the POVM elements.
-        If depolarizing_strength is set to 0, no depolarization is applied.""" 
-        # These imports are only needed for adaptive BME, and requires to be run in a linux environment. 
-        import jax.numpy as jnp
-        from jax import grad, jit, vmap
-        from jax import random
-        import optax
-        import jax
-        from EMQST_lib import adaptive_functions as ad
-        if self.n_qubits==1:
-            total_grad_steps = 100
-        else:
-            total_grad_steps = 1000 
-        if adaptive_burnin_steps is None:
-            adaptive_burnin_steps = 0
+    # def perform_adaptive_BME(self,override_POVM_list = None, compute_uncertainty = False, depolarizing_strength = 0, adaptive_burnin_steps = None):
+    #     """
+    #     Special purpose adaptive BME. Iteratively updates the measured POVM based on an optimization problem.
+    #     As opposed to normal BME, measurements must be performed live, and if measurements were performed already they will be deleted.
+    #     For adaptive noise, only depolarizing strength is supported, and it is applied to the POVM elements.
+    #     If depolarizing_strength is set to 0, no depolarization is applied.""" 
+    #     # These imports are only needed for adaptive BME, and requires to be run in a linux environment. 
+    #     import jax.numpy as jnp
+    #     from jax import grad, jit, vmap
+    #     from jax import random
+    #     import optax
+    #     import jax
+    #     from EMQST_lib import adaptive_functions as ad
+    #     if self.n_qubits==1:
+    #         total_grad_steps = 100
+    #     else:
+    #         total_grad_steps = 1000 
+    #     if adaptive_burnin_steps is None:
+    #         adaptive_burnin_steps = 0
 
        
        
-        # Start by defining optimizer
-        if self.n_qubits == 1: # Select two different schedules for 1 and 2 qubits
-            #opt_Schedule = optax.cosine_decay_schedule(0.02, decay_steps=total_grad_steps, alpha=0.95)
-            opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.01,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
-        elif self.n_qubits == 2:
-            opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.02,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
-            #opt_Schedule = optax.linear_schedule(init_value=0.05, end_value=0.001, transition_steps=total_grad_steps)
-        else:
-            print('Adaptive BME not supported for more than 2 qubits.')
-            return None
+    #     # Start by defining optimizer
+    #     if self.n_qubits == 1: # Select two different schedules for 1 and 2 qubits
+    #         #opt_Schedule = optax.cosine_decay_schedule(0.02, decay_steps=total_grad_steps, alpha=0.95)
+    #         opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.01,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
+    #     elif self.n_qubits == 2:
+    #         opt_Schedule = optax.linear_onecycle_schedule(peak_value=0.02,transition_steps=total_grad_steps,pct_start=0.25,pct_final=0.7,div_factor=20,final_div_factor=10)
+    #         #opt_Schedule = optax.linear_schedule(init_value=0.05, end_value=0.001, transition_steps=total_grad_steps)
+    #     else:
+    #         print('Adaptive BME not supported for more than 2 qubits.')
+    #         return None
         
-        def optim(learning_rate):
-            return optax.adam(learning_rate=learning_rate)# optax.sgd(learning_rate=learning_rate, momentum=0.9)  # Simpler than ADAM
+    #     def optim(learning_rate):
+    #         return optax.adam(learning_rate=learning_rate)# optax.sgd(learning_rate=learning_rate, momentum=0.9)  # Simpler than ADAM
 
-        optimizer = optim(opt_Schedule)
+    #     optimizer = optim(opt_Schedule)
    
-        @jax.jit
-        def jax_step(angles, opt_state, rho_bank, weights, best_guess):
-            loss_value, grads = jax.value_and_grad(ad.adaptive_cost_function)(angles, rho_bank, weights, best_guess, self.n_qubits)
-            updates, opt_state = optimizer.update(grads, opt_state, angles)
-            angles = optax.apply_updates(angles, updates)
-            return angles, opt_state, loss_value
+    #     @jax.jit
+    #     def jax_step(angles, opt_state, rho_bank, weights, best_guess):
+    #         loss_value, grads = jax.value_and_grad(ad.adaptive_cost_function)(angles, rho_bank, weights, best_guess, self.n_qubits)
+    #         updates, opt_state = optimizer.update(grads, opt_state, angles)
+    #         angles = optax.apply_updates(angles, updates)
+    #         return angles, opt_state, loss_value
 
         
-        # Continue with normal BME setup
-        # Checks if BME is performed for more than 2 qubits
-        if self.n_qubits>2:
-            print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
-            print(f'Returning the thermal state.')
-            return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
-        
-
-
-
-
-        # Define noisy POVM to be used for sampling
-        # Create single (potentially depolarized) Pauli-6 POVM
-        temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits) # Starts out with Pauli-6 burnin
-        decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(len(temp_POVM))])
-        pauli_6_array = 1/3**(self.n_qubits)*np.array(decompiled_array.reshape(-1,decompiled_array.shape[-2],decompiled_array.shape[-1]))
-        
-        depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array])
-        
-        # Generate the proper pauli-6 POVM
-        #pauli_6 = POVM(pauli_6_array)
-        depolarized_pauli_6 = POVM(depolarized_pauli_6_array)
-        full_operator_list = [] # The full operator list will also contain adaptive POVMs and no direct way to separate them. The outcomes are collected and assigned correct outcome corresponding to the measureemnt operator.
-        outcome_index = self.outcome_index.astype(int)
+    #     # Continue with normal BME setup
+    #     # Checks if BME is performed for more than 2 qubits
+    #     if self.n_qubits>2:
+    #         print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
+    #         print(f'Returning the thermal state.')
+    #         return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
         
 
 
-        for j in range(self.n_averages):
-            full_operator_list.append(depolarized_pauli_6_array)
-            # Apply depolarizing channel to intial POVM elements.
-            outcome_offset = 0
-            adaptive_threshold = adaptive_burnin_steps
-            adaptive_it = 0
-            current_POVM = copy.deepcopy(depolarized_pauli_6)
 
-            # Initalize bank and weights
-            rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
-            weights=np.full(self.n_bank, 1/self.n_bank)
-            if self.n_qubits==1:
-                S_treshold=0.1*self.n_bank
-            elif self.n_qubits==2:
-                S_treshold=0.05*self.n_bank  
+
+    #     # Define noisy POVM to be used for sampling
+    #     # Create single (potentially depolarized) Pauli-6 POVM
+    #     temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits) # Starts out with Pauli-6 burnin
+    #     decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(len(temp_POVM))])
+    #     pauli_6_array = 1/3**(self.n_qubits)*np.array(decompiled_array.reshape(-1,decompiled_array.shape[-2],decompiled_array.shape[-1]))
+        
+    #     depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array])
+        
+    #     # Generate the proper pauli-6 POVM
+    #     #pauli_6 = POVM(pauli_6_array)
+    #     depolarized_pauli_6 = POVM(depolarized_pauli_6_array)
+    #     full_operator_list = [] # The full operator list will also contain adaptive POVMs and no direct way to separate them. The outcomes are collected and assigned correct outcome corresponding to the measureemnt operator.
+    #     outcome_index = self.outcome_index.astype(int)
+        
+
+
+    #     for j in range(self.n_averages):
+    #         full_operator_list.append(depolarized_pauli_6_array)
+    #         # Apply depolarizing channel to intial POVM elements.
+    #         outcome_offset = 0
+    #         adaptive_threshold = adaptive_burnin_steps
+    #         adaptive_it = 0
+    #         resampling_variance_multiplier = 1
+    #         current_POVM = copy.deepcopy(depolarized_pauli_6)
+
+    #         # Initalize bank and weights
+    #         rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
+    #         weights=np.full(self.n_bank, 1/self.n_bank)
+    #         if self.n_qubits==1:
+    #             S_treshold=0.1*self.n_bank
+    #         elif self.n_qubits==2:
+    #             S_treshold=0.05*self.n_bank  
             
-            # Adaptive measurements strategy is based on finding the overall best unitary rotation that has the maximal information gain.
-            for shot_index in range(self.n_shots_total):
+    #         # Adaptive measurements strategy is based on finding the overall best unitary rotation that has the maximal information gain.
+    #         for shot_index in range(self.n_shots_total):
                 
-                # Update POVM if adaptive criteria is met.
-                if shot_index > adaptive_threshold:
-                    adaptive_it += 1
-                    prev_loss = 0
-                    # Usest the current mean state as the state to adapt around.
-                    current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
-                    inital_angles = ad.rho_to_angles(current_mean_state, self.n_qubits)
-                    # Initialize optimizer with random angles, create jax-friendly objects.
-                    opt_state = optimizer.init(inital_angles)
-                    best_angles = inital_angles
-                    angles = inital_angles
-                    successful_gradient_step_it = 0
+    #             # Update POVM if adaptive criteria is met.
+    #             if shot_index > adaptive_threshold:
+    #                 adaptive_it += 1
+    #                 prev_loss = 0
+    #                 # Usest the current mean state as the state to adapt around.
+    #                 current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
+    #                 inital_angles = ad.rho_to_angles(current_mean_state, self.n_qubits)
+    #                 # Initialize optimizer with random angles, create jax-friendly objects.
+    #                 opt_state = optimizer.init(inital_angles)
+    #                 best_angles = inital_angles
+    #                 angles = inital_angles
+    #                 successful_gradient_step_it = 0
 
-                    jbank=jnp.array(rho_bank)
-                    jweight=jnp.array(weights)
-                    jmean_state=jnp.array(current_mean_state)
-                    for _ in range(total_grad_steps):
-                        angles, opt_state, current_loss = jax_step(angles, opt_state, jbank, jweight, jmean_state)
-                        if current_loss<prev_loss:
-                            #print('Updated')
-                            best_angles = angles
-                            prev_loss = current_loss
-                            successful_gradient_step_it += 1
-                    #print(f'Relative adaptive success: {successful_gradient_step_it/total_grad_steps    }')
-                    angles = best_angles
-                    projective_vector = sf.angles_to_state_vector(angles, self.n_qubits)
-                    out = np.einsum('ij,ik->ijk',projective_vector,projective_vector.conj())
-                    #print(f'Size: {out.shape}, norm {np.sum(out,axis=0)}')
-                    # Apply depolarizing channel to new POVM elements
-                    depolarized_out = np.array([sf.depolarizing_channel(element, depolarizing_strength) for element in out])
+    #                 jbank=jnp.array(rho_bank)
+    #                 jweight=jnp.array(weights)
+    #                 jmean_state=jnp.array(current_mean_state)
+    #                 for _ in range(total_grad_steps):
+    #                     angles, opt_state, current_loss = jax_step(angles, opt_state, jbank, jweight, jmean_state)
+    #                     if current_loss<prev_loss:
+    #                         #print('Updated')
+    #                         best_angles = angles
+    #                         prev_loss = current_loss
+    #                         successful_gradient_step_it += 1
+    #                 #print(f'Relative adaptive success: {successful_gradient_step_it/total_grad_steps    }')
+    #                 angles = best_angles
+    #                 projective_vector = sf.angles_to_state_vector(angles, self.n_qubits)
+    #                 out = np.einsum('ij,ik->ijk',projective_vector,projective_vector.conj())
+    #                 #print(f'Size: {out.shape}, norm {np.sum(out,axis=0)}')
+    #                 # Apply depolarizing channel to new POVM elements
+    #                 depolarized_out = np.array([sf.depolarizing_channel(element, depolarizing_strength) for element in out])
                     
-                    #current_POVM = POVM(out)
-                    current_POVM = POVM(depolarized_out)    
-                    # Offset needs to be computed before new measurement setting is used. 
-                    outcome_offset = len(full_operator_list[j]) 
-                    if len(depolarized_out)!=2**self.n_qubits:
-                        print('Warning! Adaptive POVM does not have correct number of outcomes!')
-                        print(f'Number of outcomes: {len(depolarized_out)}, expected {2**self.n_qubits}.')
-                        print(depolarized_out)
-                    full_operator_list[j] = np.append(full_operator_list[j], depolarized_out , axis=0)
-                    adaptive_threshold += np.maximum(1,int(shot_index/100))
+    #                 #current_POVM = POVM(out)
+    #                 current_POVM = POVM(depolarized_out)    
+    #                 # Offset needs to be computed before new measurement setting is used. 
+    #                 outcome_offset = len(full_operator_list[j]) 
+    #                 if len(depolarized_out)!=2**self.n_qubits:
+    #                     print('Warning! Adaptive POVM does not have correct number of outcomes!')
+    #                     print(f'Number of outcomes: {len(depolarized_out)}, expected {2**self.n_qubits}.')
+    #                     print(depolarized_out)
+    #                 full_operator_list[j] = np.append(full_operator_list[j], depolarized_out , axis=0)
+    #                 adaptive_threshold += np.maximum(1,int(shot_index/100))
 
-                # outcome_offset is used to be able to mix multiple different POVMs with the same outcome_index.
-                individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
-                outcome_index[j,shot_index] = individual_outcome + outcome_offset
-                if outcome_index[j,shot_index]>len(full_operator_list[j])-1:
-                    print('Warning! outcome index is larger than possible outcome!')
-                    print(f'Outcome index: {outcome_index[j,shot_index]}, max possible {len(full_operator_list[j])}.')
-                    print(f'Current POVM has {len(current_POVM.get_POVM())} elements.')
-                    print(current_POVM.get_POVM())
-                    print(f'Last computed offset: {outcome_offset}.')
-                    print(f'Individual outcome: {individual_outcome}.')
-                    print(f'Total POVM size: {len(full_operator_list[j])}.')
-                    print(f'Last two povm elements are: {full_operator_list[j][-2:]}.')
-                weights = QST.weight_update(weights,rho_bank,full_operator_list[j][outcome_index[j,shot_index]])
-                S_effective=1/np.dot(weights,weights)
-                # If effective sample size of posterior distribution is too low we resample
-                if (S_effective<S_treshold):
-                    #print("Resampling")
-                    rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:shot_index],full_operator_list[j],self.n_cores,self._MH_steps)
-                self.infidelity[j,shot_index]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
-                # Compute average bures distance of distribution
-                if compute_uncertainty and shot_index%100==0:
-                    self.uncertainty[j,shot_index] = 2*self.infidelity[j,shot_index]/average_Bures(rho_bank,weights,self.n_qubits,self.n_cores)
-            self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
-            print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
+    #             # outcome_offset is used to be able to mix multiple different POVMs with the same outcome_index.
+    #             individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
+    #             outcome_index[j,shot_index] = individual_outcome + outcome_offset
+    #             if outcome_index[j,shot_index]>len(full_operator_list[j])-1:
+    #                 print('Warning! outcome index is larger than possible outcome!')
+    #                 print(f'Outcome index: {outcome_index[j,shot_index]}, max possible {len(full_operator_list[j])}.')
+    #                 print(f'Current POVM has {len(current_POVM.get_POVM())} elements.')
+    #                 print(current_POVM.get_POVM())
+    #                 print(f'Last computed offset: {outcome_offset}.')
+    #                 print(f'Individual outcome: {individual_outcome}.')
+    #                 print(f'Total POVM size: {len(full_operator_list[j])}.')
+    #                 print(f'Last two povm elements are: {full_operator_list[j][-2:]}.')
+    #             weights = QST.weight_update(weights,rho_bank,full_operator_list[j][outcome_index[j,shot_index]])
+    #             S_effective=1/np.dot(weights,weights)
+    #             # If effective sample size of posterior distribution is too low we resample
+    #             if (S_effective<S_treshold):
+    #                 #print("Resampling")
+    #                 rho_bank, weights, resampling_variance_multiplier =QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:shot_index],full_operator_list[j],self.n_cores,self._MH_steps, resampling_variance_multiplier)
+    #             self.infidelity[j,shot_index]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
+    #             # Compute average bures distance of distribution
+    #             if compute_uncertainty and shot_index%100==0:
+    #                 self.uncertainty[j,shot_index] = 2*self.infidelity[j,shot_index]/average_Bures(rho_bank,weights,self.n_qubits,self.n_cores)
+    #         self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
+    #         print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
                     
 
 
@@ -457,6 +458,7 @@ class QST():
             # Initalize bank and weights
             rho_bank=generate_bank_particles(self.n_bank,self.n_qubits)
             weights=np.full(self.n_bank, 1/self.n_bank)
+            resampling_variance_multiplier = 1
             if self.n_qubits==1:
                 S_treshold=0.1*self.n_bank
             elif self.n_qubits==2:
@@ -474,12 +476,15 @@ class QST():
 
                 #If effective sample size of posterior distribution is too low we resample
                 if (S_effective<S_treshold):
-                   rho_bank, weights=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:k],full_operator_list,self.n_cores,self._MH_steps)
-                self.infidelity[j,k]=1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
+                   rho_bank, weights, resampling_variance_multiplier=QST.resampling(self.n_qubits,rho_bank,weights,outcome_index[j,:k],full_operator_list,self.n_cores,self._MH_steps, resampling_variance_multiplier)
+                self.infidelity[j,k]= sf.qubit_infidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights)) #(1-np.real(np.einsum('ij,kji,k->',self.true_state_list[j],rho_bank,weights))
 
                 # Compute average bures distance of distribution
-                if compute_uncertainty and k%100==0:
-                    self.uncertainty[j,k] = 2*self.infidelity[j,k]/average_Bures(rho_bank,weights,self.n_qubits,self.n_cores)
+                if compute_uncertainty and (k % 100 == 0):
+                    self.uncertainty[j, k] = 2*(1 - np.sqrt(sf.qubit_fidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights)))) / average_Bures(rho_bank, weights, self.n_qubits, self.n_cores)
+                    #self.uncertainty[j, shot_index] = 2*(1 - np.sqrt(np.real(np.einsum('ij,kji,k->', self.true_state_list[j], rho_bank, weights)))) / average_Bures(rho_bank, weights, self.n_qubits, self.n_cores)
+                    #print(f'Computed uncertainty at shot {k}, {self.uncertainty[j, k]}')
+                    #print(f"Ratio of old and new fidelity {self.infidelity[j, k]/ (1 - np.sqrt(sf.qubit_fidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights))) )}")
 
             self.rho_estimate[j]=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
             print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
@@ -509,7 +514,7 @@ class QST():
         return np.real(conditional_probability*weights/np.dot(conditional_probability,weights))
     
 
-    def resampling(n_qubits,rho_bank,weights,outcome_index,full_operator_list,n_cores,MH_steps):
+    def resampling(n_qubits,rho_bank,weights,outcome_index,full_operator_list,n_cores,MH_steps, resampling_variance_multiplier):
         # Start by sampling bank particles by their relative weight
         # Calculate the cumulative probabilites for easy sampling
         cumulative_sum=np.cumsum(weights)
@@ -517,18 +522,24 @@ class QST():
         likelihood_variance=np.sqrt(np.real(average_Bures(rho_bank,weights,n_qubits,n_cores)))
         
         if n_qubits==2:
-            likelihood_variance*=0.2 
+            likelihood_variance*=0.4 * resampling_variance_multiplier
         elif n_qubits==1:
-            likelihood_variance*=0.4 # This is better than 1.0, tested empirically.
+            likelihood_variance*=0.15 * resampling_variance_multiplier # This is better than 1.0, tested empirically.
+
+
         index_values,index_counts=np.unique(outcome_index,return_counts=True)
         random_seed=np.random.randint(1e8,size=(int(len(rho_bank))))
         new_rho_bank,n_accepted_iterations=zip(*Parallel(n_jobs=n_cores)(delayed(QST.resampling_bank)(n_qubits,rho_bank,cumulative_sum,full_operator_list,index_counts,index_values,likelihood_variance,MH_steps,rng) for rng in random_seed ))
         new_rho_bank=np.asarray(new_rho_bank)
         n_accepted_iterations=np.sum(n_accepted_iterations)
-        
-        #print(f'    Acceptance rate:{n_accepted_iterations/(len(rho_bank)*MH_steps)}')
+        if n_accepted_iterations/(len(rho_bank)*MH_steps)<0.3:
+            print(f'Low overall acceptance during resampling! Accepted ratio: {n_accepted_iterations/(len(rho_bank)*MH_steps)}.')
+            print(f'Lowers likelihood variance.')
+            resampling_variance_multiplier *= 0.9
+        print(f'    Acceptance rate:{n_accepted_iterations/(len(rho_bank)*MH_steps)}')
+
         new_weights=np.full(len(weights),1/len(weights))
-        return new_rho_bank, new_weights
+        return new_rho_bank, new_weights, resampling_variance_multiplier
         
     
     
@@ -587,42 +598,240 @@ class QST():
             print(f'Low acceptance! Accepted ratio: {n_accepted_iterations/MH_steps}.')
         return perturbed_rho, n_accepted_iterations
     
-    def perform_grid_adaptive_BME(
+    # def perform_grid_adaptive_BME(
+    #     self,
+    #     candidate_angles_grid=None,
+    #     compute_uncertainty=None,
+    #     depolarizing_strength=0,
+    #     adaptive_burnin_steps=None,
+    # ):
+    #     """
+    #     Adaptive BME with a PRE-MADE GRID (no gradient descent).
+    #     At each adaptive update, we evaluate the information-gain objective on a
+    #     uniform grid over the (one or two) Bloch spheres and pick the best point.
+
+    #     Parameters
+    #     ----------
+    #     candidate_angles_grid : np.ndarray or None
+    #         - 1 qubit: shape (K, 2) with rows (theta, phi)
+    #         - 2 qubits: shape (K, 4) with rows (theta1, phi1, theta2, phi2)
+    #         If None, a small default grid is constructed (OK for testing).
+
+    #     compute_uncertainty : bool or None
+    #         If truthy, computes uncertainty every 50 shots (same as before).
+
+    #     depolarizing_strength : float
+    #         Depolarizing noise applied to POVM elements (0 = no depolarization).
+
+    #     adaptive_burnin_steps : int or None
+    #         Number of initial shots before the first adaptive update.
+    #         Defaults to 0 if None.
+    #     """
+    #     # --- Imports (kept minimal; we still use JAX to JIT/vmap the cost eval) ---
+    #     import numpy as np
+    #     import jax
+    #     import jax.numpy as jnp
+    #     from EMQST_lib import adaptive_functions as ad
+
+    #     # --- Guards and defaults ---
+    #     if self.n_qubits > 2:
+    #         print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
+    #         print(f'Returning the thermal state.')
+    #         return 1/(2**self.n_qubits)*np.eye(2**self.n_qubits)
+
+    #     if adaptive_burnin_steps is None:
+    #         adaptive_burnin_steps = 0
+
+    #     # # --- Default grid builder (fallback only; you should pass your uniform grid) --
+    #     # if candidate_angles_grid is None:
+    #     #     candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=256)
+
+    #     # # Sanity check on grid shape
+    #     # expected_cols = 2 if self.n_qubits == 1 else 4
+    #     # if candidate_angles_grid.ndim != 2 or candidate_angles_grid.shape[1] != expected_cols:
+    #     #     raise ValueError(
+    #     #         f"candidate_angles_grid must have shape (K,{expected_cols}) for n_qubits={self.n_qubits}."
+    #     #     )
+
+    #     # --- Build initial (possibly depolarized) Pauli-6 POVM ---
+    #     temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits)  # starts with Pauli-6 burn-in
+    #     decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(len(temp_POVM))])
+    #     pauli_6_array = (1 / 3**(self.n_qubits)) * np.array(
+    #         decompiled_array.reshape(-1, decompiled_array.shape[-2], decompiled_array.shape[-1])
+    #     )
+    #     depolarized_pauli_6_array = np.array(
+    #         [sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in pauli_6_array]
+    #     )
+    #     depolarized_pauli_6 = POVM(depolarized_pauli_6_array)
+
+    #     # --- Storage for mixed POVM list (base + appended adaptives) and outcome indices ---
+    #     full_operator_list = []
+    #     outcome_index = self.outcome_index.astype(int)
+
+    #     # --- Pre-compile JAX functions outside the main loop to avoid recompilation ---
+    #     @jax.jit
+    #     def _score_one_grid_jit(angles_array, rho_bank, weights, best_guess):
+    #         """Single angle evaluation, JIT compiled once."""
+    #         return ad.adaptive_cost_function_array(angles_array, rho_bank, weights, best_guess, self.n_qubits)
+        
+    #     # Vectorized scorer using pre-compiled function
+    #     _score_grid_vmap = jax.vmap(_score_one_grid_jit, in_axes=(0, None, None, None))
+
+    #     def score_grid(grid_angles, rho_bank, weights, best_guess):
+    #         """
+    #         Returns scores for each grid angle vector using adaptive_cost_function.
+    #         Lower is better (assuming cost is negative information gain etc.).
+    #         """
+    #         return _score_grid_vmap(grid_angles, rho_bank, weights, best_guess)
+
+    #     for j in range(self.n_averages):
+    #         full_operator_list.append(depolarized_pauli_6_array)
+    #         outcome_offset = 0
+    #         adaptive_threshold = adaptive_burnin_steps
+    #         adaptive_it = 0
+    #         current_POVM = copy.deepcopy(depolarized_pauli_6)
+    #         resampling_variance_multiplier = 1
+
+    #         # Initialize particle bank and weights
+    #         rho_bank = generate_bank_particles(self.n_bank, self.n_qubits)
+    #         weights = np.full(self.n_bank, 1.0 / self.n_bank)
+    #         if self.n_qubits == 1:
+    #             S_treshold = 0.1 * self.n_bank
+    #         else:
+    #             S_treshold = 0.05 * self.n_bank
+
+    #         # --- Main loop over shots ---
+    #         for shot_index in range(self.n_shots_total):
+
+    #             # Adaptive update: choose best grid point (no gradient descent)
+    #             if shot_index > adaptive_threshold:
+    #                 adaptive_it += 1
+    #                 if self.n_qubits == 1:
+    #                     #print(f'Num of points on sphere :{4*256*int(np.log10(shot_index+1))}')
+    #                     candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=256*int(np.emath.logn(3, shot_index+1)))
+    #                 else: # two-qubit
+    #                     candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=32*int(np.log10(shot_index+1)))
+    #                 # Current posterior mean (best_guess)
+    #                 current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
+
+    #                 # JAX arrays
+    #                 jbank = jnp.array(rho_bank)
+    #                 jweight = jnp.array(weights)
+    #                 jmean_state = jnp.array(current_mean_state)
+    #                 jgrid = jnp.array(candidate_angles_grid)
+
+    #                 # Evaluate scores over grid and choose argmin
+    #                 scores = score_grid(jgrid, jbank, jweight, jmean_state)
+    #                 best_idx = int(jnp.argmin(scores))
+    #                 best_angles = np.array(candidate_angles_grid[best_idx])
+
+    #                 # Convert numpy array angles to dictionary format expected by angles_to_state_vector
+    #                 if self.n_qubits == 1:
+    #                     angles_dict = {
+    #                         "theta": best_angles[0],
+    #                         "phi": best_angles[1]
+    #                     }
+    #                 elif self.n_qubits == 2:
+    #                     angles_dict = {
+    #                         "theta_A": best_angles[0],
+    #                         "phi_A": best_angles[1],
+    #                         "theta_B": best_angles[2], 
+    #                         "phi_B": best_angles[3]
+    #                     }
+    #                 else:
+    #                     raise ValueError(f"n_qubits={self.n_qubits} not supported")
+                    
+    #                 # Turn best angles into a complete projective POVM (same pattern as original adaptive BME)
+    #                 projective_vector = sf.angles_to_state_vector(angles_dict, self.n_qubits)  # shape (2^n_qubits, 2^n_qubits)
+    #                 out = np.einsum('ij,ik->ijk', projective_vector, projective_vector.conj())  # Create projectors from state vectors
+
+    #                 # Apply depolarizing channel to new POVM elements
+    #                 depolarized_out = np.array([sf.depolarizing_channel(element, depolarizing_strength) for element in out])
+
+    #                 # Update current POVM and bookkeeping
+    #                 current_POVM = POVM(depolarized_out)
+    #                 outcome_offset = len(full_operator_list[j])
+    #                 if len(depolarized_out) != 2**self.n_qubits:
+    #                     print('Warning! Adaptive POVM has an unexpected number of outcomes!')
+    #                     print(f'Number of outcomes: {len(depolarized_out)}, expected {2**self.n_qubits}.')
+
+    #                 full_operator_list[j] = np.append(full_operator_list[j], depolarized_out, axis=0)
+
+    #                 # Grow the gap between adaptive updates, like your original schedule
+    #                 adaptive_threshold += max(5, int(shot_index / 50))
+
+    #             # --- Simulate measurement and update weights ---
+    #             individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
+    #             outcome_index[j, shot_index] = individual_outcome + outcome_offset
+
+    #             if outcome_index[j, shot_index] > len(full_operator_list[j]) - 1:
+    #                 print('Warning! outcome index is larger than possible outcome!')
+    #                 print(f'Outcome index: {outcome_index[j,shot_index]}, max possible {len(full_operator_list[j])}.')
+    #                 print(f'Current POVM has {len(current_POVM.get_POVM())} elements.')
+    #                 print(current_POVM.get_POVM())
+    #                 print(f'Last computed offset: {outcome_offset}.')
+    #                 print(f'Individual outcome: {individual_outcome}.')
+    #                 print(f'Total POVM size: {len(full_operator_list[j])}.')
+    #                 print(f'Last two povm elements are: {full_operator_list[j][-2:]}.')
+
+    #             weights = QST.weight_update(weights, rho_bank, full_operator_list[j][outcome_index[j, shot_index]])
+    #             S_effective = 1.0 / np.dot(weights, weights)
+
+    #             # Resample if posterior collapses
+    #             if S_effective < S_treshold:
+    #                 rho_bank, weights, resampling_variance_multiplier = QST.resampling(
+    #                     self.n_qubits,
+    #                     rho_bank,
+    #                     weights,
+    #                     outcome_index[j, :shot_index],
+    #                     full_operator_list[j],
+    #                     self.n_cores,
+    #                     self._MH_steps,
+    #                     resampling_variance_multiplier
+    #                 )
+
+    #             # Track infidelity
+    #             self.infidelity[j, shot_index] = 1 - np.real(np.einsum('ij,kji,k->', self.true_state_list[j], rho_bank, weights))
+
+    #             # Optional uncertainty
+    #             if compute_uncertainty and (shot_index % 50 == 0):
+    #                 self.uncertainty[j, shot_index] = 2*(1 - np.sqrt(np.real(np.einsum('ij,kji,k->', self.true_state_list[j], rho_bank, weights)))) / average_Bures(rho_bank, weights, self.n_qubits, self.n_cores)
+
+    #         # Posterior mean at the end
+    #         self.rho_estimate[j] = np.array(np.einsum('ijk,i->jk', rho_bank, weights))
+    #         print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
+   
+
+    def perform_random_adaptive_BME(
         self,
-        candidate_angles_grid=None,
-        compute_uncertainty=None,
-        depolarizing_strength=0,
-        adaptive_burnin_steps=None,
+        num_candidates:int = 2048,
+        gaussian_sigma_theta: float = 0.1,
+        gaussian_sigma_phi: float = 0.5,
+        compute_uncertainty: bool = False,
+        depolarizing_strength: float = 0,
+        adaptive_burnin_steps: int = None,
     ):
         """
-        Adaptive BME with a PRE-MADE GRID (no gradient descent).
-        At each adaptive update, we evaluate the information-gain objective on a
-        uniform grid over the (one or two) Bloch spheres and pick the best point.
+        Adaptive BME using randomized candidate sampling instead of a static grid.
+        At each adaptive update we draw `num_candidates` angle vectors from a
+        mixture distribution:
+          - 80% uniform over the Bloch-sphere product space
+          - 20% gaussian perturbations centered around previously selected angles
 
-        Parameters
-        ----------
-        candidate_angles_grid : np.ndarray or None
-            - 1 qubit: shape (K, 2) with rows (theta, phi)
-            - 2 qubits: shape (K, 4) with rows (theta1, phi1, theta2, phi2)
-            If None, a small default grid is constructed (OK for testing).
+        The candidate with minimal adaptive_cost_function_array is chosen.
 
-        compute_uncertainty : bool or None
-            If truthy, computes uncertainty every 50 shots (same as before).
-
-        depolarizing_strength : float
-            Depolarizing noise applied to POVM elements (0 = no depolarization).
-
-        adaptive_burnin_steps : int or None
-            Number of initial shots before the first adaptive update.
-            Defaults to 0 if None.
+        Parameters:
+          num_candidates: number of candidate settings to draw per adaptive update
+          gaussian_sigma_theta, gaussian_sigma_phi: gaussian stddevs (radians)
+          compute_uncertainty: if True compute uncertainty every 50 shots
+          depolarizing_strength: apply depolarizing noise to adaptive POVMs
+          adaptive_burnin_steps: delay before first adaptive update
         """
-        # --- Imports (kept minimal; we still use JAX to JIT/vmap the cost eval) ---
         import numpy as np
         import jax
         import jax.numpy as jnp
         from EMQST_lib import adaptive_functions as ad
 
-        # --- Guards and defaults ---
         if self.n_qubits > 2:
             print(f'BME does not support more than 2 qubits, current is {self.n_qubits}.')
             print(f'Returning the thermal state.')
@@ -631,19 +840,8 @@ class QST():
         if adaptive_burnin_steps is None:
             adaptive_burnin_steps = 0
 
-        # # --- Default grid builder (fallback only; you should pass your uniform grid) --
-        # if candidate_angles_grid is None:
-        #     candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=256)
-
-        # # Sanity check on grid shape
-        # expected_cols = 2 if self.n_qubits == 1 else 4
-        # if candidate_angles_grid.ndim != 2 or candidate_angles_grid.shape[1] != expected_cols:
-        #     raise ValueError(
-        #         f"candidate_angles_grid must have shape (K,{expected_cols}) for n_qubits={self.n_qubits}."
-        #     )
-
-        # --- Build initial (possibly depolarized) Pauli-6 POVM ---
-        temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits)  # starts with Pauli-6 burn-in
+        # Build initial (possibly depolarized) Pauli-6 POVM
+        temp_POVM = POVM.generate_Pauli_POVM(self.n_qubits)
         decompiled_array = np.array([temp_POVM[i].get_POVM() for i in range(len(temp_POVM))])
         pauli_6_array = (1 / 3**(self.n_qubits)) * np.array(
             decompiled_array.reshape(-1, decompiled_array.shape[-2], decompiled_array.shape[-1])
@@ -653,30 +851,44 @@ class QST():
         )
         depolarized_pauli_6 = POVM(depolarized_pauli_6_array)
 
-        # --- Storage for mixed POVM list (base + appended adaptives) and outcome indices ---
         full_operator_list = []
         outcome_index = self.outcome_index.astype(int)
 
-        # --- JAX function: vectorized evaluation of the adaptive cost over the grid ---
+        # Pre-compile JAX functions outside the main loop to avoid recompilation
         @jax.jit
-        def score_grid(grid_angles, rho_bank, weights, best_guess):
-            """
-            Returns scores for each grid angle vector using adaptive_cost_function.
-            Lower is better (assuming cost is negative information gain etc.).
-            """
-            # vmapped over grid rows
-            def _score_one(angles_array):
-                return ad.adaptive_cost_function_array(angles_array, rho_bank, weights, best_guess, self.n_qubits)
-            return jax.vmap(_score_one)(grid_angles)
+        def _score_one_jit(angles_array, rho_bank, weights, best_guess):
+            """Single angle evaluation, JIT compiled once."""
+            return ad.adaptive_cost_function_array(angles_array, rho_bank, weights, best_guess, self.n_qubits)
+        
+        # Vectorized scorer using pre-compiled function
+        _score_batch_vmap = jax.vmap(_score_one_jit, in_axes=(0, None, None, None))
 
+        def score_candidates_batched(grid_angles, rho_bank, weights, best_guess, batch_size=512):
+            """
+            Evaluate scores for all `grid_angles` in batches using pre-compiled JAX functions.
+            Returns concatenated jax array of scores.
+            """
+            n = grid_angles.shape[0]
+            parts = []
+            for i in range(0, n, batch_size):
+                batch_angles = grid_angles[i : i + batch_size]
+                part = _score_batch_vmap(batch_angles, rho_bank, weights, best_guess)
+                parts.append(part)
+            if len(parts) == 0:
+                return jnp.array([])
+            return jnp.concatenate(parts, axis=0)
+
+        # helper: sample mixture candidates
+
+        # run averages
         for j in range(self.n_averages):
             full_operator_list.append(depolarized_pauli_6_array)
             outcome_offset = 0
             adaptive_threshold = adaptive_burnin_steps
             adaptive_it = 0
+            resampling_variance_multiplier = 1
             current_POVM = copy.deepcopy(depolarized_pauli_6)
 
-            # Initialize particle bank and weights
             rho_bank = generate_bank_particles(self.n_bank, self.n_qubits)
             weights = np.full(self.n_bank, 1.0 / self.n_bank)
             if self.n_qubits == 1:
@@ -684,85 +896,73 @@ class QST():
             else:
                 S_treshold = 0.05 * self.n_bank
 
-            # --- Main loop over shots ---
+            prev_selected = []  # store previously chosen best angles for gaussian centers
+
             for shot_index in range(self.n_shots_total):
-
-                # Adaptive update: choose best grid point (no gradient descent)
                 if shot_index > adaptive_threshold:
+                    #print(f'Start ada grid[{shot_index}]' )
                     adaptive_it += 1
+                    # sample candidates from mixture
                     if self.n_qubits == 1:
-                        candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=4*256*int(np.log10(shot_index+1)))
+                        #print(f'Num of points on sphere :{8*256*int(np.log10(shot_index+1))}')
+                        candidates = sample_candidates(256*int(np.emath.logn(3, shot_index+1)), 0.8, prev_selected, self.n_qubits)
+                        #candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=4*256*int(np.log10(shot_index+1)))
                     else: # two-qubit
-                        candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=32*int(np.log10(shot_index+1)))
-                    # Current posterior mean (best_guess)
+                        #candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=32*int(np.log10(shot_index+1)))
+                        candidates = sample_candidates(int((32*np.log10(shot_index+1))**2), 0.6, prev_selected, self.n_qubits)
+                    # compute current mean
                     current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
-
-                    # JAX arrays
                     jbank = jnp.array(rho_bank)
                     jweight = jnp.array(weights)
-                    jmean_state = jnp.array(current_mean_state)
-                    jgrid = jnp.array(candidate_angles_grid)
+                    jmean = jnp.array(current_mean_state)
+                    jcand = jnp.array(candidates)
 
-                    # Evaluate scores over grid and choose argmin
-                    scores = score_grid(jgrid, jbank, jweight, jmean_state)
+                    # score and pick best (lowest). Use batched scoring to limit memory.
+                    scores = score_candidates_batched(jcand, jbank, jweight, jmean, batch_size=512)
                     best_idx = int(jnp.argmin(scores))
-                    best_angles = np.array(candidate_angles_grid[best_idx])
+                    best_angles = np.array(candidates[best_idx])
 
-                    # Convert numpy array angles to dictionary format expected by angles_to_state_vector
+                    # remember for future gaussian centers
+                    prev_selected = best_angles
+
+                    # convert best_angles to projective POVM
+                    # angles_to_state_vector expects a dict of named angles, so build that
                     if self.n_qubits == 1:
-                        angles_dict = {
-                            "theta": best_angles[0],
-                            "phi": best_angles[1]
-                        }
+                        angles_dict = {"theta": float(best_angles[0]), "phi": float(best_angles[1])}
                     elif self.n_qubits == 2:
                         angles_dict = {
-                            "theta_A": best_angles[0],
-                            "phi_A": best_angles[1],
-                            "theta_B": best_angles[2], 
-                            "phi_B": best_angles[3]
+                            "theta_A": float(best_angles[0]),
+                            "phi_A": float(best_angles[1]),
+                            "theta_B": float(best_angles[2]),
+                            "phi_B": float(best_angles[3]),
                         }
                     else:
                         raise ValueError(f"n_qubits={self.n_qubits} not supported")
-                    
-                    # Turn best angles into a complete projective POVM (same pattern as original adaptive BME)
-                    projective_vector = sf.angles_to_state_vector(angles_dict, self.n_qubits)  # shape (2^n_qubits, 2^n_qubits)
-                    out = np.einsum('ij,ik->ijk', projective_vector, projective_vector.conj())  # Create projectors from state vectors
-
-                    # Apply depolarizing channel to new POVM elements
+                    projective_vector = sf.angles_to_state_vector(angles_dict, self.n_qubits)
+                    out = np.einsum('ij,ik->ijk', projective_vector, projective_vector.conj())
                     depolarized_out = np.array([sf.depolarizing_channel(element, depolarizing_strength) for element in out])
 
-                    # Update current POVM and bookkeeping
                     current_POVM = POVM(depolarized_out)
                     outcome_offset = len(full_operator_list[j])
                     if len(depolarized_out) != 2**self.n_qubits:
                         print('Warning! Adaptive POVM has an unexpected number of outcomes!')
                         print(f'Number of outcomes: {len(depolarized_out)}, expected {2**self.n_qubits}.')
-
                     full_operator_list[j] = np.append(full_operator_list[j], depolarized_out, axis=0)
+                    # More aggressive threshold increment to reduce update frequency
+                    adaptive_threshold += max(5, int(shot_index / 50))
+                    #print(f'End ada grid[{shot_index}]' )
 
-                    # Grow the gap between adaptive updates, like your original schedule
-                    adaptive_threshold += max(1, int(shot_index / 100))
-
-                # --- Simulate measurement and update weights ---
+                # measurement + update
                 individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
                 outcome_index[j, shot_index] = individual_outcome + outcome_offset
 
                 if outcome_index[j, shot_index] > len(full_operator_list[j]) - 1:
                     print('Warning! outcome index is larger than possible outcome!')
-                    print(f'Outcome index: {outcome_index[j,shot_index]}, max possible {len(full_operator_list[j])}.')
-                    print(f'Current POVM has {len(current_POVM.get_POVM())} elements.')
-                    print(current_POVM.get_POVM())
-                    print(f'Last computed offset: {outcome_offset}.')
-                    print(f'Individual outcome: {individual_outcome}.')
-                    print(f'Total POVM size: {len(full_operator_list[j])}.')
-                    print(f'Last two povm elements are: {full_operator_list[j][-2:]}.')
-
                 weights = QST.weight_update(weights, rho_bank, full_operator_list[j][outcome_index[j, shot_index]])
                 S_effective = 1.0 / np.dot(weights, weights)
 
-                # Resample if posterior collapses
                 if S_effective < S_treshold:
-                    rho_bank, weights = QST.resampling(
+                    rho_bank, weights, resampling_variance_multiplier = QST.resampling(
                         self.n_qubits,
                         rho_bank,
                         weights,
@@ -770,22 +970,22 @@ class QST():
                         full_operator_list[j],
                         self.n_cores,
                         self._MH_steps,
+                        resampling_variance_multiplier
                     )
 
-                # Track infidelity
-                self.infidelity[j, shot_index] = 1 - np.real(np.einsum('ij,kji,k->', self.true_state_list[j], rho_bank, weights))
+                self.infidelity[j,shot_index]= sf.qubit_infidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights))
+                # Compute average bures distance of distribution
+                if compute_uncertainty and (shot_index % 100 == 0):
+                    self.uncertainty[j, shot_index] = 2*(1 - np.sqrt(sf.qubit_fidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights)))) / average_Bures(rho_bank, weights, self.n_qubits, self.n_cores)
+                    #self.uncertainty[j, shot_index] = 2*(1 - np.sqrt(np.real(np.einsum('ij,kji,k->', self.true_state_list[j], rho_bank, weights)))) / average_Bures(rho_bank, weights, self.n_qubits, self.n_cores)
+                    #print(f'Computed uncertainty at shot {shot_index}, {self.uncertainty[j, shot_index]}')
+                    #print(f"Ratio of old and new fidelity {self.infidelity[j, shot_index]/ (2 - 2*np.sqrt(sf.qubit_fidelity(self.true_state_list[j], np.einsum('ijk,i->jk',rho_bank,weights))) )}")
 
-                # Optional uncertainty
-                if compute_uncertainty and (shot_index % 50 == 0):
-                    self.uncertainty[j, shot_index] = 2 * self.infidelity[j, shot_index] / average_Bures(
-                        rho_bank, weights, self.n_qubits, self.n_cores
-                    )
-
-            # Posterior mean at the end
             self.rho_estimate[j] = np.array(np.einsum('ijk,i->jk', rho_bank, weights))
             print(f'Completed run {j+1}/{self.n_averages}. Final infidelity: {self.infidelity[j,-1]}.')
-   
 
+
+   
 
 def average_Bures(rho_bank,weights,n_qubits,n_cores): 
     """
@@ -793,19 +993,19 @@ def average_Bures(rho_bank,weights,n_qubits,n_cores):
     Current 2+ qubit impementation uses the Qutip fidelity function. 
     """
     mean_state=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
-    b=0
-    # Checks wether we are one or two qubits
-    if n_qubits==1:
-        for i in range(len(rho_bank)):
-            infid=sf.qubit_infidelity(rho_bank[i],mean_state)
-            b+=2*(infid)*weights[i]
-    else: # 2 Qubit case is much slower, NEW: parallelized fidelity computation. 
-        fid=Parallel(n_jobs=n_cores)(delayed(parallel_Bures)(rho,mean_state) for rho in rho_bank)
-        b=np.einsum('i,i->',2*(1-np.real(fid)),weights)
-    return b
 
-def parallel_Bures(rho,mean_state):
-    fid=qt.fidelity(qt.Qobj(rho),qt.Qobj(mean_state))
+    # Checks wether we are one or two qubits
+
+    fid=Parallel(n_jobs=n_cores)(delayed(parallel_Bures)(rho,mean_state, n_qubits) for rho in rho_bank)
+    return np.einsum('i,i->',2*(1-np.sqrt(np.real(fid))),weights)
+
+
+def parallel_Bures(rho,mean_state, n_qubits):
+    if n_qubits==1:
+        fid=np.real(np.einsum('ij,ji->', mean_state, rho))
+        return fid
+    else:
+        fid=qt.fidelity(qt.Qobj(rho),qt.Qobj(mean_state))
     return fid
 
 
@@ -864,3 +1064,124 @@ def default_uniform_grid(n_qubits: int, per_sphere: int = 256) -> np.ndarray:
         right = one[B.ravel()]   # (M^2, 2)
         return np.concatenate([left, right], axis=1)  # (M^2, 4)
     raise ValueError("Only n_qubits in {1,2} supported.")
+
+
+
+def sample_candidates(num_samples,
+                ratio,
+                last_selected,n_qubits,
+                *,
+                sigma_theta=0.2,
+                sigma_phi=0.2,
+                eps=1e-8,
+                rng=None):
+    """
+    Generate `num_samples` angle vectors for 1 or 2 qubits.
+
+    Parameters
+    ----------
+    num_samples : int
+        Total number of samples to return.
+    ratio : float
+        Fraction (0..1) drawn uniformly on the sphere(s). The rest are Gaussian around `last_selected`.
+        The uniform count is floor(num_samples * ratio).
+    last_selected : array-like
+        The center angles for the Gaussian block.
+        Shape must be (2,) for n_qubits=1 -> [theta, phi]
+        or (4,) for n_qubits=2 -> [thetaA, phiA, thetaB, phiB]
+    n_qubits : int, optional (default: 1)
+        Number of qubits (1 or 2). Determines output dimensionality.
+    sigma_theta : float, optional
+        Std dev of Gaussian noise (radians) applied to theta components in the Gaussian block.
+    sigma_phi : float, optional
+        Std dev of Gaussian noise (radians) applied to phi components in the Gaussian block.
+    eps : float, optional
+        Small offset to avoid exactly 0 or π for theta.
+    rng : np.random.Generator, optional
+        If provided, used for randomness; otherwise uses np.random.default_rng().
+
+    Returns
+    -------
+    out : ndarray, shape (num_samples, 2) for 1 qubit or (num_samples, 4) for 2 qubits
+        Angle vectors in the order:
+        - 1 qubit: [theta, phi]
+        - 2 qubits: [thetaA, phiA, thetaB, phiB]
+
+    Notes
+    -----
+    - Uniform sampling on S^2 uses z ~ U[-1,1], phi ~ U[0,2π), theta = arccos(z).
+    - Gaussian block uses standard normal around `last_selected`:
+        theta := clip(center_theta + N(0, sigma_theta), 0, π)
+        phi   := (center_phi + N(0, sigma_phi)) mod 2π
+    - For the two-qubit case, each row is entirely uniform or entirely Gaussian (row-wise coupling).
+    """
+
+    rng = np.random.default_rng() if rng is None else rng
+    D = 2 * n_qubits
+
+    # Validate last_selected
+    last_selected = np.asarray(last_selected, dtype=float)
+    if last_selected.shape != (D,):
+        if last_selected.shape == (0,):
+            pass
+        else:
+            print(last_selected)
+            print(last_selected.shape)
+            print(f"last_selected must have shape {(D,)}, got {last_selected.shape}.\n Using uniform sampling instead.")
+        # raise ValueError(f"last_selected must have shape {(D,)}, got {last_selected.shape}.\
+        #                  Using uniform sampling instead.")
+        ratio = 1.0  # fallback to all-uniform
+
+    # Determine counts for each block
+    n_uniform = int(np.floor(num_samples * ratio))
+    n_gauss = num_samples - n_uniform
+
+    out = np.empty((num_samples, D), dtype=float)
+
+    # --- Helper: uniform draws on S^2 per qubit ---
+    def _uniform_block(n):
+        if n == 0:
+            return np.empty((0, D), dtype=float)
+        block = np.empty((n, D), dtype=float)
+        for k in range(n_qubits):
+            z = rng.uniform(-1.0, 1.0, size=n)          # cos(theta) ~ U[-1,1]
+            theta = np.arccos(np.clip(z, -1.0, 1.0))    # theta in [0, π]
+            phi = rng.uniform(0.0, 2*np.pi, size=n)     # phi in [0, 2π)
+            block[:, 2*k] = theta
+            block[:, 2*k + 1] = phi
+        return block
+
+    # --- 1) Uniform block (first n_uniform rows) ---
+    if n_uniform > 0:
+        out[:n_uniform, :] = _uniform_block(n_uniform)
+
+    # --- 2) Gaussian block around last_selected (last n_gauss rows) ---
+    if n_gauss > 0:
+        # Tile the last_selected center for all rows in the Gaussian block
+        centers = np.broadcast_to(last_selected, (n_gauss, D)).copy()
+
+        theta_cols = np.arange(0, D, 2)
+        phi_cols   = np.arange(1, D, 2)
+
+        # Add Gaussian noise
+        centers[:, theta_cols] += rng.normal(0.0, sigma_theta, size=(n_gauss, n_qubits))
+        centers[:, phi_cols]   += rng.normal(0.0, sigma_phi, size=(n_gauss, n_qubits))
+
+        # Project back to valid range
+        centers[:, theta_cols] = np.clip(centers[:, theta_cols], 0.0, np.pi)
+        centers[:, phi_cols]   = np.mod(centers[:, phi_cols], 2*np.pi)
+
+        out[n_uniform:, :] = centers
+
+    # --- Final sanitize (avoid exact singularities; wrap φ cleanly) ---
+    theta_cols = np.arange(0, D, 2)
+    phi_cols   = np.arange(1, D, 2)
+
+    out[:, theta_cols] = np.clip(out[:, theta_cols], eps, np.pi - eps)
+    out[:, phi_cols]   = np.mod(out[:, phi_cols], 2*np.pi)
+
+    # Defensive NaN/Inf cleanup
+    out[:, theta_cols] = np.nan_to_num(out[:, theta_cols], nan=eps, posinf=np.pi - eps, neginf=eps)
+    out[:, phi_cols]   = np.nan_to_num(out[:, phi_cols], nan=0.0, posinf=0.0, neginf=0.0)
+
+    return out
