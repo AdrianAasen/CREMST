@@ -242,6 +242,21 @@ def qubit_infidelity(rho_1: np.array, rho_2: np.array):
     else: # General infidelity for higher dimensions and non-pure states
         return 1-np.real(np.trace(sqrtm(rho_1@rho_2))**2)
 
+
+def qubit_fidelity(rho_1: np.array, rho_2: np.array):
+    '''
+    Calculates the fidelity of two qubit states according to Wikipedia.
+    :param rho_1: dxd array of density matrix
+    :param rho_2: dxd array of density matrix
+    :return: fidelity
+    '''
+    if np.any([is_pure(rho_1), is_pure(rho_2)]): # Pure states
+        return np.real(np.trace(rho_1@rho_2))
+    elif rho_1.shape[-1]==2: # One qubit states
+        return np.real(np.trace(rho_1@rho_2) + 2*np.sqrt(np.linalg.det(rho_1)*np.linalg.det(rho_2)))
+    else: # General fidelity for higher dimensions and non-pure states
+        return np.real(np.trace(sqrtm(rho_1@rho_2))**2)
+
 def is_pure(rhos: np.array, prec=1e-15):
     '''
     Checks the purity of multiple density matrices.
@@ -468,6 +483,23 @@ def get_opposing_state(meshState):
     norm=np.sqrt(a*np.conjugate(a) + b*np.conjugate(b))
     oppositeMeshState=np.array([a/norm, b/norm])
     return oppositeMeshState
+
+def generate_unitary_from_angles(angles, n_qubits=1):
+    """
+    Given a set of angles theta and phi, this function generates the unitary that rotates the |0> state to the state defined by the angles.
+    The decomposition is based on U = Rz(phi) Ry(theta) Rz(chi), where Rz(chi) is ignored because when applied to |0⟩ it only adds a global phase, which does not affect the physical state.
+    """
+    if n_qubits ==  1:
+        Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        Z = np.array([[1,0],[0,-1]], dtype=complex)
+        R_y = sp.linalg.expm(-1j/2 * angles[0] * Y)
+        R_z = sp.linalg.expm(-1j/2 * angles[1] * Z)
+        U = R_z @ R_y
+        return U
+    else:
+        U1 = generate_unitary_from_angles(angles[:2], n_qubits=1)
+        U2 = generate_unitary_from_angles(angles[2:], n_qubits=1)
+        return np.kron(U1, U2)
 
 
 if __name__=="__main__":
