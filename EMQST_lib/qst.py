@@ -548,11 +548,11 @@ class QST():
                     # sample candidates from mixture
                     if self.n_qubits == 1:
                         #print(f'Num of points on sphere :{8*256*int(np.log10(shot_index+1))}')
-                        candidates = sample_candidates(256*int(np.emath.logn(3, shot_index+1)), 0.8, prev_selected, self.n_qubits)
+                        candidates = sample_candidates(256*np.floor(np.emath.logn(2, shot_index+1)), 0.7, prev_selected, self.n_qubits)
                         #candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=4*256*int(np.log10(shot_index+1)))
                     else: # two-qubit
                         #candidate_angles_grid = default_uniform_grid(self.n_qubits, per_sphere=32*int(np.log10(shot_index+1)))
-                        candidates = sample_candidates(int((32*np.log10(shot_index+1))**2), 0.6, prev_selected, self.n_qubits)
+                        candidates = sample_candidates((8*np.floor(np.emath.logn(2,shot_index+1)))**2, 0.7, prev_selected, self.n_qubits)
                     # compute current mean
                     current_mean_state = np.array(np.einsum('i...,i', rho_bank, weights))
                     jbank = jnp.array(rho_bank)

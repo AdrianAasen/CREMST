@@ -146,6 +146,39 @@ class TestSupport(unittest.TestCase):
         expected5 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(np.array_equal(sf.decimal_to_binary_array(decimal_array5,3), expected5))
         
+    def test_unitary_property_and_shape(self):
+        angle_examples = [
+            (0.0, 0.0),
+            (np.pi/2, 0.0),
+            (np.pi/2, np.pi/2),
+            (np.pi, 0.0),
+            (np.pi/3, np.pi/4),
+        ]
+        for theta, phi in angle_examples:
+            U = sf.generate_unitary_from_angles(np.array([theta, phi], dtype=float))
+            self.assertEqual(U.shape, (2, 2))
+            # Check unitarity: U^† U = I
+            self.assertTrue(np.allclose(U.conj().T @ U, np.eye(2), atol=1e-10))
+
+    def test_maps_zero_state_to_expected_state_up_to_global_phase(self):
+        angles = np.array([
+            [0.0, 0.0],
+            [np.pi/2, 0.0],
+            [np.pi/2, np.pi/2],
+            [np.pi, 0.0],
+            [np.pi/3, np.pi/4],
+            [1.234, -2.345],
+        ])
+        zero = np.array([1.0, 0.0], dtype=complex)
+        for theta, phi in angles:
+            U = sf.generate_unitary_from_angles(np.array([theta, phi], dtype=float))
+            produced = U @ zero
+            expected = np.array([np.cos(theta / 2), np.exp(1j * phi) * np.sin(theta / 2)], dtype=complex)
+            # Normalize to avoid issues with global phase
+            produced /= np.linalg.norm(produced)
+            expected /= np.linalg.norm(expected)
+            overlap = abs(np.vdot(expected, produced))  # |<expected|produced>|
+            self.assertAlmostEqual(overlap, 1.0, places=10)
    
 
 
