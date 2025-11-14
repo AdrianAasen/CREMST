@@ -30,7 +30,7 @@ def device_tomography(n_qubits,n_shots_each,povm,calibration_states,n_cores=1,bo
         calibration_angles=np.zeros((len(calibration_states),1))
     # Perform measurement over all calibration states and all POVMs
     outcome_index_matrix=np.zeros((n_shots_each))
-    print(f'Collecting and sorting QDT data.')
+    #print(f'Collecting and sorting QDT data.')
     mesh_start=time.time()
     
     #index_list=np.arange(2**n_qubits)
@@ -47,8 +47,8 @@ def device_tomography(n_qubits,n_shots_each,povm,calibration_states,n_cores=1,bo
             #    index_counts[i,k,j] = np.count_nonzero(outcome_index_matrix == index_list[k])
       
     mesh_end = time.time()
-    print(f'Done collecting and sorting QDT data, total runtime {mesh_end - mesh_start}.')
-    print(f'Starting POVM reconstruction.')
+    #print(f'Done collecting and sorting QDT data, total runtime {mesh_end - mesh_start}.')
+    #print(f'Starting POVM reconstruction.')
     if bool_exp_meaurements or initial_guess_POVM is None:
         initial_guess_POVM=povm
         
@@ -61,7 +61,7 @@ def device_tomography(n_qubits,n_shots_each,povm,calibration_states,n_cores=1,bo
     parallel_dt_start=time.time()
     corrected_POVM = Parallel(n_jobs=n_cores)(delayed(POVM_MLE)(n_qubits,index_counts[i],calibration_states,initial_guess_POVM[i]) for i in range(len(povm)))
     parallel_dt_end = time.time()
-    print(f'Runtime of parallel POVM reconstruction {parallel_dt_end - parallel_dt_start}')
+    #print(f'Runtime of parallel POVM reconstruction {parallel_dt_end - parallel_dt_start}')
     #print(f'Relative runtime impovement: {(dt_end - dt_start)/(paralleldt_end - paralleldt_start)} ')
     return corrected_POVM 
 

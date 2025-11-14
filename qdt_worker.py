@@ -23,13 +23,11 @@ if len(sys.argv) > 1:
 path = "adaptive_results/qdt"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
-dir_name= now_string+str(uuid.uuid4())
-data_path=f'{path}/{dir_name}'
-os.mkdir(data_path)
 
 
-n_qst_shots_total = 10**5
-n_qdt_shots_total = 10**3
+
+n_qst_shots_total = 10**4
+n_qdt_shots_total = 10**2
 n_qubits = 1
 n_qst_shots = n_qst_shots_total//3**n_qubits # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
 n_averages = 100
@@ -40,20 +38,20 @@ true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n
 #povm = POVM.generate_Pauli_POVM(n_qubits)
 #decompiled_array = np.array([povm[i].get_POVM() for i in range(len(povm))])
 
-comp_basis_povm = POVM.generate_computational_POVM(n_qubits)
-comp_basis_array = comp_basis_povm[0].get_POVM()
+# comp_basis_povm = POVM.generate_computational_POVM(n_qubits)
+# comp_basis_array = comp_basis_povm[0].get_POVM()
 
-pauli_6 = POVM.generate_Pauli_POVM(n_qubits)
-pauli_6_array = np.array([pauli_6[i].get_POVM() for i in range(len(pauli_6))])
-decomp_pauli_6_array = 1/3**(n_qubits)*np.array(pauli_6_array.reshape(-1,pauli_6_array.shape[-2],pauli_6_array.shape[-1]))
+# pauli_6 = POVM.generate_Pauli_POVM(n_qubits)
+# pauli_6_array = np.array([pauli_6[i].get_POVM() for i in range(len(pauli_6))])
+# decomp_pauli_6_array = 1/3**(n_qubits)*np.array(pauli_6_array.reshape(-1,pauli_6_array.shape[-2],pauli_6_array.shape[-1]))
 
 #pauli_6_array = 1/3**(n_qubits)*np.array(decompiled_array.reshape(-1,decompiled_array.shape[-2],decompiled_array.shape[-1]))
-#test_POVM = POVM(pauli_6_array)
+#test_POVM = POVM(decomp_pauli_6_array)
 #qst_adaptive = QST(povm, true_states, n_qst_shots_total, n_qubits, False,{}, n_cores=n_cores)
 
 
 noise_levels = [0.15]
-qdt_multipliers = [5,10,50,100]
+qdt_multipliers = [1,10]
 n_steps = len(qdt_multipliers)
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []
@@ -75,36 +73,40 @@ print(f'Start time: {now_string}.')
 for i in range(n_steps):
     # QDT step
     depolarizing_strength = noise_levels[0]
-    depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
-    #print('Depolarized comp basis array shape:', depolarized_comp_array)
-    noisy_comp_POVM = [POVM(depolarized_comp_array)]
-    calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
-    n_calibration_shots_each = qdt_multipliers[i] * (n_qdt_shots_total//(len(calibration_states)))
-    reconstructed_comp_povm = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=n_cores)
+    # depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
+    # #print('Depolarized comp basis array shape:', depolarized_comp_array)
+    # noisy_comp_POVM = [POVM(depolarized_comp_array)]
+    # calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
+    
+    # n_calibration_shots_each = qdt_multipliers[i] * (n_qdt_shots_total//(len(calibration_states)))
+    # print(n_calibration_shots_each)
+    # for _ in range(10):
+    #     reconstructed_comp_povm = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=n_cores, initial_guess_POVM =comp_basis_povm )
 
-    # Create Pauli-6 from reconstructed comp povm
-    print(f'Distance between true comp povm and reconstructed comp povm: {sf.ac_POVM_distance(reconstructed_comp_povm[0].get_POVM(),depolarized_comp_array)}')
-    reconstructed_pauli_6_array = POVM.generate_Pauli_from_comp(reconstructed_comp_povm[0])
+    #     # Create Pauli-6 from reconstructed comp povm
+    #     print(f'Distance between true comp povm and reconstructed comp povm: {sf.ac_POVM_distance(reconstructed_comp_povm[0].get_POVM(),depolarized_comp_array)}')
+    # reconstructed_pauli_6_array = POVM.generate_Pauli_from_comp(reconstructed_comp_povm[0])
+    # decompiled_pauli_6 = 1/3**n_qubits*np.array([povm.get_POVM() for povm in reconstructed_pauli_6_array]) # Normalizsation factor 1/3^n_qubits when recombining the POVM. 
+    # print(decompiled_pauli_6)
+    # decompiled_pauli_6 =  np.reshape(decompiled_pauli_6, (-1, *decompiled_pauli_6.shape[2:])) # Reshape operators to be on the same level.
     
-    decompiled_pauli_6 = 1/3**n_qubits*np.array([povm.get_POVM() for povm in reconstructed_pauli_6_array]) # Normalizsation factor 1/3^n_qubits when recombining the POVM. 
-    decompiled_pauli_6 =  np.reshape(decompiled_pauli_6, (-1, *decompiled_pauli_6.shape[2:])) # Reshape operators to be on the same level.
-    
-    #print(decompiled_pauli_6.shape)
-    #print('Reconstructed pauli 6 array shape:', reconstructed_pauli_6_array)
-    recon_pauli_6_POVM = POVM(decompiled_pauli_6)
-    recon_POVM_list.append(recon_pauli_6_POVM)
+    # #print(decompiled_pauli_6.shape)
+    # #print('Reconstructed pauli 6 array shape:', reconstructed_pauli_6_array)
+    # recon_pauli_6_POVM = POVM(decompiled_pauli_6)
+    # recon_POVM_list.append(recon_pauli_6_POVM)
     print(f'Starting nonadaptive QST run {i+1}/{n_steps}')
     start_time = datetime.now()
 
     # Note that we use n_shots*3**n_qubits here, since nonadaptive QST does not split the shots between different measurement settings. 
     # We also multiply rather than use n_shots total since there could be rounding difference between the adaptive and non-daptive QST. 
     # Create noisey_pauli-6 POVM
-    depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in decomp_pauli_6_array])
-    noisy_pauli_6_POVM = POVM(depolarized_pauli_6_array)
+    # depolarized_pauli_6_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in decomp_pauli_6_array])
+    # noisy_pauli_6_POVM = POVM(depolarized_pauli_6_array)
 
-    qst_nonadaptive = QST([noisy_pauli_6_POVM], true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores) # They are initalized the same
-    qst_nonadaptive.generate_data()
-    qst_nonadaptive.perform_BME(override_POVM_list = [recon_pauli_6_POVM])
+    qst_nonadaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores) # They are initalized the same
+    #qst_nonadaptive.generate_data()
+    qst_nonadaptive.perform_random_adaptive_BME(depolarizing_strength = depolarizing_strength,
+                            adaptive_burnin_steps = n_qst_shots_total*2, n_qdt_shots_total= n_qdt_shots_total*qdt_multipliers[i])
     uncertainty_container_nonadaptive.append(qst_nonadaptive.get_uncertainty())
     infidelity_container_nonadaptive.append(qst_nonadaptive.get_infidelity())
     print(f'Nonadaptive QST run {i+1}/{n_steps} took {datetime.now()-start_time}')
@@ -112,9 +114,9 @@ for i in range(n_steps):
     # Adaptive QST
     start_time = datetime.now()
     print(f'Starting adaptive QST run {i+1}/{n_steps}')
-    qst_adaptive = QST([noisy_pauli_6_POVM], true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores)
+    qst_adaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores)
     qst_adaptive.perform_random_adaptive_BME(depolarizing_strength = depolarizing_strength,
-                            adaptive_burnin_steps = adaptive_burnin, override_comp_POVM= reconstructed_comp_povm)
+                            adaptive_burnin_steps = adaptive_burnin, n_qdt_shots_total= n_qdt_shots_total*qdt_multipliers[i])
 
     noise_strengths.append(depolarizing_strength)
     qst_array.append(qst_adaptive)
@@ -124,15 +126,15 @@ for i in range(n_steps):
     # For non_adaptive QST we need to supply it with the noisy POVM separatly.
 
 
-    DT_settings={
-        "n_qubits": n_qubits,
-        "calibration_states": calibration_states,
-        "n_calibration_shots": n_calibration_shots_each,
-       #"initial_POVM": POVM_list,
-       "reconstructed_POVM_list": recon_POVM_list,
-        "noisy_POVM_list" : noisy_POVM_list,
-       "reconstructed_POVM_matrix":  np.array([povm.get_POVM() for povm in recon_POVM_list])
-    }
+    # DT_settings={
+    #     "n_qubits": n_qubits,
+    #     #"calibration_states": calibration_states,
+    #     "n_calibration_shots": n_qdt_shots_total//(len(calibration_states)),
+    #    #"initial_POVM": POVM_list,
+    #    "reconstructed_POVM_list": recon_POVM_list,
+    #     "noisy_POVM_list" : noisy_POVM_list,
+    #    "reconstructed_POVM_matrix":  np.array([povm.get_POVM() for povm in recon_POVM_list])
+    # }
     
     settings = {
         'n_qst_shots_total': n_qst_shots_total,
@@ -157,7 +159,9 @@ container_dict = {
 }
 
 
-
+dir_name= now_string+str(uuid.uuid4())
+data_path=f'{path}/{dir_name}'
+os.mkdir(data_path)
 
 with open(f'{data_path}/infidelity_container.npy', 'wb') as f:
     np.save(f, container_dict)

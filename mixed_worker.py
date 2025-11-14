@@ -136,29 +136,6 @@ for i in range(n_steps):
     uncertainty_container_adaptive.append(qst_adaptive.get_uncertainty())
     print(f'Adaptive QST run {i+1}/{n_steps} took {datetime.now()-start_time}')
     rho_estm_adaptive = qst_adaptive.get_rho_estm()
-    # Clean up memory after grid adaptive run
-    #del qst_adaptive
-    #gc.collect()
-
-    # print(f'Starting adaptive QST run {i+1}/{n_steps}')
-    # start_time = datetime.now()
-    # qst_adaptive = QST(povm, true_states, n_shots, n_qubits, False,{}, n_cores=n_cores)
-    # qst_adaptive.perform_adaptive_BME(depolarizing_strength = depolarizing_strength,
-    #                         adaptive_burnin_steps = adaptive_burnin,
-    #                         compute_uncertainty = compute_uncertainty)
-
-    # noise_strengths.append(depolarizing_strength)
-    # qst_array.append(qst_adaptive)
-    # infidelity_container_adaptive.append(qst_adaptive.get_infidelity())
-    # uncertainty_container_adaptive.append(qst_adaptive.get_uncertainty())
-    # print(f'Adaptive QST run {i+1}/{n_steps} took {datetime.now()-start_time}')
-    # # For non_adaptive QST we need to supply it with the noisy POVM separatly.
-
-    # # Memory cleanup between major iterations
-    # gc.collect()
-    
-    # Store reconstructed states before cleanup
-    
     
     settings = {
         'n_qubits': n_qubits,
