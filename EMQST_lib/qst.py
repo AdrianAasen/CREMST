@@ -359,18 +359,19 @@ class QST():
         # Calculate the kick strenght based on the bures variance of the distribution
         likelihood_variance=np.sqrt(np.real(average_Bures(rho_bank,weights,n_qubits,n_cores)))
         
-        if n_qubits==2:
+        
+        if n_qubits==1: 
+            likelihood_variance*=0.1 * resampling_variance_multiplier # This is better than 1.0, tested empirically.
+        elif n_qubits==2:
             likelihood_variance*=0.4 * resampling_variance_multiplier
-        elif n_qubits==1:
-            likelihood_variance*=0.15 * resampling_variance_multiplier # This is better than 1.0, tested empirically.
-
+        
 
         index_values,index_counts=np.unique(outcome_index,return_counts=True)
         random_seed=np.random.randint(1e8,size=(int(len(rho_bank))))
         new_rho_bank,n_accepted_iterations=zip(*Parallel(n_jobs=n_cores)(delayed(QST.resampling_bank)(n_qubits,rho_bank,cumulative_sum,full_operator_list,index_counts,index_values,likelihood_variance,MH_steps,rng) for rng in random_seed ))
         new_rho_bank=np.asarray(new_rho_bank)
         n_accepted_iterations=np.sum(n_accepted_iterations)
-        if n_accepted_iterations/(len(rho_bank)*MH_steps)<0.4:
+        if n_accepted_iterations/(len(rho_bank)*MH_steps)<0.5:
             print(f'Low overall acceptance during resampling! Accepted ratio: {n_accepted_iterations/(len(rho_bank)*MH_steps)}.')
             print(f'Lowers likelihood variance.')
             resampling_variance_multiplier *= 0.5
@@ -443,14 +444,14 @@ class QST():
         compute_uncertainty: bool = False,
         depolarizing_strength: float = 0,
         adaptive_burnin_steps: int = None,
-        n_qdt_shots_total = 0,
+        recon_comp_list = None,
     ):
         """
         Adaptive BME using randomized candidate sampling instead of a static grid.
         At each adaptive update we draw `num_candidates` angle vectors from a
         mixture distribution:
-          - 80% uniform over the Bloch-sphere product space
-          - 20% gaussian perturbations centered around previously selected angles
+          - 70% uniform over the Bloch-sphere product space
+          - 30% gaussian perturbations centered around previously selected angles
 
         The candidate with minimal adaptive_cost_function_array is chosen.
 
@@ -516,24 +517,21 @@ class QST():
 
         # run averages
         for j in range(self.n_averages):
-            if n_qdt_shots_total>0: # We perform QDT of the computational basis.
-                comp_basis_povm = POVM.generate_computational_POVM(self.n_qubits)
-                comp_basis_array = comp_basis_povm[0].get_POVM()
-                depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
-                noisy_comp_POVM = [POVM(depolarized_comp_array)]
-                
-                calibration_states,calibration_angles=sf.get_calibration_states(self.n_qubits,"SIC")
-                n_calibration_shots_each = n_qdt_shots_total//(len(calibration_states))
-                reconstructed_comp_povm = dt.device_tomography(self.n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=self.n_cores, initial_guess_POVM =comp_basis_povm )
-                diag_recon_comp = np.array([np.diag(np.diagonal(element)) for element in reconstructed_comp_povm[0].get_POVM()]) # Makes recon classical only
+            if recon_comp_list is not None: # We perform QDT of the computational basis.
+                diag_recon_comp = copy.deepcopy(recon_comp_list[j])
+                #diag_recon_comp = POVM.generate_computational_POVM(1)[0].get_POVM() # Makes recon classical only
+                #print(diag_recon_comp)
                 reconstructed_pauli_6_array = POVM.generate_Pauli_from_comp(POVM(diag_recon_comp))
-
-                decompiled_pauli_6 = 1/3**self.n_qubits*np.array([povm.get_POVM() for povm in reconstructed_pauli_6_array]) # Normalizsation factor 1/3^n_qubits when recombining the POVM. 
+                #1/3**self.n_qubits*
+                decompiled_pauli_6 = np.array([povm.get_POVM() for povm in reconstructed_pauli_6_array]) # Normalization factor 1/3^n_qubits when recombining the POVM. 
                 decompiled_pauli_6 =  np.reshape(decompiled_pauli_6, (-1, *decompiled_pauli_6.shape[2:])) # Reshape operators to be on the same level.
+                #print(decompiled_pauli_6)
                 #print(decompiled_pauli_6.shape)
                 #print('Reconstructed pauli 6 array shape:', reconstructed_pauli_6_array)
                 #recon_pauli_6_POVM = POVM(decompiled_pauli_6)
+                
                 full_operator_list.append(decompiled_pauli_6)
+                #print(full_operator_list)
             else:
                 full_operator_list.append(depolarized_pauli_6_array)
             outcome_offset = 0
@@ -602,11 +600,11 @@ class QST():
                     if len(depolarized_out) != 2**self.n_qubits:
                         print('Warning! Adaptive POVM has an unexpected number of outcomes!')
                         print(f'Number of outcomes: {len(depolarized_out)}, expected {2**self.n_qubits}.')
-                    if n_qdt_shots_total>0: # If we provide an POVM, it means we have used QDT to reconstruct it.
-                        recon_comp = reconstructed_comp_povm[0].get_POVM()
-                        recon_comp = np.array([np.diag(np.diagonal(element)) for element in recon_comp]) # Makes recon classical only
+                    if recon_comp_list is not None: # If we provide an POVM, it means we have used QDT to reconstruct it.
+                        #recon_comp = reconstructed_comp_povm[0].get_POVM()
+                        #recon_comp = np.array([np.diag(np.diagonal(element)) for element in recon_comp]) # Makes recon classical only
                         rotation_U = sf.generate_unitary_from_angles(best_angles, self.n_qubits)
-                        rotated_comp = np.array([rotation_U @ element @ rotation_U.conj().T for element in recon_comp])
+                        rotated_comp = np.array([rotation_U @ element @ rotation_U.conj().T for element in diag_recon_comp])
 
                         full_operator_list[j] = np.append(full_operator_list[j], rotated_comp, axis=0)
                     else:
@@ -616,11 +614,13 @@ class QST():
                     #print(f'End ada grid[{shot_index}]' )
 
                 # measurement + update
+                #print(current_POVM)
                 individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
                 outcome_index[j, shot_index] = individual_outcome + outcome_offset
-
+                #print(outcome_index[j, shot_index])
                 if outcome_index[j, shot_index] > len(full_operator_list[j]) - 1:
                     print('Warning! outcome index is larger than possible outcome!')
+                #print(full_operator_list[j][outcome_index[j, shot_index]])
                 weights = QST.weight_update(weights, rho_bank, full_operator_list[j][outcome_index[j, shot_index]])
                 S_effective = 1.0 / np.dot(weights, weights)
 

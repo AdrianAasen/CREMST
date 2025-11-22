@@ -47,6 +47,11 @@ def simulated_measurement(n_shots,povm,rho, return_frequencies = False):
 
     # Return index list of outcomes 
     outcome_list = np.searchsorted(cumulative_sum, r)
+    # if outcome_list>=len(povm.get_POVM()):
+    #     print("Warning! Outcome index exceeds histogram length!")
+    #     print(f"Outcome list: {outcome_list}")
+    #     print(f"Histogram length: {len(histogram)}")
+    #     print(f'Random index {r}')
     if return_frequencies:
             
         min_unique_outcomes = len(histogram)
