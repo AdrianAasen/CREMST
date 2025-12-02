@@ -20,14 +20,14 @@ if len(sys.argv) > 1:
         print(f'Updated core count to {new_n_cores}.')
 
 
-path = "adaptive_results/test"
+path = "adaptive_results/qdt_10k_test"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
 
 
 
 n_qst_shots_total = 10**4
-n_qdt_shots_total = 10**1
+n_qdt_shots_total = 10**3
 n_qubits = 1
 n_qst_shots = n_qst_shots_total//3**n_qubits # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
 n_averages = 200
@@ -51,8 +51,8 @@ true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n
 #qst_adaptive = QST(povm, true_states, n_qst_shots_total, n_qubits, False,{}, n_cores=n_cores)
 
 
-noise_levels = [0.25]
-qdt_multipliers = [10]
+noise_levels = [0.15]
+qdt_multipliers = [1,10]
 n_steps = len(qdt_multipliers)
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []
@@ -81,16 +81,16 @@ for i in range(n_steps):
     for _ in range(n_averages):
         comp_basis_povm = POVM.generate_computational_POVM(n_qubits)
         comp_basis_array = comp_basis_povm[0].get_POVM()
-        #depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
-        #noisy_comp_POVM = [POVM(depolarized_comp_array)]
+        depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
+        noisy_comp_POVM = [POVM(depolarized_comp_array)]
 
-        #calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
-        #n_calibration_shots_each =qdt_multipliers[i] * n_qdt_shots_total//(len(calibration_states))
+        calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
+        n_calibration_shots_each =qdt_multipliers[i] * n_qdt_shots_total//(len(calibration_states))
 
-        #reconstructed_comp_povm = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=n_cores, initial_guess_POVM =comp_basis_povm )
-        #diag_recon_comp = np.array([np.diag(np.diagonal(element)) for element in reconstructed_comp_povm[0].get_POVM()]) # Makes recon classical only
+        reconstructed_comp_povm = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=n_cores, initial_guess_POVM =comp_basis_povm )
+        diag_recon_comp = np.array([np.diag(np.diagonal(element)) for element in reconstructed_comp_povm[0].get_POVM()]) # Makes recon classical only
         #POVM.generate_random_POVM(2,2).get_POVM()
-        diag_recon_comp = np.array([sf.depolarizing_channel(element, 0.2) for element in comp_basis_array])
+        #diag_recon_comp = np.array([sf.depolarizing_channel(element, 0.2) for element in comp_basis_array])
         #print(diag_recon_comp)
         diag_recon_comp_list.append(diag_recon_comp)             
     # depolarized_comp_array = np.array([sf.depolarizing_channel(np.copy(element), depolarizing_strength) for element in comp_basis_array])
@@ -127,8 +127,8 @@ for i in range(n_steps):
 
     qst_nonadaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores) # They are initalized the same
     # Update mh steps:
-    qst_nonadaptive._MH_steps = 100
-    qst_nonadaptive.n_bank = 100
+    #qst_nonadaptive._MH_steps = 100
+    #qst_nonadaptive.n_bank = 200
     #qst_nonadaptive.generate_data()
     pauli_6 = POVM.generate_Pauli_POVM(n_qubits)
     decompiled_pauli_6 = np.array([povm.get_POVM() for povm in pauli_6]) # Normalization factor 1/3^n_qubits when recombining the POVM. 
@@ -155,8 +155,8 @@ for i in range(n_steps):
     start_time = datetime.now()
     print(f'Starting adaptive QST run {i+1}/{n_steps}')
     qst_adaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores)
-    qst_adaptive._MH_steps = 100
-    qst_adaptive.n_bank = 100
+    #qst_adaptive._MH_steps = 100
+    #qst_adaptive.n_bank = 200
     qst_adaptive.perform_random_adaptive_BME(depolarizing_strength = depolarizing_strength,
                             adaptive_burnin_steps = adaptive_burnin, recon_comp_list = diag_recon_comp_list,
                             compute_uncertainty = compute_uncertainty)
