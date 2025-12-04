@@ -1,3 +1,41 @@
+import os
+import atexit
+import shutil
+import tempfile
+# === TEMP DIRECTORY SETUP  ===
+# Setup temp directories to avoid joblib disk space issues
+temp_dir = os.path.expanduser("~/tmp")
+joblib_temp_dir = os.path.join(temp_dir, f"joblib_{os.getpid()}")
+
+# Create directories and set environment variables
+os.makedirs(temp_dir, exist_ok=True)
+os.makedirs(joblib_temp_dir, exist_ok=True)
+
+env_vars = {
+    'TMPDIR': temp_dir,
+    'TMP': temp_dir,
+    'TEMP': temp_dir,
+    'JOBLIB_TEMP_FOLDER': joblib_temp_dir,
+    'JOBLIB_MULTIPROCESSING': '0',
+}
+
+for key, value in env_vars.items():
+    os.environ[key] = value
+
+tempfile.tempdir = temp_dir
+
+# Clean up on exit
+def cleanup_temp():
+    try:
+        if os.path.exists(joblib_temp_dir):
+            shutil.rmtree(joblib_temp_dir, ignore_errors=True)
+    except:
+        pass
+
+atexit.register(cleanup_temp)
+
+
+
 import numpy as np 
 from datetime import datetime
 import os
@@ -20,17 +58,17 @@ if len(sys.argv) > 1:
         print(f'Updated core count to {new_n_cores}.')
 
 
-path = "adaptive_results/qdt_10k_test"
+path = "adaptive_results/qdt_100k_calib_500k"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
 
 
 
-n_qst_shots_total = 10**4
-n_qdt_shots_total = 10**3
+n_qst_shots_total = 10**5
+n_qdt_shots_total = 10**4
 n_qubits = 1
-n_qst_shots = n_qst_shots_total//3**n_qubits # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
-n_averages = 200
+n_qst_shots = n_qst_shots_total//(3**n_qubits) # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
+n_averages = 50
 adaptive_burnin = 0
 compute_uncertainty = True
 print(f'Starting adaptive QST with {n_qst_shots_total} shots, {n_qubits} qubits, {n_averages} averages, and adaptive burnin of {adaptive_burnin}.')
@@ -52,7 +90,7 @@ true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n
 
 
 noise_levels = [0.15]
-qdt_multipliers = [1,10]
+qdt_multipliers = [50]
 n_steps = len(qdt_multipliers)
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []
@@ -85,7 +123,7 @@ for i in range(n_steps):
         noisy_comp_POVM = [POVM(depolarized_comp_array)]
 
         calibration_states,calibration_angles=sf.get_calibration_states(n_qubits,"SIC")
-        n_calibration_shots_each =qdt_multipliers[i] * n_qdt_shots_total//(len(calibration_states))
+        n_calibration_shots_each =(qdt_multipliers[i] * n_qdt_shots_total)//(len(calibration_states))
 
         reconstructed_comp_povm = dt.device_tomography(n_qubits,n_calibration_shots_each,noisy_comp_POVM,calibration_states,n_cores=n_cores, initial_guess_POVM =comp_basis_povm )
         diag_recon_comp = np.array([np.diag(np.diagonal(element)) for element in reconstructed_comp_povm[0].get_POVM()]) # Makes recon classical only
@@ -128,7 +166,7 @@ for i in range(n_steps):
     qst_nonadaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores) # They are initalized the same
     # Update mh steps:
     #qst_nonadaptive._MH_steps = 100
-    #qst_nonadaptive.n_bank = 200
+    qst_nonadaptive.n_bank = 2000
     #qst_nonadaptive.generate_data()
     pauli_6 = POVM.generate_Pauli_POVM(n_qubits)
     decompiled_pauli_6 = np.array([povm.get_POVM() for povm in pauli_6]) # Normalization factor 1/3^n_qubits when recombining the POVM. 
@@ -156,7 +194,7 @@ for i in range(n_steps):
     print(f'Starting adaptive QST run {i+1}/{n_steps}')
     qst_adaptive = QST(POVM.generate_computational_POVM(n_qubits), true_states,n_qst_shots*3**n_qubits, n_qubits, False,{}, n_cores=n_cores)
     #qst_adaptive._MH_steps = 100
-    #qst_adaptive.n_bank = 200
+    qst_adaptive.n_bank = 2000
     qst_adaptive.perform_random_adaptive_BME(depolarizing_strength = depolarizing_strength,
                             adaptive_burnin_steps = adaptive_burnin, recon_comp_list = diag_recon_comp_list,
                             compute_uncertainty = compute_uncertainty)
@@ -190,6 +228,8 @@ for i in range(n_steps):
         'true_states': true_states,
         'reconstructed_states_adaptive': qst_adaptive.get_rho_estm(),
         'reconstructed_states_nonadaptive': qst_nonadaptive.get_rho_estm(),
+        'qst_bank_size': qst_adaptive.n_bank,
+        'qst_nonadaptive_bank_size': qst_nonadaptive.n_bank
     }
     setting_array.append(settings)
 
@@ -201,7 +241,7 @@ container_dict = {
     'grid_infidelity_container': infidelity_container_grid
 }
 
-
+print(f'Total run time: {datetime.now()-now}')
 dir_name= now_string+str(uuid.uuid4())
 data_path=f'{path}/{dir_name}'
 os.mkdir(data_path)
