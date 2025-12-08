@@ -254,10 +254,6 @@ def plot_from_infidelity_container(infidelity_container_array, adaptive_burnin =
 
 
 
-
-from scipy.optimize import curve_fit
-import numpy as np
-
 def exponent_series_curvefit_logspan(
     y, x, span=1.5, step_factor=1.25, start_idx=0,
     p0=(1.0, -0.5), maxfev=10000, min_points=20,
@@ -323,7 +319,7 @@ def exponent_series_curvefit_logspan(
 
         try:
             popt, _ = curve_fit(power_law, xx, yy, p0=np.array(p0), maxfev=maxfev)
-            x_center = np.sqrt(Xl_candidate * Xr_candidate)  # geometric mean
+            x_center = Xl_candidate#np.sqrt(Xl_candidate * Xr_candidate)  # geometric mean
             return x_center, popt[1]
         except Exception:
             return None

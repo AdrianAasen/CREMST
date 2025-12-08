@@ -58,7 +58,7 @@ if len(sys.argv) > 1:
         print(f'Updated core count to {new_n_cores}.')
 
 
-path = "adaptive_results/qdt_100k_calib_500k"
+path = "adaptive_results/qdt_100k_calib_100k"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
 
@@ -90,7 +90,7 @@ true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n
 
 
 noise_levels = [0.15]
-qdt_multipliers = [50]
+qdt_multipliers = [10]
 n_steps = len(qdt_multipliers)
 infidelity_container_nonadaptive = []
 infidelity_container_adaptive = []
