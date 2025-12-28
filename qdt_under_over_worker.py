@@ -58,11 +58,8 @@ if len(sys.argv) > 1:
         print(f'Updated core count to {new_n_cores}.')
 
 
-path = "adaptive_results/qdt_depol_0.1"
 now=datetime.now()
 now_string = now.strftime("%Y-%m-%d_%H-%M-%S_")
-
-
 
 n_qst_shots_total = 10**4
 n_qdt_shots_total = 10**2
@@ -70,8 +67,9 @@ n_qubits = 1
 n_qst_shots = n_qst_shots_total//(3**n_qubits) # In the qst code it is assumed that each single qubit measurement is a Pauli-basis, hence 3^n_qubits total measurement settings.
 n_averages = 1
 adaptive_burnin = 30
-recon_depol_strength = 0.1
+recon_depol_strength = 0.14
 compute_uncertainty = True
+path = f"adaptive_results/qdt_depol_{recon_depol_strength}"
 print(f'Starting adaptive QST with {n_qst_shots_total} shots, {n_qubits} qubits, {n_averages} averages, and adaptive burnin of {adaptive_burnin}.')
 
 true_states = np.array([sf.generate_random_pure_state(n_qubits) for _ in range(n_averages)])
