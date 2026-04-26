@@ -367,15 +367,30 @@ class QST():
         
 
         index_values,index_counts=np.unique(outcome_index,return_counts=True)
-        random_seed=np.random.randint(1e8,size=(int(len(rho_bank))))
-        new_rho_bank,n_accepted_iterations=zip(*Parallel(n_jobs=n_cores)(delayed(QST.resampling_bank)(n_qubits,rho_bank,cumulative_sum,full_operator_list,index_counts,index_values,likelihood_variance,MH_steps,rng) for rng in random_seed ))
-        new_rho_bank=np.asarray(new_rho_bank)
-        n_accepted_iterations=np.sum(n_accepted_iterations)
-        if n_accepted_iterations/(len(rho_bank)*MH_steps)<0.5:
-            print(f'Low overall acceptance during resampling! Accepted ratio: {n_accepted_iterations/(len(rho_bank)*MH_steps)}.')
+        n_bank = len(rho_bank)
+        random_seed = np.random.randint(int(1e8), size=n_bank)
+
+        # Batch particles across n_cores jobs to reduce joblib task-launch overhead
+        batch_size = max(1, (n_bank + n_cores - 1) // n_cores)
+        seed_batches = [random_seed[i:i+batch_size] for i in range(0, n_bank, batch_size)]
+        batched = Parallel(n_jobs=n_cores)(
+            delayed(QST.resampling_bank_batch)(
+                n_qubits, rho_bank, cumulative_sum, full_operator_list,
+                index_counts, index_values, likelihood_variance, MH_steps, seed_batch
+            ) for seed_batch in seed_batches
+        )
+        new_rho_bank = []
+        n_accepted_iterations = 0
+        for batch_rhos, batch_accepted in batched:
+            new_rho_bank.extend(batch_rhos)
+            n_accepted_iterations += sum(batch_accepted)
+        new_rho_bank = np.asarray(new_rho_bank)
+
+        if n_accepted_iterations/(n_bank*MH_steps)<0.5:
+            print(f'Low overall acceptance during resampling! Accepted ratio: {n_accepted_iterations/(n_bank*MH_steps)}.')
             print(f'Lowers likelihood variance.')
             resampling_variance_multiplier *= 0.5
-        print(f'    Acceptance rate:{n_accepted_iterations/(len(rho_bank)*MH_steps)}')
+        print(f'    Acceptance rate:{n_accepted_iterations/(n_bank*MH_steps)}')
 
         new_weights=np.full(len(weights),1/len(weights))
         return new_rho_bank, new_weights, resampling_variance_multiplier
@@ -430,14 +445,22 @@ class QST():
                 n_accepted_iterations+=1
 
         # Add the last accepted state to set of new bank particles. 
-        purified_density=np.outer(perturbed_state,perturbed_state.conj())
+        purified_density=np.outer(purified_state, purified_state.conj())
         purified_density=np.reshape(purified_density,(2*n_qubits,2*n_qubits,2*n_qubits,2*n_qubits))
         perturbed_rho=np.trace(purified_density,axis1=1,axis2=3)        
         if n_accepted_iterations/MH_steps<0.2:
             print(f'Low acceptance! Accepted ratio: {n_accepted_iterations/MH_steps}.')
         return perturbed_rho, n_accepted_iterations
 
-   
+    def resampling_bank_batch(n_qubits, rho_bank, cumulative_sum, full_operator_list,
+                              index_counts, index_values, likelihood_variance, MH_steps, rng_seeds):
+        """Process a batch of bank particles in a single joblib task to reduce launch overhead."""
+        results = [QST.resampling_bank(n_qubits, rho_bank, cumulative_sum, full_operator_list,
+                                        index_counts, index_values, likelihood_variance, MH_steps, rng)
+                   for rng in rng_seeds]
+        rhos, accepted = zip(*results)
+        return list(rhos), list(accepted)
+
 
     def perform_random_adaptive_BME(
         self,
@@ -615,7 +638,7 @@ class QST():
 
                 # measurement + update
                 #print(current_POVM)
-                individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])
+                individual_outcome = mf.simulated_measurement(1, current_POVM, self.true_state_list[j])[0]
                 outcome_index[j, shot_index] = individual_outcome + outcome_offset
                 #print(outcome_index[j, shot_index])
                 if outcome_index[j, shot_index] > len(full_operator_list[j]) - 1:
@@ -650,26 +673,28 @@ class QST():
 
    
 
-def average_Bures(rho_bank,weights,n_qubits,n_cores): 
+def average_Bures(rho_bank, weights, n_qubits, n_cores):
     """
-    Computes the average Bures distance of the current bank. 
-    Current 2+ qubit impementation uses the Qutip fidelity function. 
+    Computes the average Bures distance of the current bank.
+    Fully vectorized over all bank particles; no joblib or qutip required.
     """
-    mean_state=np.array(np.einsum('ijk,i->jk',rho_bank,weights))
-
-    # Checks wether we are one or two qubits
-
-    fid=Parallel(n_jobs=n_cores)(delayed(parallel_Bures)(rho,mean_state, n_qubits) for rho in rho_bank)
-    return np.einsum('i,i->',2*(1-np.sqrt(np.real(fid))),weights)
-
-
-def parallel_Bures(rho,mean_state, n_qubits):
-    if n_qubits==1:
-        fid=np.real(np.einsum('ij,ji->', mean_state, rho))
-        return fid
+    mean_state = np.einsum('ijk,i->jk', rho_bank, weights)
+    if n_qubits == 1:
+        # fidelity proxy = Tr(mean_state @ rho_i) for each particle
+        fid = np.real(np.einsum('jk,ikj->i', mean_state, rho_bank))
     else:
-        fid=qt.fidelity(qt.Qobj(rho),qt.Qobj(mean_state))
-    return fid
+        # Uhlmann root fidelity via batched eigendecomposition.
+        # Compute sqrt(mean_state) once using eigh (mean_state is Hermitian PSD).
+        eigvals, eigvecs = np.linalg.eigh(mean_state)
+        eigvals = np.maximum(eigvals, 0.0)
+        sqrt_mean = eigvecs @ np.diag(np.sqrt(eigvals)) @ eigvecs.conj().T
+        # M_i = sqrt_mean @ rho_i @ sqrt_mean for all i simultaneously
+        temp = np.einsum('jk,ikl->ijl', sqrt_mean, rho_bank)  # (n_bank, d, d)
+        M_batch = temp @ sqrt_mean                              # (n_bank, d, d)
+        # Root fidelity = sum of sqrt(eigenvalues) of M_i
+        batch_eigvals = np.maximum(np.linalg.eigvalsh(M_batch), 0.0)
+        fid = np.sum(np.sqrt(batch_eigvals), axis=1)
+    return np.einsum('i,i->', 2.0 * (1.0 - np.sqrt(np.real(fid))), weights)
 
 
 def logLikelihood(rho,full_operator_list,index_counts,index_values): 
