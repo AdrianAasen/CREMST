@@ -7,7 +7,7 @@ This codebase builds upon the REMST codebase found on [this repository](https://
 The following publications used this protocol:\
 [1] [Readout error mitigated quantum state tomography tested on superconducting qubits](https://www.nature.com/articles/s42005-024-01790-8) Communications Physics volume **7**, Article number: 301 (2024) (uses older version of the codebase).\
 [2] [Mitigation of correlated readout errors without randomized measurements](https://journals.aps.org/pra/abstract/10.1103/6p6s-t8b7)  Phys. Rev. A **112**, 022601 (2025).\
-[3] [Multiplexed qubit readout quality metric beyond assignment fidelity](https://arxiv.org/abs/2503.24276)(Phys. Rev. Applied **24**, 044043 (2025)).\
+[3] [Multiplexed qubit readout quality metric beyond assignment fidelity](https://arxiv.org/abs/2503.24276) Phys. Rev. Applied **24**, 044043 (2025).\
 [4] [Limitations for adaptive quantum state tomography in the presence of detector noise](https://doi.org/10.48550/arXiv.2601.04020)(2026 preprint).
 
 This repository contains code, results, and example notebooks developed for each of the publication. Each major project or paper has its own folder under `Paper_results_and_notebooks`, containing:
